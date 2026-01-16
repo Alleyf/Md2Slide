@@ -1,5 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { ThemeProvider } from './context/ThemeContext';
 import { App } from './App';
 
 // 渲染应用
@@ -8,9 +9,12 @@ if (container) {
   const root = createRoot(container);
   root.render(
     <React.StrictMode>
-      <App />
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
     </React.StrictMode>
   );
 } else {
   console.error('无法找到root容器');
 }
+

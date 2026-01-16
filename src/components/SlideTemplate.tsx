@@ -3,7 +3,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
 import { BlockMath, InlineMath } from 'react-katex';
-import { threeBlueOneBrownTheme } from '../styles/theme';
+import { useTheme } from '../context/ThemeContext';
+import { darkTheme } from '../styles/theme';
 import 'katex/dist/katex.min.css';
 
 // 添加全局样式支持
@@ -15,7 +16,6 @@ if (typeof document !== 'undefined') {
       50% { opacity: 0.6; }
     }
 
-    /* 支持加粗和链接 */
     .slide-content strong {
       font-weight: 700;
       color: #E2B026;
@@ -32,7 +32,30 @@ if (typeof document !== 'undefined') {
       text-decoration-color: rgba(88, 196, 221, 0.8);
     }
 
-    /* KaTeX 公式样式 */
+    .slide-content ul,
+    .slide-content ol {
+      margin: 0.4em 0;
+      padding-left: 1.4em;
+    }
+
+    .slide-content ul ul,
+    .slide-content ol ol,
+    .slide-content ul ol,
+    .slide-content ol ul {
+      margin-top: 0.15em;
+      margin-bottom: 0.15em;
+    }
+
+    .slide-content li {
+      margin: 0.12em 0;
+    }
+
+    .slide-content ul li::marker,
+    .slide-content ol li::marker {
+      color: #E2B026;
+      font-weight: 700;
+    }
+
     .katex {
       font-size: 1em;
     }
@@ -43,7 +66,6 @@ if (typeof document !== 'undefined') {
       overflow-y: hidden;
     }
 
-    /* 滚动条样式 */
     ::-webkit-scrollbar {
       width: 4px;
       height: 4px;
@@ -62,7 +84,6 @@ if (typeof document !== 'undefined') {
       background: rgba(88, 196, 221, 0.5);
     }
 
-    /* 文字阴影增强 3B1B 感 */
     .slide-title {
       text-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
@@ -104,8 +125,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [clickState, setClickState] = useState(0);
   const [totalClicks, setTotalClicks] = useState(0);
-
-  const theme = threeBlueOneBrownTheme;
+  const { themeConfig: theme } = useTheme();
 
   // 计算每个幻灯片的总点击次数
   const calculateClicks = (slide: SlideContent): number => {
@@ -264,7 +284,15 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                   overflowWrap: 'break-word',
                 }}
               >
-                <div dangerouslySetInnerHTML={{ __html: bullet }} />
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeKatex]}
+                  components={{
+                    p: ({ children }) => <span style={{ margin: 0 }}>{children}</span>,
+                  }}
+                >
+                  {bullet}
+                </ReactMarkdown>
               </li>
             ))}
           </ul>
@@ -318,7 +346,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                 position: 'absolute',
                 top: '40px',
                 right: 0,
-                background: '#1e1e1e',
+                background: theme.colors.codeBackground,
                 padding: '8px 12px',
                 borderRadius: '4px',
                 fontFamily: 'monospace',
@@ -341,8 +369,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
               height: '200px',
               position: 'relative',
               margin: '20px auto',
-              background: '#111',
-              border: `2px solid ${isRevealed ? theme.primaryColor : '#333'}`,
+              background: theme === darkTheme ? '#111' : '#f9fafb',
+              border: `2px solid ${isRevealed ? theme.primaryColor : theme.colors.border}`,
               overflow: 'hidden',
               transition: 'transform 1s cubic-bezier(0.68, -0.55, 0.27, 1.55), border-color 1s ease-in-out',
               transform: isRevealed ? 'skewX(12deg) scale(1.1) rotate(12deg)' : 'none',
@@ -359,7 +387,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
               opacity: 0.3,
             }}>
               {Array.from({ length: 16 }).map((_, i) => (
-                <div key={i} style={{ border: '1px solid #444' }} />
+                <div key={i} style={{ border: `1px solid ${theme.colors.border}` }} />
               ))}
             </div>
             {/* 基向量 */}
@@ -392,12 +420,12 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
           <div
             key={el.id}
             style={{
-              background: '#1e1e1e',
+              background: theme.colors.codeBackground,
               padding: '16px',
               borderRadius: '8px',
               fontFamily: 'Consolas, Monaco, monospace',
               fontSize: 'clamp(12px, 1.5vw, 15px)',
-              color: '#d4d4d4',
+              color: theme.colors.codeText,
               overflow: 'auto',
               maxWidth: '100%',
               marginBottom: '15px',
@@ -509,6 +537,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         return (
           <div
             key={el.id}
+            className="slide-content"
             style={{
               fontSize: 'clamp(15px, 1.8vw, 18px)',
               lineHeight: 1.8,
@@ -533,33 +562,80 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                   <p style={{ marginBottom: '12px', lineHeight: 1.7 }}>{children}</p>
                 ),
                 ul: ({ children }) => (
-                  <ul style={{ paddingLeft: '20px', marginBottom: '12px' }}>{children}</ul>
+                  <ul
+                    style={{
+                      paddingLeft: '1.4em',
+                      margin: '0.4em 0',
+                    }}
+                  >
+                    {children}
+                  </ul>
                 ),
                 ol: ({ children }) => (
-                  <ol style={{ paddingLeft: '20px', marginBottom: '12px' }}>{children}</ol>
+                  <ol
+                    style={{
+                      paddingLeft: '1.4em',
+                      margin: '0.4em 0',
+                    }}
+                  >
+                    {children}
+                  </ol>
                 ),
                 li: ({ children }) => (
-                  <li style={{ marginBottom: '8px' }}>{children}</li>
+                  <li
+                    style={{
+                      margin: '0.12em 0',
+                    }}
+                  >
+                    {children}
+                  </li>
                 ),
-                code: ({ children }) => (
-                  <code style={{
-                    background: 'rgba(88, 196, 221, 0.2)',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    fontFamily: 'Consolas, monospace',
-                    fontSize: '0.9em',
-                    color: '#58C4DD',
-                    fontWeight: 500,
-                  }}>{children}</code>
-                ),
+                code: ({ inline, className, children }) => {
+                  if (inline) {
+                    return (
+                      <code
+                        style={{
+                          background: 'rgba(88, 196, 221, 0.18)',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontFamily: 'JetBrains Mono, Fira Code, Consolas, monospace',
+                          fontSize: '0.9em',
+                          color: '#58C4DD',
+                          fontWeight: 500,
+                        }}
+                      >
+                        {children}
+                      </code>
+                    );
+                  }
+                  return (
+                    <code
+                      className={className}
+                      style={{
+                        fontFamily: 'JetBrains Mono, Fira Code, Consolas, monospace',
+                        fontSize: '0.9em',
+                        color: '#E6EDF7',
+                      }}
+                    >
+                      {children}
+                    </code>
+                  );
+                },
                 pre: ({ children }) => (
-                  <pre style={{
-                    background: '#1e1e1e',
-                    padding: '16px',
-                    borderRadius: '8px',
-                    overflow: 'auto',
-                    fontSize: 'clamp(12px, 1.4vw, 14px)',
-                  }}>{children}</pre>
+                  <pre
+                    style={{
+                      background: theme.colors.codeBackground,
+                      padding: '16px',
+                      borderRadius: '10px',
+                      overflow: 'auto',
+                      fontSize: 'clamp(12px, 1.4vw, 14px)',
+                      border: '1px solid rgba(88, 196, 221, 0.4)',
+                      boxShadow: '0 18px 45px rgba(0,0,0,0.6)',
+                      margin: '12px 0',
+                    }}
+                  >
+                    {children}
+                  </pre>
                 ),
                 img: ({ src, alt }) => (
                   <img src={src} alt={alt} style={{ maxWidth: '100%', borderRadius: '8px', margin: '10px 0' }} />
@@ -636,7 +712,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
               fontWeight: 700,
               textAlign: 'center',
               marginBottom: '10px',
-              color: '#ffffff',
+              color: theme.colors.text,
               width: '100%',
               maxWidth: '1100px',
             }}
@@ -681,13 +757,14 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         height: '100%',
         minHeight: '700px',
         maxHeight: '90vh',
-        background: '#0a0a0a',
-        color: '#ffffff',
+        background: theme.colors.background,
+        color: theme.colors.text,
         fontFamily: theme.fontFamily,
         overflow: 'hidden',
         borderRadius: '12px',
         display: 'flex',
         flexDirection: 'column',
+        transition: 'background 0.3s ease, color 0.3s ease',
       }}
     >
       {/* 所有幻灯片 */}
@@ -704,10 +781,10 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
           gap: '15px',
           alignItems: 'center',
           zIndex: 100,
-          background: 'rgba(20, 20, 20, 0.6)',
+          background: theme === darkTheme ? 'rgba(20, 20, 20, 0.6)' : 'rgba(255, 255, 255, 0.8)',
           padding: '8px 16px',
           borderRadius: '12px',
-          border: '1px solid rgba(255,255,255,0.1)',
+          border: theme === darkTheme ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
           backdropFilter: 'blur(15px)',
           transition: 'opacity 0.3s ease',
         }}
@@ -729,18 +806,18 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
           ‹
         </button>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <span style={{ color: '#fff', fontSize: '12px', fontWeight: 600 }}>
+          <span style={{ color: theme.colors.text, fontSize: '12px', fontWeight: 600 }}>
             {currentSlideIndex + 1} / {slides.length}
           </span>
-          <div style={{ 
-            width: '40px', 
-            height: '2px', 
-            background: 'rgba(255,255,255,0.1)', 
+          <div style={{
+            width: '40px',
+            height: '2px',
+            background: theme === darkTheme ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
             marginTop: '4px',
             position: 'relative',
             overflow: 'hidden'
           }}>
-            <div style={{ 
+            <div style={{
               position: 'absolute',
               left: 0,
               top: 0,
@@ -779,7 +856,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
             textAlign: 'center',
             opacity: 0.4,
             fontSize: 'clamp(12px, 1.5vw, 14px)',
-            color: '#ffffff',
+            color: theme.colors.text,
             animation: 'pulse 2s ease-in-out infinite',
           }}
         >

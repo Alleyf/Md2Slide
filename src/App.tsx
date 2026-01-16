@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { SlideTemplate, SlideContent, SlideElement } from './components/SlideTemplate';
-import { threeBlueOneBrownTheme } from './styles/theme';
+import { ThemeToggle } from './components/ThemeToggle';
+import { useTheme } from './context/ThemeContext';
+import { darkTheme } from './styles/theme';
 
 // 初始示例 Markdown
 const INITIAL_MARKDOWN = `# 欢迎使用 Markdown2Slide
@@ -65,7 +67,7 @@ export const App: React.FC = () => {
   const [markdown, setMarkdown] = useState(INITIAL_MARKDOWN);
   const [slides, setSlides] = useState<SlideContent[]>([]);
   const [showEditor, setShowEditor] = useState(true);
-  const theme = threeBlueOneBrownTheme;
+  const { themeConfig: theme } = useTheme();
 
   // 解析 Markdown 为幻灯片
   const parseMarkdownToSlides = (md: string): SlideContent[] => {
@@ -155,76 +157,79 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div style={{ background: '#0a0a0a', minHeight: '100vh', color: 'white', fontFamily: theme.fontFamily }}>
+    <div style={{ background: theme.colors.background, minHeight: '100vh', color: theme.colors.text, fontFamily: theme.fontFamily, transition: 'background 0.3s ease, color 0.3s ease' }}>
       {/* Header */}
-      <header style={{ 
-        padding: '10px 25px', 
-        borderBottom: '1px solid #222', 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+      <header style={{
+        padding: '10px 25px',
+        borderBottom: `1px solid ${theme.colors.border}`,
+        display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        background: '#0d0d0d',
+        background: theme.colors.surface,
         height: '60px',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        transition: 'background 0.3s ease, border-color 0.3s ease'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <h1 style={{ 
-            margin: 0, 
-            fontSize: '20px', 
+          <h1 style={{
+            margin: 0,
+            fontSize: '20px',
             fontWeight: 800,
-            background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`,
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            letterSpacing: '-0.5px'
+            background: theme.theme === 'dark' ? `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})` : 'transparent',
+            WebkitBackgroundClip: theme.theme === 'dark' ? 'text' : 'initial',
+            WebkitTextFillColor: theme.theme === 'dark' ? 'transparent' : theme.colors.text,
+            color: theme.theme === 'dark' ? 'transparent' : theme.colors.text,
+            letterSpacing: '-0.5px',
+            textShadow: theme.theme === 'light' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
           }}>
             Markdown2Slide
           </h1>
-          <div style={{ height: '15px', width: '1px', background: '#333' }} />
-          <span style={{ color: '#666', fontSize: '12px', fontWeight: 500 }}>3Blue1Brown Presentation Tool</span>
+          <div style={{ height: '15px', width: '1px', background: theme.colors.border }} />
+          <span style={{ color: theme.colors.textSecondary, fontSize: '12px', fontWeight: 500 }}>3Blue1Brown Presentation Tool</span>
         </div>
-        
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button 
+
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button
             onClick={handleCopy}
             style={{
               padding: '6px 12px',
               background: 'transparent',
-              border: '1px solid #333',
+              border: `1px solid ${theme.colors.border}`,
               borderRadius: '6px',
-              color: '#888',
+              color: theme.colors.textSecondary,
               cursor: 'pointer',
               fontSize: '13px',
               transition: 'all 0.2s'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.borderColor = '#555'}
-            onMouseLeave={(e) => e.currentTarget.style.borderColor = '#333'}
+            onMouseEnter={(e) => e.currentTarget.style.borderColor = theme === darkTheme ? '#555' : '#d1d5db'}
+            onMouseLeave={(e) => e.currentTarget.style.borderColor = theme.colors.border}
           >
             复制内容
           </button>
           <label style={{
             padding: '6px 12px',
             background: 'transparent',
-            border: '1px solid #333',
+            border: `1px solid ${theme.colors.border}`,
             borderRadius: '6px',
-            color: '#888',
+            color: theme.colors.textSecondary,
             cursor: 'pointer',
             fontSize: '13px',
             transition: 'all 0.2s'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.borderColor = '#555'}
-          onMouseLeave={(e) => e.currentTarget.style.borderColor = '#333'}
+            onMouseEnter={(e) => e.currentTarget.style.borderColor = theme === darkTheme ? '#555' : '#d1d5db'}
+            onMouseLeave={(e) => e.currentTarget.style.borderColor = theme.colors.border}
           >
             导入文件
             <input type="file" accept=".md" onChange={handleFileUpload} style={{ display: 'none' }} />
           </label>
-          <button 
+          <button
             onClick={() => setShowEditor(!showEditor)}
             style={{
               padding: '6px 16px',
-              background: showEditor ? theme.primaryColor : '#222',
+              background: showEditor ? theme.primaryColor : theme === darkTheme ? '#222' : '#f3f4f6',
               border: 'none',
               borderRadius: '6px',
-              color: 'white',
+              color: showEditor ? 'white' : theme.colors.text,
               cursor: 'pointer',
               fontSize: '13px',
               fontWeight: 600,
@@ -233,32 +238,34 @@ export const App: React.FC = () => {
           >
             {showEditor ? '全屏预览' : '分屏编辑'}
           </button>
+          <ThemeToggle />
         </div>
       </header>
 
       {/* Main Content */}
-      <main style={{ 
-        display: 'flex', 
+      <main style={{
+        display: 'flex',
         height: 'calc(100vh - 60px)',
         overflow: 'hidden',
-        background: '#050505'
+        background: theme.colors.background,
+        transition: 'background 0.3s ease'
       }}>
         {/* Editor Side */}
         {showEditor && (
-          <div style={{ 
-            width: '450px', 
+          <div style={{
+            width: '450px',
             minWidth: '350px',
-            borderRight: '1px solid #1a1a1a',
+            borderRight: `1px solid ${theme.colors.border}`,
             display: 'flex',
             flexDirection: 'column',
-            background: '#0a0a0a',
+            background: theme === darkTheme ? '#0a0a0a' : '#ffffff',
             transition: 'all 0.3s ease'
           }}>
-            <div style={{ 
-              padding: '10px 20px', 
-              fontSize: '11px', 
-              color: '#444', 
-              borderBottom: '1px solid #1a1a1a',
+            <div style={{
+              padding: '10px 20px',
+              fontSize: '11px',
+              color: theme.colors.textSecondary,
+              borderBottom: `1px solid ${theme.colors.border}`,
               textTransform: 'uppercase',
               letterSpacing: '1px',
               fontWeight: 700
@@ -273,7 +280,7 @@ export const App: React.FC = () => {
                 background: 'transparent',
                 border: 'none',
                 padding: '20px',
-                color: '#aaa',
+                color: theme.colors.textSecondary,
                 fontSize: '14px',
                 fontFamily: 'JetBrains Mono, Fira Code, Consolas, monospace',
                 resize: 'none',
@@ -283,21 +290,21 @@ export const App: React.FC = () => {
               }}
               placeholder="在此输入 Markdown 内容..."
             />
-            <div style={{ 
-              padding: '12px 20px', 
-              fontSize: '12px', 
-              color: '#555', 
-              borderTop: '1px solid #1a1a1a',
-              background: '#0d0d0d'
+            <div style={{
+              padding: '12px 20px',
+              fontSize: '12px',
+              color: theme.colors.textSecondary,
+              borderTop: `1px solid ${theme.colors.border}`,
+              background: theme.colors.surface
             }}>
-              <span style={{ color: theme.primaryColor }}>技巧:</span> 使用 <code style={{ color: '#777' }}>---</code> 分隔幻灯片。
+              <span style={{ color: theme.primaryColor }}>技巧:</span> 使用 <code style={{ color: theme.colors.textSecondary }}>---</code> 分隔幻灯片。
             </div>
           </div>
         )}
 
         {/* Preview Side */}
-        <div style={{ 
-          flex: 1, 
+        <div style={{
+          flex: 1,
           padding: showEditor ? '30px' : '0',
           display: 'flex',
           justifyContent: 'center',
@@ -305,17 +312,17 @@ export const App: React.FC = () => {
           overflow: 'hidden',
           transition: 'padding 0.3s ease'
         }}>
-          <div style={{ 
-            width: '100%', 
-            height: '100%', 
+          <div style={{
+            width: '100%',
+            height: '100%',
             maxWidth: showEditor ? 'none' : '100%',
             aspectRatio: '16/9',
-            boxShadow: showEditor ? '0 20px 50px rgba(0,0,0,0.5)' : 'none',
+            boxShadow: showEditor ? (theme === darkTheme ? '0 20px 50px rgba(0,0,0,0.5)' : '0 20px 50px rgba(0,0,0,0.1)') : 'none',
             borderRadius: showEditor ? '12px' : '0',
             overflow: 'hidden',
-            border: showEditor ? '1px solid #222' : 'none',
+            border: showEditor ? `1px solid ${theme.colors.border}` : 'none',
             transition: 'all 0.3s ease',
-            background: '#000'
+            background: theme.colors.background
           }}>
             <SlideTemplate slides={slides} />
           </div>
