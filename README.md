@@ -1,6 +1,6 @@
-# Markdown2Slide - 3Blue1Brown 风格幻灯片生成器
+# Md2Slide - 3Blue1Brown 风格幻灯片生成器
 
-一个基于 React 和 Remotion 风格设计的 Markdown 转幻灯片工具。它专注于提供 3Blue1Brown 风格的视觉体验，支持数学公式、代码高亮和动态交互。
+一个基于 React 和 Remotion 风格设计的 Markdown 转幻灯片工具。Md2Slide 专注于提供 3Blue1Brown 风格的视觉体验，支持数学公式、代码高亮和动态交互。
 
 ## ✨ 特性
 

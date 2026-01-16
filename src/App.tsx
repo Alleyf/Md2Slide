@@ -5,7 +5,7 @@ import { useTheme } from './context/ThemeContext';
 import { darkTheme } from './styles/theme';
 
 // 初始示例 Markdown
-const INITIAL_MARKDOWN = `# 欢迎使用 Markdown2Slide
+const INITIAL_MARKDOWN = `# 欢迎使用 Md2Slide
 
 ## 打造 3Blue1Brown 风格的演示文稿
 
@@ -117,6 +117,43 @@ export const App: React.FC = () => {
         } else if (line.startsWith('!video(')) {
           const match = line.match(/!video\(([^)]+)\)/);
           if (match) elements.push({ id: `s${index}-e${i}`, type: 'video', content: match[1], clickState: clickState++ });
+        } else if (line.startsWith('!html(')) {
+          let htmlContent = '';
+          let j = i;
+          let started = false;
+
+          while (j < lines.length) {
+            const rawLine = lines[j];
+            let segment = rawLine;
+
+            if (!started) {
+              const markerIndex = rawLine.indexOf('!html(');
+              if (markerIndex === -1) break;
+              segment = rawLine.slice(markerIndex + '!html('.length);
+              started = true;
+            }
+
+            const trimmed = segment.trimEnd();
+            const hasClosing = trimmed.endsWith(')');
+            const cleaned = hasClosing ? trimmed.replace(/\)\s*$/, '') : segment;
+
+            htmlContent += htmlContent ? `\n${cleaned}` : cleaned;
+
+            if (hasClosing) {
+              break;
+            }
+
+            j++;
+          }
+
+          elements.push({
+            id: `s${index}-e${i}`,
+            type: 'html',
+            content: htmlContent,
+            clickState: clickState++,
+          });
+
+          i = j;
         } else if (line.startsWith('$$')) {
            let latex = line.replace(/\$\$/g, '');
            if (!latex && i + 1 < lines.length && !lines[i+1].startsWith('$$')) {
@@ -175,14 +212,48 @@ export const App: React.FC = () => {
             margin: 0,
             fontSize: '20px',
             fontWeight: 800,
-            background: theme.theme === 'dark' ? `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})` : 'transparent',
-            WebkitBackgroundClip: theme.theme === 'dark' ? 'text' : 'initial',
-            WebkitTextFillColor: theme.theme === 'dark' ? 'transparent' : theme.colors.text,
-            color: theme.theme === 'dark' ? 'transparent' : theme.colors.text,
             letterSpacing: '-0.5px',
-            textShadow: theme.theme === 'light' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
+            textShadow: theme.theme === 'light' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
           }}>
-            Markdown2Slide
+            <div style={{
+              width: 26,
+              height: 26,
+              borderRadius: 8,
+              background: theme.theme === 'dark'
+                ? 'radial-gradient(circle at 20% 20%, #3A86FF 0, #0b1020 35%), radial-gradient(circle at 80% 80%, #8338EC 0, #0b1020 40%)'
+                : 'linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: theme.theme === 'dark'
+                ? '0 0 16px rgba(58,134,255,0.6)'
+                : '0 0 10px rgba(37,99,235,0.35)',
+              border: theme.theme === 'dark'
+                ? '1px solid rgba(148,163,184,0.6)'
+                : '1px solid rgba(148,163,184,0.4)'
+            }}>
+              <span style={{
+                fontSize: 13,
+                fontWeight: 800,
+                color: '#F9FAFB',
+                letterSpacing: 0.5,
+              }}>
+                M2
+              </span>
+            </div>
+            <span style={{
+              background: theme.theme === 'dark'
+                ? `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`
+                : 'none',
+              WebkitBackgroundClip: theme.theme === 'dark' ? 'text' : 'initial',
+              WebkitTextFillColor: theme.theme === 'dark' ? 'transparent' : theme.colors.text,
+              color: theme.theme === 'dark' ? 'transparent' : theme.colors.text,
+            }}>
+              Md2Slide
+            </span>
           </h1>
           <div style={{ height: '15px', width: '1px', background: theme.colors.border }} />
           <span style={{ color: theme.colors.textSecondary, fontSize: '12px', fontWeight: 500 }}>3Blue1Brown Presentation Tool</span>

@@ -1,5 +1,5 @@
 {
-  "name": "paper2slide",
+  "name": "md2slide",
   "version": "1.0.0",
   "description": "Interactive paper teaching presentation with Remotion",
   "main": "index.js",
@@ -29,6 +29,7 @@
     "react-katex": "^3.1.0",
     "react-markdown": "^10.1.0",
     "rehype-katex": "^7.0.1",
+    "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "remotion": "^4.0.0"
   },

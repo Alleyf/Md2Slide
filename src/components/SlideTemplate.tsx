@@ -421,18 +421,46 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
             key={el.id}
             style={{
               background: theme.colors.codeBackground,
-              padding: '16px',
-              borderRadius: '8px',
+              padding: '0',
+              borderRadius: '12px',
               fontFamily: 'Consolas, Monaco, monospace',
               fontSize: 'clamp(12px, 1.5vw, 15px)',
-              color: theme.colors.codeText,
+              color: theme.theme === 'dark' ? theme.colors.codeText : '#111827',
               overflow: 'auto',
               maxWidth: '100%',
               marginBottom: '15px',
+              border: `2px solid ${theme.primaryColor}`,
+              boxShadow: `0 0 20px rgba(58, 130, 246, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.05)`,
               ...baseStyle,
             }}
           >
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordWrap: 'break-word', lineHeight: 1.5 }}>
+            <div style={{
+              background: `linear-gradient(90deg, ${theme.primaryColor}22 0%, ${theme.accentColor}22 100%)`,
+              padding: '8px 16px',
+              borderBottom: `1px solid ${theme.accentColor}`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+                color: '#58C4DD',
+                opacity: 0.9
+              }}>
+                CODE
+              </span>
+            </div>
+            <pre style={{
+              margin: 0,
+              padding: '16px',
+              whiteSpace: 'pre-wrap',
+              wordWrap: 'break-word',
+              lineHeight: 1.6,
+              color: theme.theme === 'dark' ? '#E2E8F0' : '#111827'
+            }}>
               {codeLines}
             </pre>
           </div>
@@ -463,7 +491,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
 
       case 'image':
         return (
-          <div key={el.id} style={baseStyle}>
+          <div key={el.id} style={{ ...baseStyle, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <img
               src={el.content as string}
               alt={el.id}
@@ -479,7 +507,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
 
       case 'video':
         return (
-          <div key={el.id} style={baseStyle}>
+          <div key={el.id} style={{ ...baseStyle, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <video
               src={el.content as string}
               controls
@@ -595,12 +623,12 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                     return (
                       <code
                         style={{
-                          background: 'rgba(88, 196, 221, 0.18)',
+                          background: theme.theme === 'dark' ? 'rgba(88, 196, 221, 0.18)' : 'rgba(37, 99, 235, 0.08)',
                           padding: '2px 6px',
                           borderRadius: '4px',
                           fontFamily: 'JetBrains Mono, Fira Code, Consolas, monospace',
                           fontSize: '0.9em',
-                          color: '#58C4DD',
+                          color: theme.theme === 'dark' ? '#58C4DD' : '#1D4ED8',
                           fontWeight: 500,
                         }}
                       >
@@ -614,7 +642,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                       style={{
                         fontFamily: 'JetBrains Mono, Fira Code, Consolas, monospace',
                         fontSize: '0.9em',
-                        color: '#E6EDF7',
+                        color: theme.theme === 'dark' ? '#E6EDF7' : '#111827',
                       }}
                     >
                       {children}
