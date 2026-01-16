@@ -684,7 +684,16 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                   </pre>
                 ),
                 img: ({ src, alt }) => (
-                  <img src={src} alt={alt} style={{ maxWidth: '100%', borderRadius: '8px', margin: '10px 0' }} />
+                  <img
+                    src={src}
+                    alt={alt}
+                    style={{
+                      maxWidth: '100%',
+                      borderRadius: '8px',
+                      margin: '10px auto',
+                      display: 'block',
+                    }}
+                  />
                 ),
                 blockquote: ({ children }) => (
                   <blockquote style={{
