@@ -87,6 +87,24 @@ if (typeof document !== 'undefined') {
     .slide-title {
       text-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
+
+    .nav-controls {
+      pointer-events: auto;
+    }
+
+    @media (max-width: 900px) {
+      .nav-controls {
+        bottom: 12px !important;
+        right: 12px !important;
+        gap: 8px !important;
+        padding: 6px 10px !important;
+      }
+
+      .nav-controls button {
+        padding: 4px 8px !important;
+        font-size: 16px !important;
+      }
+    }
   `;
   document.head.appendChild(style);
 }
@@ -722,9 +740,9 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
           flexDirection: 'column',
           justifyContent: 'flex-start',
           alignItems: 'center',
-          padding: '40px',
-          paddingTop: '30px',
-          paddingBottom: '80px',
+          padding: 'clamp(16px, 4vw, 40px)',
+          paddingTop: 'clamp(12px, 3vw, 30px)',
+          paddingBottom: 'clamp(60px, 8vw, 80px)',
           opacity: isActive ? 1 : 0,
           pointerEvents: isActive ? 'all' : 'none',
           transition: 'opacity 0.8s ease-in-out',
@@ -783,7 +801,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         position: 'relative',
         width: '100%',
         height: '100%',
-        minHeight: '700px',
+        minHeight: 'min(700px, 100%)',
         maxHeight: '90vh',
         background: theme.colors.background,
         color: theme.colors.text,
