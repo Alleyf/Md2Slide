@@ -104,10 +104,14 @@ interface FileTreeProps {
   onFileClick: (file: FileItem) => void;
   onDelete: (fileName: string) => void;
   onRename: (fileName: string) => void;
+  onExport: (file: FileItem) => void;
+  onImport: () => void;
   theme: ThemeConfig;
 }
 
-export const FileTree: React.FC<FileTreeProps> = ({ files, activeFile, onFileClick, onDelete, onRename, theme }) => {
+export const FileTree: React.FC<FileTreeProps> = ({ 
+  files, activeFile, onFileClick, onDelete, onRename, onExport, onImport, theme 
+}) => {
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: FileItem } | null>(null);
 
   const handleContextMenu = (e: React.MouseEvent, item: FileItem) => {
@@ -149,6 +153,66 @@ export const FileTree: React.FC<FileTreeProps> = ({ files, activeFile, onFileCli
         >
           <div
             onClick={() => {
+              onFileClick(contextMenu.item);
+              closeMenu();
+            }}
+            style={{
+              padding: '8px 12px',
+              fontSize: '13px',
+              color: theme.colors.text,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          >
+            <span>📖</span> 打开文件
+          </div>
+          <div
+            onClick={() => {
+              onExport(contextMenu.item);
+              closeMenu();
+            }}
+            style={{
+              padding: '8px 12px',
+              fontSize: '13px',
+              color: theme.colors.text,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          >
+            <span>📤</span> 导出为 PDF
+          </div>
+          <div
+            onClick={() => {
+              onImport();
+              closeMenu();
+            }}
+            style={{
+              padding: '8px 12px',
+              fontSize: '13px',
+              color: theme.colors.text,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          >
+            <span>📥</span> 导入文件
+          </div>
+          <div
+            onClick={() => {
               onRename(contextMenu.item.name);
               closeMenu();
             }}
@@ -186,26 +250,6 @@ export const FileTree: React.FC<FileTreeProps> = ({ files, activeFile, onFileCli
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
             <span>🗑️</span> 删除文件
-          </div>
-          <div
-            onClick={() => {
-              onFileClick(contextMenu.item);
-              closeMenu();
-            }}
-            style={{
-              padding: '8px 12px',
-              fontSize: '13px',
-              color: theme.colors.text,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'background 0.2s'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-          >
-            <span>📖</span> 打开文件
           </div>
         </div>
       )}

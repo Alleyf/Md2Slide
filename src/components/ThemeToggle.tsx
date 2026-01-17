@@ -1,65 +1,59 @@
 import React from 'react';
 import { useTheme } from '../context/ThemeContext';
 
+import { Moon, Sun } from 'lucide-react';
+
 export const ThemeToggle: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <button
+    <div 
       onClick={toggleTheme}
       style={{
-        width: '36px',
-        height: '36px',
-        borderRadius: '8px',
-        border: '1px solid',
-        borderColor: theme === 'dark' ? '#333' : '#e5e7eb',
-        background: 'transparent',
+        width: '56px',
+        height: '28px',
+        borderRadius: '14px',
+        background: theme === 'dark' ? '#2c2c2e' : '#e9e9ea',
+        display: 'flex',
+        alignItems: 'center',
+        padding: '2px',
+        cursor: 'pointer',
+        position: 'relative',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)'
+      }}
+      title={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
+    >
+      <div style={{
+        position: 'absolute',
+        left: theme === 'dark' ? '30px' : '2px',
+        width: '24px',
+        height: '24px',
+        borderRadius: '50%',
+        background: '#fff',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        color: theme === 'dark' ? '#888' : '#6b7280',
-        padding: 0,
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = theme === 'dark' ? '#555' : '#d1d5db';
-        e.currentTarget.style.color = theme === 'dark' ? '#aaa' : '#4b5563';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = theme === 'dark' ? '#333' : '#e5e7eb';
-        e.currentTarget.style.color = theme === 'dark' ? '#888' : '#6b7280';
-      }}
-      title={theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
-    >
-      {theme === 'dark' ? (
-        // 月亮图标（浅色主题按钮）
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="12" cy="12" r="5" />
-          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-        </svg>
-      ) : (
-        // 月亮图标（深色模式激活时显示的提示，点击后会切换到深色）
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-        </svg>
-      )}
-    </button>
+        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        zIndex: 2
+      }}>
+        {theme === 'dark' ? (
+          <Moon size={14} color="#5e5ce6" fill="#5e5ce6" />
+        ) : (
+          <Sun size={14} color="#ff9500" fill="#ff9500" />
+        )}
+      </div>
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        justifyContent: 'space-between',
+        padding: '0 6px',
+        opacity: 0.4
+      }}>
+        <Sun size={12} color={theme === 'dark' ? '#fff' : '#000'} />
+        <Moon size={12} color={theme === 'dark' ? '#fff' : '#000'} />
+      </div>
+    </div>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
-import { ArrowUp, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Layout } from 'lucide-react';
+import { ArrowUp, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Layout, HelpCircle } from 'lucide-react';
 import { SlideTemplate, SlideContent, SlideElement } from './components/SlideTemplate';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useTheme } from './context/ThemeContext';
@@ -30,6 +30,7 @@ export const App: React.FC = () => {
   const [activeFile, setActiveFile] = useState<string | null>('tutorial.md');
   const [toc, setToc] = useState<TOCItem[]>([]);
   const [activePreviewSlideIndex, setActivePreviewSlideIndex] = useState(0);
+  const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const [fileList, setFileList] = useState<FileItem[]>([
     { name: 'tutorial.md', kind: 'file', isStatic: true }
   ]);
@@ -43,7 +44,7 @@ export const App: React.FC = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [inputModal, setInputModal] = useState<{
     show: boolean;
-    type: 'link' | 'image' | 'video' | 'rename' | 'confirm';
+    type: 'link' | 'image' | 'video' | 'audio' | 'rename' | 'confirm';
     value: string;
     titleValue?: string;
     message?: string;
@@ -157,6 +158,46 @@ export const App: React.FC = () => {
         }
       }
     });
+  };
+
+  const handleExportPDF = (item: FileItem) => {
+    // 如果是当前正在编辑的文件，直接用当前的 markdown
+    if (activeFile === item.name) {
+      downloadPDF(slides);
+    } else {
+      // 否则需要加载并解析文件内容后再导出
+      loadFile(item).then(() => {
+        // 由于 setMarkdown 是异步的，这里可能需要一点延迟或更复杂的逻辑
+        // 但简单起见，提示用户先打开文件再导出
+        alert('请先打开该文件再进行导出');
+      });
+    }
+  };
+
+  const handleImportFile = async () => {
+    try {
+      // @ts-ignore
+      const [handle] = await window.showOpenFilePicker({
+        types: [{
+          description: 'Markdown Files',
+          accept: { 'text/markdown': ['.md'] },
+        }],
+      });
+      const file = await handle.getFile();
+      const content = await file.text();
+      
+      const newFile: FileItem = {
+        name: file.name,
+        kind: 'file',
+        content: content,
+        handle: handle
+      };
+
+      setFileList(prev => [...prev, newFile]);
+      loadFile(newFile);
+    } catch (err) {
+      console.error('Import failed:', err);
+    }
   };
 
   const renameFile = (oldName: string) => {
@@ -344,7 +385,7 @@ export const App: React.FC = () => {
   const handleAudioInsert = () => {
     setInputModal({
       show: true,
-      type: 'video', // 使用已有的视频输入框逻辑，因为都是 URL 输入
+      type: 'audio',
       value: 'https://',
       callback: (url) => applySnippet(`!audio(${url})`, '')
     });
@@ -354,6 +395,30 @@ export const App: React.FC = () => {
     applySnippet(`!icon(${emojiData.emoji})`, '');
     setShowEmojiPicker(false);
   };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => {
+        setIsFullscreenMode(true);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().then(() => {
+          setIsFullscreenMode(false);
+        });
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsFullscreenMode(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   // 处理编辑器快捷键
   const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -600,7 +665,7 @@ export const App: React.FC = () => {
       <header style={{
         padding: '10px 25px',
         borderBottom: `1px solid ${theme.colors.border}`,
-        display: 'flex',
+        display: isFullscreenMode ? 'none' : 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         background: theme.colors.surface,
@@ -647,81 +712,30 @@ export const App: React.FC = () => {
             </span>
           </h1>
           <div style={{ height: '15px', width: '1px', background: theme.colors.border }} />
-          <span style={{ color: theme.colors.textSecondary, fontSize: '12px', fontWeight: 500 }}>3Blue1Brown Presentation Tool</span>
+          <span style={{ color: theme.colors.textSecondary, fontSize: '12px', fontWeight: 500 }}>Elevate Your Markdown into Cinematic Presentations</span>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button
-            onClick={() => downloadPDF(slides)}
-            style={{
-              padding: '6px 12px',
-              background: theme.primaryColor,
-              border: 'none',
-              borderRadius: '6px',
-              color: '#fff',
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: 600,
-              transition: 'all 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
-            onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
-          >
-            导出 PDF
-          </button>
-          <button
-            onClick={handleCopy}
-            style={{
-              padding: '6px 12px',
-              background: 'transparent',
-              border: `1px solid ${theme.colors.border}`,
-              borderRadius: '6px',
-              color: theme.colors.textSecondary,
-              cursor: 'pointer',
-              fontSize: '13px',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.borderColor = theme === darkTheme ? '#555' : '#d1d5db'}
-            onMouseLeave={(e) => e.currentTarget.style.borderColor = theme.colors.border}
-          >
-            复制内容
-          </button>
-          <label style={{
-            padding: '6px 12px',
-            background: 'transparent',
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: '6px',
-            color: theme.colors.textSecondary,
-            cursor: 'pointer',
-            fontSize: '13px',
-            transition: 'all 0.2s'
-          }}
-            onMouseEnter={(e) => e.currentTarget.style.borderColor = theme === darkTheme ? '#555' : '#d1d5db'}
-            onMouseLeave={(e) => e.currentTarget.style.borderColor = theme.colors.border}
-          >
-            导入文件
-            <input type="file" accept=".md" onChange={handleFileUpload} style={{ display: 'none' }} />
-          </label>
+        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
           <button
             onClick={() => setShowHelp(true)}
             style={{
-              padding: '6px 12px',
               background: 'transparent',
-              border: `1px solid ${theme.colors.border}`,
-              borderRadius: '6px',
+              border: 'none',
               color: theme.colors.textSecondary,
               cursor: 'pointer',
-              fontSize: '13px',
-              transition: 'all 0.2s'
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
+              opacity: 0.7
             }}
-            onMouseEnter={(e) => e.currentTarget.style.borderColor = theme === darkTheme ? '#555' : '#d1d5db'}
-            onMouseLeave={(e) => e.currentTarget.style.borderColor = theme.colors.border}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+            title="帮助文档"
           >
-            帮助文档
+            <HelpCircle size={20} />
           </button>
+          
           <ThemeToggle />
         </div>
       </header>
@@ -1035,13 +1049,15 @@ export const App: React.FC = () => {
       <main style={{
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
-        height: isMobile ? 'auto' : 'calc(100vh - 60px)',
-        minHeight: 'calc(100vh - 60px)',
+        height: isMobile ? 'auto' : (isFullscreenMode ? '100vh' : 'calc(100vh - 60px)'),
+        minHeight: isFullscreenMode ? '100vh' : 'calc(100vh - 60px)',
         overflow: 'hidden',
         background: theme.colors.background,
         transition: 'background 0.3s ease'
       }}>
         {layoutOrder.map((section, index) => {
+          if (isFullscreenMode && section !== 'preview') return null;
+          
           if (section === 'sidebar' && !isMobile) {
             if (!showSidebar) {
               return (
@@ -1168,6 +1184,8 @@ export const App: React.FC = () => {
                     onFileClick={loadFile}
                     onDelete={deleteFile}
                     onRename={renameFile}
+                    onExport={handleExportPDF}
+                    onImport={handleImportFile}
                     theme={theme}
                   />
                 </div>
@@ -1538,43 +1556,46 @@ export const App: React.FC = () => {
                 <div 
                   onDragOver={(e) => handleDragOver(e, 'preview')}
                   style={{
-                    flex: !showEditor || index === layoutOrder.length - 1 ? 1 : 'none',
-                    width: showEditor && index < layoutOrder.length - 1 ? '500px' : 'auto',
+                    flex: isFullscreenMode || !showEditor || index === layoutOrder.length - 1 ? 1 : 'none',
+                    width: !isFullscreenMode && showEditor && index < layoutOrder.length - 1 ? '500px' : 'auto',
                     display: 'flex',
                     flexDirection: 'column',
-                    minWidth: isMobile ? '100%' : '300px',
+                    minWidth: isFullscreenMode ? '100vw' : (isMobile ? '100%' : '300px'),
                     position: 'relative',
                     opacity: draggingSection === 'preview' ? 0.5 : 1,
-                    borderRight: index < layoutOrder.length - 1 && !isMobile ? `1px solid ${theme.colors.border}` : 'none'
+                    borderRight: !isFullscreenMode && index < layoutOrder.length - 1 && !isMobile ? `1px solid ${theme.colors.border}` : 'none'
                   }}
                 >
-                  <div 
-                    draggable
-                    onDragStart={() => handleDragStart('preview')}
-                    onDragEnd={() => setDraggingSection(null)}
-                    style={{
-                      padding: '10px 20px',
-                      fontSize: '11px',
-                      color: theme.colors.textSecondary,
-                      borderBottom: `1px solid ${theme.colors.border}`,
-                      textTransform: 'uppercase',
-                      letterSpacing: '1px',
-                      fontWeight: 700,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      cursor: 'grab',
-                      background: theme.colors.surface
-                    }}
-                  >
-                    <span style={{ fontSize: '12px', opacity: 0.5 }}>⠿</span>
-                    幻灯片预览
-                  </div>
+                  {!isFullscreenMode && (
+                    <div 
+                      draggable
+                      onDragStart={() => handleDragStart('preview')}
+                      onDragEnd={() => setDraggingSection(null)}
+                      style={{
+                        padding: '10px 20px',
+                        fontSize: '11px',
+                        color: theme.colors.textSecondary,
+                        borderBottom: `1px solid ${theme.colors.border}`,
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        cursor: 'grab',
+                        background: theme.colors.surface
+                      }}
+                    >
+                      <span style={{ fontSize: '12px', opacity: 0.5 }}>⠿</span>
+                      幻灯片预览
+                    </div>
+                  )}
                   <div style={{ flex: 1, position: 'relative' }}>
                     <SlideTemplate 
                       slides={slides} 
                       activeSlideIndex={activePreviewSlideIndex}
                       onSlideChange={(index) => setActivePreviewSlideIndex(index)}
+                      onFullscreenToggle={toggleFullscreen}
                     />
                   </div>
                 </div>
@@ -1628,6 +1649,7 @@ export const App: React.FC = () => {
               {inputModal.type === 'link' ? '插入链接' : 
                inputModal.type === 'image' ? '插入图片' : 
                inputModal.type === 'video' ? '插入视频' :
+               inputModal.type === 'audio' ? '插入语音' :
                inputModal.type === 'rename' ? '重命名文件' : '确认操作'}
             </h3>
             
@@ -1637,10 +1659,11 @@ export const App: React.FC = () => {
               </div>
             ) : (
               <>
-                {(inputModal.type === 'link' || inputModal.type === 'image' || inputModal.type === 'video') && (
+                {(inputModal.type === 'link' || inputModal.type === 'image' || inputModal.type === 'video' || inputModal.type === 'audio') && (
                   <div style={{ marginBottom: '15px' }}>
                     <label style={{ display: 'block', fontSize: '12px', color: theme.colors.textSecondary, marginBottom: '5px', opacity: 0.8 }}>
-                      {inputModal.type === 'link' ? '链接标题' : '媒体描述'} (可选)
+                      {inputModal.type === 'link' ? '链接标题' : 
+                       inputModal.type === 'audio' ? '语音描述' : '媒体描述'} (可选)
                     </label>
                     <input 
                       type="text"
@@ -1656,7 +1679,8 @@ export const App: React.FC = () => {
                         fontSize: '14px',
                         outline: 'none'
                       }}
-                      placeholder={inputModal.type === 'link' ? "例如：点击查看详情" : "例如：示例图片"}
+                      placeholder={inputModal.type === 'link' ? "例如：点击查看详情" : 
+                                   inputModal.type === 'audio' ? "例如：背景音乐" : "例如：示例媒体"}
                     />
                   </div>
                 )}

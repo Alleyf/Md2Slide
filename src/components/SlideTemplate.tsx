@@ -159,6 +159,7 @@ interface SlideTemplateProps {
   autoPlay?: boolean;
   autoPlayInterval?: number;
   exportMode?: boolean;
+  onFullscreenToggle?: () => void;
 }
 
 export const SlideTemplate: React.FC<SlideTemplateProps> = ({
@@ -168,6 +169,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   autoPlay = false,
   autoPlayInterval = 5000,
   exportMode = false,
+  onFullscreenToggle,
 }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [clickState, setClickState] = useState(0);
@@ -1172,6 +1174,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
           onAutoPlayToggle={() => setIsAutoPlaying(!isAutoPlaying)}
           autoPlayInterval={localAutoPlayInterval}
           onAutoPlayIntervalChange={(val) => setLocalAutoPlayInterval(val)}
+          onFullscreenToggle={onFullscreenToggle}
         />
       )}
 

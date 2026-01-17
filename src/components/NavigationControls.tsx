@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { darkTheme } from '../styles/theme';
-import { Play, Pause, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Pause, RotateCcw, ChevronLeft, ChevronRight, Maximize } from 'lucide-react';
 
 interface NavigationControlsProps {
   currentSlideIndex: number;
@@ -16,6 +16,7 @@ interface NavigationControlsProps {
   onAutoPlayToggle?: () => void;
   autoPlayInterval: number;
   onAutoPlayIntervalChange: (interval: number) => void;
+  onFullscreenToggle?: () => void;
 }
 
 export const NavigationControls: React.FC<NavigationControlsProps> = ({
@@ -31,6 +32,7 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
   onAutoPlayToggle,
   autoPlayInterval,
   onAutoPlayIntervalChange,
+  onFullscreenToggle,
 }) => {
   const { themeConfig: theme } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
@@ -252,6 +254,29 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
         title="下一张"
       >
         <ChevronRight size={20} strokeWidth={2.5} />
+      </button>
+
+      <div style={{ height: '15px', width: '1px', background: theme.colors.border, margin: '0 5px' }} />
+
+      <button
+        onClick={onFullscreenToggle}
+        style={{
+          padding: '4px',
+          background: 'transparent',
+          border: 'none',
+          color: theme.colors.text,
+          cursor: 'pointer',
+          opacity: 0.6,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'all 0.2s',
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+        title="全屏播放"
+      >
+        <Maximize size={18} />
       </button>
     </div>
   );
