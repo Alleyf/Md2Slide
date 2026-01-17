@@ -3,7 +3,9 @@ import { useTheme } from '../context/ThemeContext';
 
 import { Moon, Sun } from 'lucide-react';
 
-export const ThemeToggle: React.FC = () => {
+interface ThemeToggleProps {}
+
+export const ThemeToggle: React.FC<ThemeToggleProps> = () => {
   const { theme, toggleTheme } = useTheme();
 
   return (

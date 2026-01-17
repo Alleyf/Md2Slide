@@ -43,7 +43,7 @@
 | 💻 **代码语法高亮** | 内置多种编程语言的代码展示支持 | ✅ 已实现 |
 | 🎬 **视频和图片** | 居中显示，响应式布局 | ✅ 已实现 |
 | 🎮 **动态交互** | 支持内容逐步显示（Click-to-reveal）和键盘导航 | ✅ 已实现 |
-| 📥 **一键导入** | 支持导入本地 `.md` 文件 | ✅ 已实现 |
+| 📥 **一键导入** | 支持导入本地 `.md` 和 `.html` 文件 | ✅ 已实现 |
 | 🚀 **一键部署** | 支持 Vercel、Netlify 等平台快速部署 | ✅ 已实现 |
 
 ### 核心功能展示
@@ -62,6 +62,22 @@ $$\theta = \theta - \alpha \cdot \nabla J(\theta)$$
 - $\nabla J(\theta)$ 是梯度
 
 !icon(📉)
+```
+
+### HTML 导入示例
+
+你也可以直接导入 HTML 文件并将其嵌入到幻灯片中：
+
+```html
+!html(
+<div style="text-align: center; padding: 20px;">
+  <h2>嵌入的 HTML 内容</h2>
+  <p>这是从外部 HTML 文件导入的内容</p>
+  <button style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px;">
+    交互按钮
+  </button>
+</div>
+)
 ```
 
 > **渲染效果**：

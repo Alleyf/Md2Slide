@@ -105,13 +105,14 @@ interface FileTreeProps {
   onDelete: (fileName: string) => void;
   onRename: (fileName: string) => void;
   onExport: (file: FileItem) => void;
-  onImport: () => void;
+  onImport: (fileType?: 'markdown' | 'html') => void;
   onOpenFolder: () => void;
+  onCreate: (item: FileItem) => void;
   theme: ThemeConfig;
 }
 
 export const FileTree: React.FC<FileTreeProps> = ({ 
-  files, activeFile, onFileClick, onDelete, onRename, onExport, onImport, onOpenFolder, theme 
+  files, activeFile, onFileClick, onDelete, onRename, onExport, onImport, onOpenFolder, onCreate, theme 
 }) => {
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: FileItem } | null>(null);
 
@@ -216,7 +217,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           </div>
           <div
             onClick={() => {
-              onImport();
+              onImport('markdown');
               closeMenu();
             }}
             style={{
@@ -232,7 +233,47 @@ export const FileTree: React.FC<FileTreeProps> = ({
             onMouseEnter={(e) => e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
-            <span>📥</span> 导入文件
+            <span>📥</span> 导入 Markdown
+          </div>
+          <div
+            onClick={() => {
+              onImport('html');
+              closeMenu();
+            }}
+            style={{
+              padding: '8px 12px',
+              fontSize: '13px',
+              color: theme.colors.text,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          >
+            <span>📥</span> 导入 HTML
+          </div>
+          <div
+            onClick={() => {
+              onCreate(contextMenu.item);
+              closeMenu();
+            }}
+            style={{
+              padding: '8px 12px',
+              fontSize: '13px',
+              color: theme.colors.text,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          >
+            <span>📝</span> 新建文件
           </div>
           <div
             onClick={() => {

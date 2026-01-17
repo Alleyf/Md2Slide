@@ -877,9 +877,27 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
             data-click-state={el.clickState}
             style={{
               ...baseStyle,
+              width: '100%',
+              height: 'auto',
+              minHeight: '300px',
+              maxHeight: '70vh',
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: '8px',
+              padding: '16px',
+              background: theme.theme === 'dark' ? '#1e1e1e' : '#ffffff',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              overflow: 'auto',
             }}
-            dangerouslySetInnerHTML={{ __html: el.content as string }}
-          />
+          >
+            <div
+              style={{
+                fontFamily: 'inherit',
+                fontSize: '14px',
+                lineHeight: '1.6',
+              }}
+              dangerouslySetInnerHTML={{ __html: el.content as string }} 
+            />
+          </div>
         );
 
       case 'math':
@@ -964,8 +982,9 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                     {children}
                   </li>
                 ),
-                code: ({ inline, className, children }) => {
-                  if (inline) {
+                code: ({ className, children }) => {
+                  const isInline = typeof children === 'string' && !children.includes('\n');
+                  if (isInline) {
                     return (
                       <code
                         style={{

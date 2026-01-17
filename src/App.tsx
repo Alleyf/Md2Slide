@@ -43,9 +43,10 @@ export const App: React.FC = () => {
   const [isResizingTOC, setIsResizingTOC] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showSaveNotification, setShowSaveNotification] = useState(false);
   const [inputModal, setInputModal] = useState<{
     show: boolean;
-    type: 'link' | 'image' | 'video' | 'audio' | 'rename' | 'confirm';
+    type: 'link' | 'image' | 'video' | 'audio' | 'rename' | 'confirm' | 'create';
     value: string;
     titleValue?: string;
     message?: string;
@@ -114,7 +115,14 @@ export const App: React.FC = () => {
   const loadFile = async (file: FileItem) => {
     try {
       let text = '';
-      if (file.isStatic) {
+
+      // 优先从 localStorage 读取保存的内容
+      const storageKey = `md2slide_file_${file.name}`;
+      const savedContent = localStorage.getItem(storageKey);
+
+      if (savedContent !== null) {
+        text = savedContent;
+      } else if (file.isStatic) {
         const response = await fetch(`/${file.name}`);
         if (response.ok) {
           text = await response.text();
@@ -125,7 +133,7 @@ export const App: React.FC = () => {
       } else if (file.content) {
         text = file.content;
       }
-      
+
       if (text) {
         setMarkdown(text);
         setActiveFile(file.name);
@@ -175,29 +183,44 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleImportFile = async () => {
+  const handleImportFile = async (fileType: 'markdown' | 'html' = 'markdown') => {
     try {
+      let acceptTypes: { [key: string]: string[] } = { 'text/markdown': ['.md'] };
+      
+      if (fileType === 'html') {
+        acceptTypes = { 'text/html': ['.html', '.htm'] };
+      }
+      
       // @ts-ignore
       const [handle] = await window.showOpenFilePicker({
         types: [{
-          description: 'Markdown Files',
-          accept: { 'text/markdown': ['.md'] },
+          description: fileType === 'html' ? 'HTML Files' : 'Markdown Files',
+          accept: acceptTypes,
         }],
       });
       const file = await handle.getFile();
       const content = await file.text();
       
+      let processedContent = content;
+      
+      // 如果是HTML文件，将其包装在!html()标记中，以便在幻灯片中正确显示
+      if (fileType === 'html') {
+        processedContent = `!html(
+${content}
+)`;
+      }
+      
       const newFile: FileItem = {
         name: file.name,
         kind: 'file',
-        content: content,
+        content: processedContent,
         handle: handle
       };
 
       setFileList(prev => [...prev, newFile]);
       loadFile(newFile);
     } catch (err) {
-      console.error('Import failed:', err);
+      console.error(`${fileType === 'html' ? 'HTML' : 'Markdown'} Import failed:`, err);
     }
   };
 
@@ -225,6 +248,73 @@ export const App: React.FC = () => {
           if (activeFile === oldName) {
             setActiveFile(newName);
           }
+        }
+      }
+    });
+  };
+
+  const createFile = (parentItem: FileItem) => {
+    setInputModal({
+      show: true,
+      type: 'create',
+      value: '',
+      callback: (fileName) => {
+        if (fileName && fileName.trim()) {
+          // 确保文件名以 .md 结尾
+          const finalFileName = fileName.endsWith('.md') ? fileName : `${fileName}.md`;
+          
+          // 检查文件名是否已存在
+          const exists = (items: FileItem[]): boolean => {
+            for (const item of items) {
+              if (item.name === finalFileName && item.kind === 'file') {
+                return true;
+              }
+              if (item.children) {
+                if (exists(item.children)) return true;
+              }
+            }
+            return false;
+          };
+          
+          if (exists(fileList)) {
+            alert(`文件 ${finalFileName} 已存在，请选择其他文件名`);
+            return;
+          }
+
+          // 创建新文件
+          const newFile: FileItem = {
+            name: finalFileName,
+            kind: 'file',
+            content: '', // 初始化为空内容
+            isStatic: false
+          };
+
+          // 如果父项是目录，则在该目录下创建文件；否则在根目录创建
+          if (parentItem.kind === 'directory') {
+            // 在指定目录下创建新文件
+            const createInDir = (items: FileItem[]): FileItem[] => {
+              return items.map(item => {
+                if (item.name === parentItem.name && item.kind === 'directory') {
+                  return {
+                    ...item,
+                    children: [...(item.children || []), newFile]
+                  };
+                }
+                if (item.children) {
+                  return { ...item, children: createInDir(item.children) };
+                }
+                return item;
+              });
+            };
+            setFileList(prev => createInDir(prev));
+          } else {
+            // 在根目录创建文件（如果父项不是目录，可能是当前活动文件）
+            setFileList(prev => [...prev, newFile]);
+          }
+          
+          // 自动打开新文件并设置初始内容
+          setMarkdown('');
+          setActiveFile(finalFileName);
         }
       }
     });
@@ -284,7 +374,7 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
-    loadFile({ name: 'tutorial.md', isStatic: true });
+    loadFile({ name: 'tutorial.md', kind: 'file', isStatic: true });
   }, []);
 
   const applySnippet = (beforeStr: string, afterStr: string = '') => {
@@ -349,6 +439,24 @@ export const App: React.FC = () => {
         const newPos = start + beforeStr.length;
         textarea.setSelectionRange(newPos, newPos);
       }
+    }
+  };
+
+  // 保存当前文件到 localStorage
+  const saveCurrentFile = () => {
+    if (!activeFile) return;
+
+    try {
+      // 保存到 localStorage
+      const storageKey = `md2slide_file_${activeFile}`;
+      localStorage.setItem(storageKey, markdown);
+
+      // 显示保存成功提示
+      setShowSaveNotification(true);
+      setTimeout(() => setShowSaveNotification(false), 2000);
+    } catch (error) {
+      console.error('保存文件失败:', error);
+      alert('保存文件失败，请重试');
     }
   };
 
@@ -469,10 +577,13 @@ export const App: React.FC = () => {
             applySnippet('*', '*');
           }
           break;
-        case 's': // 删除线
+        case 's': // 保存文件 / 删除线
           if (isShift) {
             e.preventDefault();
             applySnippet('~~', '~~');
+          } else {
+            e.preventDefault();
+            saveCurrentFile();
           }
           break;
         case 'k': // 链接/代码块
@@ -626,6 +737,22 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // 全局键盘事件处理，用于 Ctrl+S 保存功能
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // 检查是否按下了 Ctrl+S 或 Cmd+S
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveCurrentFile();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, []);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -668,6 +795,31 @@ export const App: React.FC = () => {
           --epr-search-input-bg-color: ${theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'} !important;
         }
       `}</style>
+
+      {/* 保存成功提示 */}
+      {showSaveNotification && (
+        <div style={{
+          position: 'fixed',
+          top: '80px',
+          right: '20px',
+          background: theme.theme === 'dark' ? 'rgba(34, 197, 94, 0.9)' : 'rgba(34, 197, 94, 0.95)',
+          color: '#fff',
+          padding: '12px 20px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          zIndex: 1000,
+          fontSize: '14px',
+          fontWeight: 500,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          animation: 'slideIn 0.3s ease-out'
+        }}>
+          <span>✓</span>
+          <span>文件已保存</span>
+        </div>
+      )}
+
       {/* Header */}
       <header style={{
         padding: isMobile ? '8px 16px' : '10px 25px',
@@ -821,7 +973,7 @@ export const App: React.FC = () => {
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto' }}>
-              <FileTree 
+              <FileTree
                 files={fileList}
                 activeFile={activeFile}
                 onFileClick={(file) => {
@@ -831,8 +983,9 @@ export const App: React.FC = () => {
                 onDelete={deleteFile}
                 onRename={renameFile}
                 onExport={handleExportPDF}
-                onImport={handleImportFile}
+                onImport={(fileType) => handleImportFile(fileType)}
                 onOpenFolder={openFolder}
+                onCreate={createFile}
                 theme={theme}
               />
             </div>
@@ -1314,7 +1467,7 @@ export const App: React.FC = () => {
                     )}
                   </div>
                 <div style={{ flex: 1, overflowY: 'auto' }}>
-                  <FileTree 
+                  <FileTree
                     files={fileList}
                     activeFile={activeFile}
                     onFileClick={loadFile}
@@ -1323,6 +1476,7 @@ export const App: React.FC = () => {
                     onExport={handleExportPDF}
                     onImport={handleImportFile}
                     onOpenFolder={openFolder}
+                    onCreate={createFile}
                     theme={theme}
                   />
                 </div>
@@ -1785,11 +1939,12 @@ export const App: React.FC = () => {
             border: `1px solid ${theme.colors.border}`
           }}>
             <h3 style={{ margin: '0 0 16px 0', color: theme.colors.textSecondary }}>
-              {inputModal.type === 'link' ? '插入链接' : 
-               inputModal.type === 'image' ? '插入图片' : 
+              {inputModal.type === 'link' ? '插入链接' :
+               inputModal.type === 'image' ? '插入图片' :
                inputModal.type === 'video' ? '插入视频' :
                inputModal.type === 'audio' ? '插入语音' :
-               inputModal.type === 'rename' ? '重命名文件' : '确认操作'}
+               inputModal.type === 'rename' ? '重命名文件' :
+               inputModal.type === 'create' ? '新建文件' : '确认操作'}
             </h3>
             
             {inputModal.type === 'confirm' ? (
@@ -1826,7 +1981,8 @@ export const App: React.FC = () => {
 
                 <div style={{ marginBottom: '20px' }}>
                   <label style={{ display: 'block', fontSize: '12px', color: theme.colors.textSecondary, marginBottom: '5px', opacity: 0.8 }}>
-                    {inputModal.type === 'rename' ? '新文件名' : 'URL 地址'}
+                    {inputModal.type === 'rename' ? '新文件名' :
+                     inputModal.type === 'create' ? '文件名' : 'URL 地址'}
                   </label>
                   <input 
                     autoFocus
@@ -1851,7 +2007,8 @@ export const App: React.FC = () => {
                       fontSize: '14px',
                       outline: 'none'
                     }}
-                    placeholder={inputModal.type === 'rename' ? "请输入新名称" : "在此输入 URL 地址..."}
+                    placeholder={inputModal.type === 'rename' ? "请输入新名称" :
+                                 inputModal.type === 'create' ? "请输入文件名（可选 .md 扩展名）" : "在此输入 URL 地址..."}
                   />
                 </div>
               </>
