@@ -19,6 +19,11 @@ import { PresenterView } from './components/PresenterView';
 import { formatInlineMarkdown } from './parser/markdownHelpers';
 import { htmlToMarkdown } from './utils/htmlToMarkdown';
 import { getStorageItem, setStorageItem, storageKeys } from './utils/storage';
+import { AIAssistant } from './components/AIAssistant';
+import { ThemeMarketplace } from './components/ThemeMarketplace';
+import { PluginMarketplace } from './components/PluginMarketplace';
+import { pluginManager } from './plugins/PluginManager';
+import { ThemePlugin } from './plugins/ThemePlugin';
 
 interface AppSettings {
   useDelimiterPagination: boolean;
@@ -64,6 +69,9 @@ export const App: React.FC = () => {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showSaveNotification, setShowSaveNotification] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [showThemeMarketplace, setShowThemeMarketplace] = useState(false);
+  const [showPluginMarketplace, setShowPluginMarketplace] = useState(false);
   const [inputModal, setInputModal] = useState<{
     show: boolean;
     type: 'link' | 'image' | 'video' | 'audio' | 'rename' | 'confirm' | 'create';
@@ -1030,7 +1038,7 @@ export const App: React.FC = () => {
 
         <div style={{ display: 'flex', gap: isMobile ? '12px' : '15px', alignItems: 'center' }}>
           <button
-            onClick={() => alert('插件市场即将上线！')}
+            onClick={() => setShowPluginMarketplace(true)}
             style={{
               background: 'transparent',
               border: 'none',
@@ -1048,6 +1056,46 @@ export const App: React.FC = () => {
             title="插件市场"
           >
             <Puzzle size={isMobile ? 22 : 20} />
+          </button>
+          <button
+            onClick={() => setShowThemeMarketplace(true)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: theme.colors.textSecondary,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
+              opacity: 0.7,
+              padding: isMobile ? '4px' : '0'
+            }}
+            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
+            title="主题市场"
+          >
+            <Layout size={isMobile ? 22 : 20} />
+          </button>
+          <button
+            onClick={() => setShowAIAssistant(true)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: theme.colors.textSecondary,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
+              opacity: 0.7,
+              padding: isMobile ? '4px' : '0'
+            }}
+            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
+            title="AI 助手"
+          >
+            💡
           </button>
           <button
             onClick={() => setShowSettings(true)}
@@ -2235,6 +2283,28 @@ export const App: React.FC = () => {
           autoAnimateEasing={appSettings.autoAnimateEasing}
         />
       </div>
+
+      {/* AI Assistant Component */}
+      <AIAssistant
+        markdownContent={markdown}
+        onContentUpdate={(newContent) => setMarkdown(newContent)}
+      />
+
+      {/* Plugin Marketplace Component */}
+      <PluginMarketplace 
+        isOpen={showPluginMarketplace}
+        onClose={() => setShowPluginMarketplace(false)}
+      />
+
+      {/* Theme Marketplace Component */}
+      <ThemeMarketplace
+        isOpen={showThemeMarketplace}
+        onClose={() => setShowThemeMarketplace(false)}
+        onThemeChange={(themeId) => {
+          console.log(`Theme changed to: ${themeId}`);
+          // 这里可以添加实际的主题应用逻辑
+        }}
+      />
 
       {/* Global Input Modal Overlay */}
       {inputModal.show && (

@@ -12,6 +12,7 @@ import { SlideContent, SlideElement } from '../types/slide';
 import { NavigationControls } from './NavigationControls';
 import { AutoAnimateWrapper } from './AutoAnimateWrapper';
 import { announceToScreenReader } from '../utils/accessibility';
+import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Monitor, Play, Pause, RotateCcw, Volume2, VolumeX, Terminal, PlayCircle, XCircle } from 'lucide-react';
 import 'katex/dist/katex.min.css';
 
 // 添加全局样式支持
@@ -182,9 +183,36 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   const [totalClicks, setTotalClicks] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [localAutoPlayInterval, setLocalAutoPlayInterval] = useState(autoPlayInterval);
+  const [codeOutputs, setCodeOutputs] = useState<Record<string, string>>({});
   const autoPlayIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const runCode = (code: string, elementId: string) => {
+    try {
+      const originalLog = console.log;
+      let output = '';
+      const consoleMock = {
+        log: (...args: any[]) => {
+          output += args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ') + '\n';
+        },
+        error: (...args: any[]) => {
+          output += 'Error: ' + args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ') + '\n';
+        },
+        warn: (...args: any[]) => {
+          output += 'Warn: ' + args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ') + '\n';
+        }
+      };
+      
+      // 创建沙箱环境
+      const runner = new Function('console', code);
+      runner(consoleMock);
+      
+      setCodeOutputs(prev => ({ ...prev, [elementId]: output || '执行成功 (无输出)' }));
+    } catch (err: any) {
+      setCodeOutputs(prev => ({ ...prev, [elementId]: `执行错误: ${err.message}` }));
+    }
+  };
 
   // 触摸手势处理
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -689,6 +717,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
       case 'code':
         const codeLines = el.content as string;
         const language = el.language || 'text';
+        const isExecutable = language === 'javascript' || language === 'js' || language === 'typescript' || language === 'ts';
+        
         return (
           <div
             key={el.id}
@@ -716,16 +746,44 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
               justifyContent: 'space-between',
               alignItems: 'center'
             }}>
-              <span style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                color: theme.primaryColor,
-                opacity: 0.9
-              }}>
-                {language}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                  color: theme.primaryColor,
+                  opacity: 0.9
+                }}>
+                  {language}
+                </span>
+                {isExecutable && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      runCode(codeLines, el.id);
+                    }}
+                    style={{
+                      background: theme.primaryColor,
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '2px 8px',
+                      fontSize: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
+                    onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
+                  >
+                    <PlayCircle size={12} />
+                    运行
+                  </button>
+                )}
+              </div>
               <div style={{ display: 'flex', gap: '6px' }}>
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ff5f56' }} />
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffbd2e' }} />
@@ -753,6 +811,58 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                 {codeLines}
               </SyntaxHighlighter>
             </div>
+            {codeOutputs[el.id] && (
+              <div style={{
+                background: theme.theme === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
+                padding: '12px 16px',
+                borderTop: `1px solid ${theme.colors.border}`,
+                position: 'relative'
+              }}>
+                <div style={{
+                  fontSize: '10px',
+                  color: theme.colors.textSecondary,
+                  marginBottom: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  <Terminal size={12} />
+                  输出结果:
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCodeOutputs(prev => {
+                        const next = { ...prev };
+                        delete next[el.id];
+                        return next;
+                      });
+                    }}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      background: 'none',
+                      border: 'none',
+                      color: theme.colors.textSecondary,
+                      cursor: 'pointer',
+                      padding: '2px'
+                    }}
+                  >
+                    <XCircle size={14} />
+                  </button>
+                </div>
+                <pre style={{
+                  margin: 0,
+                  fontSize: '12px',
+                  color: theme.theme === 'dark' ? '#10b981' : '#059669',
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: 'inherit',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                }}>
+                  {codeOutputs[el.id]}
+                </pre>
+              </div>
+            )}
           </div>
         );
 

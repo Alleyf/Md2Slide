@@ -201,42 +201,42 @@
 |- [x] 添加插件市场 UI
 
 ### 3.4 AI 辅助功能
-|- [ ] 选择 LLM 提供商
-  - [ ] OpenAI API
-  - [ ] Anthropic Claude API
-  - [ ] 本地模型支持 (Ollama)
-|- [ ] 实现基础 AI 功能
-  - [ ] `src/services/ai.ts`
-  - [ ] 内容摘要
-  - [ ] 文本改进建议
-  - [ ] 关键点提取
-|- [ ] 研究论文转幻灯片
-  - [ ] PDF.js 集成
-  - [ ] 文本提取
-  - [ ] 大纲生成
-  - [ ] 自动幻灯片创建
-|- [ ] AI 图片生成
-  - [ ] DALL-E 或 Stable Diffusion 集成
-  - [ ] 从文本描述生成图表
-|- [ ] 添加 AI 功能到 UI
+|- [x] 选择 LLM 提供商
+  - [x] OpenAI API
+  - [x] Anthropic Claude API
+  - [x] 本地模型支持 (Ollama)
+|- [x] 实现基础 AI 功能
+  - [x] `src/services/ai.ts`
+  - [x] 内容摘要
+  - [x] 文本改进建议
+  - [x] 关键点提取
+|- [x] 研究论文转幻灯片
+  - [x] PDF.js 集成
+  - [x] 文本提取
+  - [x] 大纲生成
+  - [x] 自动幻灯片创建
+|- [x] AI 图片生成
+  - [x] DALL-E 或 Stable Diffusion 集成
+  - [x] 从文本描述生成图表
+|- [x] 添加 AI 功能到 UI
 
 ### 3.5 主题市场
-|- [ ] 设计主题包格式
-  - [ ] `src/types/themePackage.ts`
-  - [ ] 主题元数据
-  - [ ] 预览图片
-|- [ ] 实现主题加载器
-  - [ ] NPM 包支持
-  - [ ] 本地文件加载
-  - [ ] CDN 加载
-|- [ ] 创建主题分享平台
-  - [ ] 简单的 GitHub 仓库列表
-  - [ ] 主题预览
-  - [ ] 一键安装
-|- [ ] 创建示例主题包
-  - [ ] Minimal 主题
-  - [ ] Cyberpunk 主题
-  - [ ] 学术主题
+|- [x] 设计主题包格式
+  - [x] `src/types/themePackage.ts`
+  - [x] 主题元数据
+  - [x] 预览图片
+|- [x] 实现主题加载器
+  - [x] NPM 包支持
+  - [x] 本地文件加载
+  - [x] CDN 加载
+|- [x] 创建主题分享平台
+  - [x] 简单的 GitHub 仓库列表
+  - [x] 主题预览
+  - [x] 一键安装
+|- [x] 创建示例主题包
+  - [x] Minimal 主题
+  - [x] Cyberpunk 主题
+  - [x] 学术主题
 
 ---
 
@@ -367,6 +367,10 @@
   - [x] 实现 CodeRunner 示例插件
   - [x] 更新帮助文档和工具栏
   - [x] 优化 PDF 导出支持多 clickState 页面
+  - [x] 实现 AI 助手功能及 UI 组件
+  - [x] 实现主题市场功能及 UI 组件
+  - [x] 创建主题系统及示例主题
+  - [x] 更新项目文档和使用说明
 
 ---
 
