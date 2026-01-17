@@ -2,9 +2,13 @@ import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
 import { BlockMath, InlineMath } from 'react-katex';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useTheme } from '../context/ThemeContext';
 import { darkTheme } from '../styles/theme';
+import { NavigationControls } from './NavigationControls';
 import 'katex/dist/katex.min.css';
 
 // 添加全局样式支持
@@ -119,16 +123,20 @@ export interface SlideContent {
 
 export interface SlideElement {
   id: string;
-  type: 'title' | 'subtitle' | 'text' | 'bullets' | 'vector' | 'grid' | 'code' | 'quote' | 'image' | 'video' | 'icon' | 'html' | 'math' | 'markdown';
+  type: 'title' | 'subtitle' | 'text' | 'bullets' | 'vector' | 'grid' | 'code' | 'quote' | 'image' | 'video' | 'icon' | 'html' | 'math' | 'markdown' | 'table';
   content: string | string[] | any;
   clickState: number;
   animation?: 'fade' | 'scale' | 'grow' | 'transform' | 'highlight';
   style?: React.CSSProperties;
   children?: SlideElement[];
+  listStart?: number;
+  listType?: 'ul' | 'ol';
+  language?: string;
 }
 
 interface SlideTemplateProps {
   slides: SlideContent[];
+  activeSlideIndex?: number;
   onSlideChange?: (index: number) => void;
   autoPlay?: boolean;
   autoPlayInterval?: number;
@@ -136,14 +144,29 @@ interface SlideTemplateProps {
 
 export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   slides,
+  activeSlideIndex,
   onSlideChange,
   autoPlay = false,
   autoPlayInterval = 5000,
 }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+
+  // 同步外部传入的页码
+  useEffect(() => {
+    if (activeSlideIndex !== undefined && activeSlideIndex !== currentSlideIndex) {
+      setCurrentSlideIndex(activeSlideIndex);
+      setClickState(0);
+    }
+  }, [activeSlideIndex]);
   const [clickState, setClickState] = useState(0);
   const [totalClicks, setTotalClicks] = useState(0);
   const { themeConfig: theme } = useTheme();
+
+  // 当幻灯片内容改变时（例如切换文件），重置到第一页
+  useEffect(() => {
+    setCurrentSlideIndex(0);
+    setClickState(0);
+  }, [slides]);
 
   // 计算每个幻灯片的总点击次数
   const calculateClicks = (slide: SlideContent): number => {
@@ -197,10 +220,15 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   // 键盘导航
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === ' ' || e.key === 'ArrowRight') {
+      // 检查焦点是否在输入框或文本域中，如果是则不触发快捷键
+      const activeElement = document.activeElement;
+      const isInput = activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement;
+      if (isInput) return;
+
+      if ((e.key === ' ' && !e.shiftKey) || e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'Enter' || e.key === 'PageDown') {
         e.preventDefault();
         handleNavigate('next');
-      } else if (e.key === 'ArrowLeft') {
+      } else if ((e.key === ' ' && e.shiftKey) || e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'Backspace' || e.key === 'PageUp') {
         e.preventDefault();
         handleNavigate('prev');
       }
@@ -277,12 +305,16 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         const bullets = Array.isArray(bulletsContent)
           ? bulletsContent
           : bulletsContent.split('\n').filter(line => line.trim());
+        
+        const ListTag = el.listType === 'ol' ? 'ol' : 'ul';
+        
         return (
-          <ul
+          <ListTag
             key={el.id}
+            start={el.listStart}
             style={{
-              listStyle: 'none',
-              padding: 0,
+              listStyle: el.listType === 'ol' ? 'decimal' : 'none',
+              padding: el.listType === 'ol' ? '0 0 0 1.5em' : 0,
               marginBottom: '15px',
               ...baseStyle,
             }}
@@ -292,10 +324,10 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                 key={`${el.id}-${idx}`}
                 style={{
                   marginBottom: '12px',
-                  padding: '12px 16px',
+                  padding: el.listType === 'ol' ? '8px 12px' : '12px 16px',
                   background: 'rgba(88, 196, 221, 0.08)',
                   borderRadius: '6px',
-                  borderLeft: `3px solid ${theme.primaryColor}`,
+                  borderLeft: el.listType === 'ol' ? 'none' : `3px solid ${theme.primaryColor}`,
                   fontSize: 'clamp(15px, 1.8vw, 18px)',
                   lineHeight: 1.6,
                   wordWrap: 'break-word',
@@ -313,7 +345,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                 </ReactMarkdown>
               </li>
             ))}
-          </ul>
+          </ListTag>
         );
 
       case 'vector':
@@ -434,6 +466,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
 
       case 'code':
         const codeLines = el.content as string;
+        const language = el.language || 'text';
         return (
           <div
             key={el.id}
@@ -442,45 +475,60 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
               padding: '0',
               borderRadius: '12px',
               fontFamily: 'Consolas, Monaco, monospace',
-              fontSize: 'clamp(12px, 1.5vw, 15px)',
-              color: theme.theme === 'dark' ? theme.colors.codeText : '#111827',
-              overflow: 'auto',
+              fontSize: 'clamp(12px, 1.4vw, 14px)',
+              overflow: 'hidden',
               maxWidth: '100%',
               marginBottom: '15px',
-              border: `2px solid ${theme.primaryColor}`,
-              boxShadow: `0 0 20px rgba(58, 130, 246, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.05)`,
+              border: `1px solid ${theme.colors.border}`,
+              boxShadow: theme.theme === 'dark' ? '0 10px 30px rgba(0,0,0,0.5)' : '0 10px 30px rgba(0,0,0,0.1)',
               ...baseStyle,
             }}
           >
             <div style={{
-              background: `linear-gradient(90deg, ${theme.primaryColor}22 0%, ${theme.accentColor}22 100%)`,
+              background: theme.theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
               padding: '8px 16px',
-              borderBottom: `1px solid ${theme.accentColor}`,
+              borderBottom: `1px solid ${theme.colors.border}`,
               display: 'flex',
-              alignItems: 'center',
-              gap: '10px'
+              justifyContent: 'space-between',
+              alignItems: 'center'
             }}>
               <span style={{
                 fontSize: '11px',
                 fontWeight: 600,
                 textTransform: 'uppercase',
                 letterSpacing: '1px',
-                color: '#58C4DD',
+                color: theme.primaryColor,
                 opacity: 0.9
               }}>
-                CODE
+                {language}
               </span>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ff5f56' }} />
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffbd2e' }} />
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#27c93f' }} />
+              </div>
             </div>
-            <pre style={{
-              margin: 0,
-              padding: '16px',
-              whiteSpace: 'pre-wrap',
-              wordWrap: 'break-word',
-              lineHeight: 1.6,
-              color: theme.theme === 'dark' ? '#E2E8F0' : '#111827'
-            }}>
-              {codeLines}
-            </pre>
+            <div style={{ padding: '4px' }}>
+              <SyntaxHighlighter
+                language={language}
+                style={vscDarkPlus}
+                customStyle={{
+                  margin: 0,
+                  padding: '16px',
+                  background: 'transparent',
+                  fontSize: 'inherit',
+                  lineHeight: 1.6,
+                }}
+                codeTagProps={{
+                  style: {
+                    fontFamily: 'inherit',
+                    fontSize: 'inherit',
+                  }
+                }}
+              >
+                {codeLines}
+              </SyntaxHighlighter>
+            </div>
           </div>
         );
 
@@ -505,6 +553,77 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
             }}
             dangerouslySetInnerHTML={{ __html: el.content as string }}
           />
+        );
+
+      case 'table':
+        return (
+          <div
+            key={el.id}
+            style={{
+              overflowX: 'auto',
+              marginBottom: '20px',
+              width: '100%',
+              ...baseStyle,
+            }}
+          >
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeKatex, rehypeRaw]}
+              components={{
+                table: ({ children }) => (
+                  <table style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    fontSize: 'clamp(14px, 1.6vw, 16px)',
+                    margin: '10px 0',
+                    background: theme.colors.surface,
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    border: `1px solid ${theme.colors.border}`
+                  }}>
+                    {children}
+                  </table>
+                ),
+                thead: ({ children }) => (
+                  <thead style={{
+                    background: theme.primaryColor,
+                    color: '#fff',
+                    textAlign: 'left'
+                  }}>
+                    {children}
+                  </thead>
+                ),
+                th: ({ children }) => (
+                  <th style={{
+                    padding: '12px 15px',
+                    borderBottom: `1px solid ${theme.colors.border}`,
+                    fontWeight: 600
+                  }}>
+                    {children}
+                  </th>
+                ),
+                td: ({ children }) => (
+                  <td style={{
+                    padding: '10px 15px',
+                    borderBottom: `1px solid ${theme.colors.border}`,
+                    color: theme.colors.textSecondary
+                  }}>
+                    {children}
+                  </td>
+                ),
+                tr: ({ children }) => (
+                  <tr style={{
+                    borderBottom: `1px solid ${theme.colors.border}`,
+                    transition: 'background 0.2s'
+                  }}>
+                    {children}
+                  </tr>
+                )
+              }}
+            >
+              {el.content as string}
+            </ReactMarkdown>
+          </div>
         );
 
       case 'image':
@@ -593,7 +712,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
           >
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeKatex]}
+              rehypePlugins={[rehypeRaw, rehypeKatex]}
               components={{
                 h1: ({ children }) => (
                   <h1 style={{ fontSize: 'clamp(24px, 3vw, 36px)', fontWeight: 700, marginBottom: '20px', marginTop: '10px' }}>{children}</h1>
@@ -607,6 +726,14 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                 p: ({ children }) => (
                   <p style={{ marginBottom: '12px', lineHeight: 1.7 }}>{children}</p>
                 ),
+                span: ({ className, children }) => {
+                  if (className === 'math-inline') {
+                    // 确保提取出纯文本公式
+                    const content = Array.isArray(children) ? children.join('') : String(children);
+                    return <InlineMath math={content} />;
+                  }
+                  return <span>{children}</span>;
+                },
                 ul: ({ children }) => (
                   <ul
                     style={{
@@ -617,8 +744,9 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                     {children}
                   </ul>
                 ),
-                ol: ({ children }) => (
+                ol: ({ children, start }) => (
                   <ol
+                    start={start}
                     style={{
                       paddingLeft: '1.4em',
                       margin: '0.4em 0',
@@ -826,80 +954,24 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
       {slides.filter(Boolean).map((slide, index) => renderSlide(slide, index))}
 
       {/* 导航控制 */}
-      <div
-        className="nav-controls"
-        style={{
-          position: 'absolute',
-          bottom: '25px',
-          right: '25px',
-          display: 'flex',
-          gap: '15px',
-          alignItems: 'center',
-          zIndex: 100,
-          background: theme === darkTheme ? 'rgba(20, 20, 20, 0.6)' : 'rgba(255, 255, 255, 0.8)',
-          padding: '8px 16px',
-          borderRadius: '12px',
-          border: theme === darkTheme ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
-          backdropFilter: 'blur(15px)',
-          transition: 'opacity 0.3s ease',
+      <NavigationControls
+        currentSlideIndex={currentSlideIndex}
+        clickState={clickState}
+        totalClicks={totalClicks}
+        slidesCount={slides.length}
+        onNext={() => handleNavigate('next')}
+        onPrev={() => handleNavigate('prev')}
+        onJump={(index) => {
+          setCurrentSlideIndex(index);
+          setClickState(0);
+          onSlideChange?.(index);
         }}
-      >
-        <button
-          onClick={() => handleNavigate('prev')}
-          disabled={currentSlideIndex === 0 && clickState === 0}
-          style={{
-            padding: '5px 12px',
-            background: 'transparent',
-            border: 'none',
-            color: theme.primaryColor,
-            cursor: (currentSlideIndex === 0 && clickState === 0) ? 'not-allowed' : 'pointer',
-            opacity: (currentSlideIndex === 0 && clickState === 0) ? 0.2 : 1,
-            fontSize: '20px',
-            fontWeight: 800,
-          }}
-        >
-          ‹
-        </button>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <span style={{ color: theme.colors.text, fontSize: '12px', fontWeight: 600 }}>
-            {currentSlideIndex + 1} / {slides.length}
-          </span>
-          <div style={{
-            width: '40px',
-            height: '2px',
-            background: theme === darkTheme ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-            marginTop: '4px',
-            position: 'relative',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              height: '100%',
-              width: `${((currentSlideIndex + 1) / slides.length) * 100}%`,
-              background: theme.primaryColor,
-              transition: 'width 0.3s ease'
-            }} />
-          </div>
-        </div>
-        <button
-          onClick={() => handleNavigate('next')}
-          disabled={currentSlideIndex === slides.length - 1 && clickState === totalClicks - 1}
-          style={{
-            padding: '5px 12px',
-            background: 'transparent',
-            border: 'none',
-            color: theme.primaryColor,
-            cursor: (currentSlideIndex === slides.length - 1 && clickState === totalClicks - 1) ? 'not-allowed' : 'pointer',
-            opacity: (currentSlideIndex === slides.length - 1 && clickState === totalClicks - 1) ? 0.2 : 1,
-            fontSize: '20px',
-            fontWeight: 800,
-          }}
-        >
-          ›
-        </button>
-      </div>
+        onReplay={() => {
+          setCurrentSlideIndex(0);
+          setClickState(0);
+          onSlideChange?.(0);
+        }}
+      />
 
       {/* 提示文字 */}
       {currentSlideIndex === 0 && clickState === 0 && (

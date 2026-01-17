@@ -9,7 +9,12 @@
     "preview": "vite preview",
     "remotion:preview": "remotion preview",
     "remotion:build": "remotion render",
-    "remotion:serve": "remotion player --port 3000"
+    "remotion:serve": "remotion player --port 3000",
+    "format": "prettier --write \"src/**/*.{ts,tsx,json,css,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,json,css,md}\"",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
   },
   "keywords": [
     "remotion",
@@ -34,10 +39,21 @@
     "remotion": "^4.0.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.1",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/html2pdf.js": "^0.10.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "@types/react-katex": "^3.0.4",
     "@vitejs/plugin-react": "^5.1.2",
+    "@vitest/coverage-v8": "^4.0.17",
+    "@vitest/ui": "^4.0.17",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "html2pdf.js": "^0.14.0",
+    "prettier": "^3.8.0",
     "typescript": "^5.0.0",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^4.0.17"
   }
 }

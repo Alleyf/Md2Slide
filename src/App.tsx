@@ -3,84 +3,264 @@ import { SlideTemplate, SlideContent, SlideElement } from './components/SlideTem
 import { ThemeToggle } from './components/ThemeToggle';
 import { useTheme } from './context/ThemeContext';
 import { darkTheme } from './styles/theme';
+import { ThemeConfig } from './types/theme';
+import {
+  parseMarkdownToSlides,
+  parseTableOfContents,
+  TOCItem,
+} from './parser';
 
-// 初始示例 Markdown
-const INITIAL_MARKDOWN = `# 欢迎使用 Md2Slide
+interface FileItem {
+  name: string;
+  kind: 'file' | 'directory';
+  handle?: FileSystemFileHandle | FileSystemDirectoryHandle;
+  isStatic?: boolean;
+  content?: string;
+  children?: FileItem[];
+}
 
-## 打造 3Blue1Brown 风格的演示文稿
+interface FileTreeItemProps {
+  item: FileItem;
+  depth: number;
+  activeFile: string | null;
+  onFileClick: (file: FileItem) => void;
+  theme: ThemeConfig;
+}
 
-### 核心特性
-- 🎨 **3B1B 风格**：深色背景，明亮配色
-- ⚡ **动态展示**：支持逐步显示内容
-- 📊 **数学公式**：支持 LaTeX 公式
-- 💻 **代码支持**：内置语法高亮
-- 🎮 **键盘控制**：使用空格或方向键导航
+const FileTreeItem: React.FC<FileTreeItemProps> = ({ item, depth, activeFile, onFileClick, theme }) => {
+  const [isOpen, setIsOpen] = useState(true);
 
----
+  if (item.kind === 'directory') {
+    return (
+      <>
+        <div
+          onClick={() => setIsOpen(!isOpen)}
+          style={{
+            padding: '6px 15px',
+            paddingLeft: `${15 + depth * 12}px`,
+            fontSize: '13px',
+            color: theme.colors.text,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.2s',
+            fontWeight: 500,
+            opacity: 0.9
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+        >
+          <span style={{ fontSize: '10px', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>▶</span>
+          <span style={{ fontSize: '14px' }}>📁</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {item.name}
+          </span>
+        </div>
+        {isOpen && item.children?.map(child => (
+          <FileTreeItem
+            key={child.name}
+            item={child}
+            depth={depth + 1}
+            activeFile={activeFile}
+            onFileClick={onFileClick}
+            theme={theme}
+          />
+        ))}
+      </>
+    );
+  }
 
-# 数学与可视化
-
-## 欧拉公式
-
-$$e^{i\\pi} + 1 = 0$$
-
-## 几何变换
-
-!grid
-!vector
-
-!icon(📐)
-
----
-
-# 代码演示
-
-## Python 快速排序
-
-\`\`\`python
-def quicksort(arr):
-    if len(arr) <= 1:
-        return arr
-    pivot = arr[len(arr) // 2]
-    left = [x for x in arr if x < pivot]
-    middle = [x for x in arr if x == pivot]
-    right = [x for x in arr if x > pivot]
-    return quicksort(left) + middle + quicksort(right)
-\`\`\`
-
-!icon(💻)
-
----
-
-# 多媒体与引用
-
-## 外部资源
-
-> 每一个伟大的演示都始于一个简洁的 Markdown 文件。
-
-!video(https://www.w3schools.com/html/mov_bbb.mp4)
-
-!icon(✨)
-`;
-
-const formatInlineMarkdown = (text: string): string => {
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-  return escaped
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/__(.+?)__/g, '<strong>$1</strong>');
+  return (
+    <div
+      onClick={() => onFileClick(item)}
+      style={{
+        padding: '6px 15px',
+        paddingLeft: `${15 + depth * 12 + 16}px`,
+        fontSize: '13px',
+        color: activeFile === item.name ? theme.primaryColor : theme.colors.textSecondary,
+        cursor: 'pointer',
+        background: activeFile === item.name ? (theme.theme === 'dark' ? 'rgba(58,134,255,0.1)' : 'rgba(37,99,235,0.05)') : 'transparent',
+        borderLeft: `3px solid ${activeFile === item.name ? theme.primaryColor : 'transparent'}`,
+        transition: 'all 0.2s',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
+      }}
+      onMouseEnter={(e) => {
+        if (activeFile !== item.name) e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)';
+      }}
+      onMouseLeave={(e) => {
+        if (activeFile !== item.name) e.currentTarget.style.background = 'transparent';
+      }}
+    >
+      <span style={{ fontSize: '14px' }}>{item.isStatic ? '📚' : '📄'}</span>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {item.name}
+      </span>
+    </div>
+  );
 };
 
 export const App: React.FC = () => {
-  const [markdown, setMarkdown] = useState(INITIAL_MARKDOWN);
+  const [markdown, setMarkdown] = useState('');
   const [slides, setSlides] = useState<SlideContent[]>([]);
   const [showEditor, setShowEditor] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [showTOC, setShowTOC] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [activeFile, setActiveFile] = useState<string | null>('tutorial.md');
+  const [toc, setToc] = useState<TOCItem[]>([]);
+  const [activePreviewSlideIndex, setActivePreviewSlideIndex] = useState(0);
+  const [fileList, setFileList] = useState<FileItem[]>([
+    { name: 'tutorial.md', kind: 'file', isStatic: true }
+  ]);
+  const [sidebarWidth, setSidebarWidth] = useState(220);
+  const [editorWidth, setEditorWidth] = useState(550);
+  const [tocHeight, setTocHeight] = useState(300);
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const [isResizingEditor, setIsResizingEditor] = useState(false);
+  const [isResizingTOC, setIsResizingTOC] = useState(false);
+  const [layoutOrder, setLayoutOrder] = useState<('sidebar' | 'editor' | 'preview')[]>(['sidebar', 'editor', 'preview']);
+  const [draggingSection, setDraggingSection] = useState<string | null>(null);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const { themeConfig: theme } = useTheme();
+
+  const handleDragStart = (section: 'sidebar' | 'editor' | 'preview') => {
+    setDraggingSection(section);
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetSection: 'sidebar' | 'editor' | 'preview') => {
+    e.preventDefault();
+    if (draggingSection && draggingSection !== targetSection) {
+      const newOrder = [...layoutOrder];
+      const dragIdx = newOrder.indexOf(draggingSection as any);
+      const targetIdx = newOrder.indexOf(targetSection);
+      newOrder[dragIdx] = targetSection;
+      newOrder[targetIdx] = draggingSection as any;
+      setLayoutOrder(newOrder);
+    }
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isResizingSidebar) {
+        setSidebarWidth(Math.max(150, Math.min(400, e.clientX)));
+      } else if (isResizingEditor) {
+        const sidebarActual = showSidebar ? sidebarWidth : 0;
+        setEditorWidth(Math.max(300, e.clientX - sidebarActual));
+      } else if (isResizingTOC) {
+        const sidebarElement = document.getElementById('sidebar-container');
+        if (sidebarElement) {
+          const rect = sidebarElement.getBoundingClientRect();
+          const newHeight = rect.bottom - e.clientY;
+          setTocHeight(Math.max(100, Math.min(rect.height - 150, newHeight)));
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingSidebar(false);
+      setIsResizingEditor(false);
+      setIsResizingTOC(false);
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
+    };
+
+    if (isResizingSidebar || isResizingEditor || isResizingTOC) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = isResizingTOC ? 'row-resize' : 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizingSidebar, isResizingEditor, isResizingTOC, sidebarWidth, showSidebar]);
+
+  const loadFile = async (file: FileItem) => {
+    try {
+      let text = '';
+      if (file.isStatic) {
+        const response = await fetch(`/${file.name}`);
+        if (response.ok) {
+          text = await response.text();
+        }
+      } else if (file.handle) {
+        const fileData = await file.handle.getFile();
+        text = await fileData.text();
+      } else if (file.content) {
+        text = file.content;
+      }
+      
+      if (text) {
+        setMarkdown(text);
+        setActiveFile(file.name);
+      }
+    } catch (error) {
+      console.error('Failed to load file:', error);
+    }
+  };
+
+  const openFolder = async () => {
+    try {
+      // @ts-ignore - File System Access API
+      const directoryHandle = await window.showDirectoryPicker();
+      
+      async function buildTree(handle: FileSystemDirectoryHandle): Promise<FileItem[]> {
+        const items: FileItem[] = [];
+        // @ts-ignore
+        for await (const entry of handle.values()) {
+          if (entry.kind === 'file' && entry.name.endsWith('.md')) {
+            items.push({ name: entry.name, kind: 'file', handle: entry as FileSystemFileHandle });
+          } else if (entry.kind === 'directory') {
+            const children = await buildTree(entry as FileSystemDirectoryHandle);
+            if (children.length > 0) {
+              items.push({ name: entry.name, kind: 'directory', handle: entry as FileSystemDirectoryHandle, children });
+            }
+          }
+        }
+        return items.sort((a, b) => {
+          if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1;
+          return a.name.localeCompare(b.name);
+        });
+      }
+
+      const tree = await buildTree(directoryHandle);
+      
+      if (tree.length > 0) {
+        // 当打开新文件夹时，完全替换 fileList，只显示选中的文件夹内容
+        setFileList([
+          { name: directoryHandle.name, kind: 'directory', handle: directoryHandle, children: tree }
+        ]);
+        
+        // 尝试加载第一个发现的文件
+        const findFirstFile = (items: FileItem[]): FileItem | null => {
+          for (const item of items) {
+            if (item.kind === 'file') return item;
+            if (item.children) {
+              const found = findFirstFile(item.children);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        const firstFile = findFirstFile(tree);
+        if (firstFile) loadFile(firstFile);
+      }
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        console.error('Failed to open folder:', error);
+      }
+    }
+  };
+
+  useEffect(() => {
+    loadFile({ name: 'tutorial.md', isStatic: true });
+  }, []);
 
   const applySnippet = (snippet: string) => {
     const textarea = editorRef.current;
@@ -102,13 +282,24 @@ export const App: React.FC = () => {
     });
   };
 
+  // 格式化行内 Markdown（如公式、加粗等）
+  const formatInlineMarkdown = (text: string) => {
+    if (!text) return '';
+    // 处理行内公式 $...$ -> <span class="math-inline">...</span>
+    return text.replace(/\$([^\$]+)\$/g, '<span class="math-inline">$1</span>');
+  };
+
   // 解析 Markdown 为幻灯片
+
   const parseMarkdownToSlides = (md: string): SlideContent[] => {
-    const slideBlocks = md.split(/\n---\n/);
+    // 归一化换行符
+    const normalizedMd = md.replace(/\r\n/g, '\n');
+    // 支持 --- 作为分页符，支持前后空格，以及在文件开头或结尾的情况
+    const slideBlocks = normalizedMd.split(/(?:\n|^)\s*---\s*(?:\n|$)/);
     const parsedSlides: SlideContent[] = [];
 
     slideBlocks.forEach((block, index) => {
-      const lines = block.trim().split('\n');
+      const lines = block.trim().split(/\r?\n/);
       const elements: SlideElement[] = [];
       let clickState = 0;
 
@@ -125,21 +316,61 @@ export const App: React.FC = () => {
         } else if (line.startsWith('### ')) {
           const raw = line.slice(4);
           elements.push({ id: `s${index}-e${i}`, type: 'subtitle', content: formatInlineMarkdown(raw), clickState: clickState++, style: { fontSize: '24px', marginTop: '10px' } });
-        } else if (line.startsWith('- ') || line.startsWith('* ')) {
+        } else if (line.startsWith('- ') || line.startsWith('* ') || /^\d+\.\s/.test(line)) {
           // 每个列表项分配独立的 clickState 以实现逐条显示
-          const bulletContent = line.slice(2);
-          elements.push({ id: `s${index}-e${i}`, type: 'bullets', content: [bulletContent], clickState: clickState++ });
+          const isOrdered = /^\d+\.\s/.test(line);
+          const bulletContent = isOrdered ? line.replace(/^\d+\.\s/, '') : line.slice(2);
+          const listStart = isOrdered ? parseInt(line.match(/^(\d+)\./)![1]) : undefined;
+          
+          elements.push({ 
+            id: `s${index}-e${i}`, 
+            type: 'bullets', 
+            content: [formatInlineMarkdown(bulletContent)], 
+            clickState: clickState++,
+            listType: isOrdered ? 'ol' : 'ul',
+            listStart: listStart
+          });
         } else if (line.startsWith('```')) {
+          const language = line.slice(3).trim();
           let code = '';
           let j = i + 1;
           while (j < lines.length && !lines[j].startsWith('```')) {
             code += lines[j] + '\n';
             j++;
           }
-          elements.push({ id: `s${index}-e${i}`, type: 'code', content: code.trim(), clickState: clickState++ });
+          elements.push({ 
+            id: `s${index}-e${i}`, 
+            type: 'code', 
+            content: code.trim(), 
+            clickState: clickState++,
+            language: language || 'text'
+          });
           i = j;
         } else if (line.startsWith('> ')) {
-          elements.push({ id: `s${index}-e${i}`, type: 'quote', content: line.slice(2), clickState: clickState++ });
+          let quoteContent = line.slice(2);
+          let j = i + 1;
+          // 连续的引用行合并为一个 quote 块
+          while (j < lines.length && lines[j].trim().startsWith('> ')) {
+            quoteContent += '\n' + lines[j].trim().slice(2);
+            j++;
+          }
+          elements.push({ id: `s${index}-e${i}`, type: 'quote', content: formatInlineMarkdown(quoteContent), clickState: clickState++ });
+          i = j - 1;
+        } else if (line.startsWith('|')) {
+          // 检测表格
+          let tableContent = line + '\n';
+          let j = i + 1;
+          while (j < lines.length && (lines[j].trim().startsWith('|') || lines[j].trim().startsWith('+-'))) {
+            tableContent += lines[j] + '\n';
+            j++;
+          }
+          // 只有当至少有两行（表头+分隔符）时才视为表格
+          if (tableContent.split('\n').length >= 3) {
+            elements.push({ id: `s${index}-e${i}`, type: 'table', content: tableContent.trim(), clickState: clickState++ });
+            i = j - 1;
+          } else {
+            elements.push({ id: `s${index}-e${i}`, type: 'markdown', content: formatInlineMarkdown(line), clickState: clickState++ });
+          }
         } else if (line.startsWith('!icon(')) {
           const match = line.match(/!icon\(([^)]+)\)/);
           if (match) elements.push({ id: `s${index}-e${i}`, type: 'icon', content: match[1], clickState: clickState++ });
@@ -190,16 +421,42 @@ export const App: React.FC = () => {
           });
 
           i = j;
-        } else if (line.startsWith('$$')) {
-           let latex = line.replace(/\$\$/g, '');
-           if (!latex && i + 1 < lines.length && !lines[i+1].startsWith('$$')) {
-              latex = lines[i+1];
-              i++;
-              if (i + 1 < lines.length && lines[i+1].startsWith('$$')) i++;
-           }
-           elements.push({ id: `s${index}-e${i}`, type: 'math', content: { latex, displayMode: true }, clickState: clickState++ });
+        } else if (line.trim().startsWith('$$')) {
+          let latexContent = '';
+          let j = i;
+          let started = false;
+          let foundEnd = false;
+
+          while (j < lines.length) {
+            let currentLine = lines[j];
+            
+            if (!started) {
+              const startIdx = currentLine.indexOf('$$');
+              currentLine = currentLine.slice(startIdx + 2);
+              started = true;
+            }
+
+            const endIdx = currentLine.indexOf('$$');
+            if (endIdx !== -1) {
+              latexContent += (latexContent ? '\n' : '') + currentLine.slice(0, endIdx);
+              foundEnd = true;
+              break;
+            } else {
+              latexContent += (latexContent ? '\n' : '') + currentLine;
+            }
+            j++;
+          }
+
+          elements.push({ 
+            id: `s${index}-e${i}`, 
+            type: 'math', 
+            content: { latex: latexContent.trim(), displayMode: true }, 
+            clickState: clickState++ 
+          });
+          
+          if (foundEnd) i = j;
         } else {
-          elements.push({ id: `s${index}-e${i}`, type: 'markdown', content: line, clickState: clickState++ });
+          elements.push({ id: `s${index}-e${i}`, type: 'markdown', content: formatInlineMarkdown(line), clickState: clickState++ });
         }
       }
 
@@ -213,7 +470,53 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     setSlides(parseMarkdownToSlides(markdown));
+    setActivePreviewSlideIndex(0);
+    
+    // 使用统一的 parser 解析目录
+    setToc(parseTableOfContents(markdown));
   }, [markdown]);
+
+  useEffect(() => {
+    if (activeFile) {
+      setFileList(prev => {
+        const index = prev.findIndex(f => f.name === activeFile);
+        if (index !== -1 && prev[index].content !== undefined && prev[index].content !== markdown) {
+          const newList = [...prev];
+          newList[index] = { ...newList[index], content: markdown };
+          return newList;
+        }
+        return prev;
+      });
+    }
+  }, [markdown, activeFile]);
+
+  const scrollToLine = (lineIndex: number) => {
+    const textarea = editorRef.current;
+    if (!textarea) return;
+
+    const lines = textarea.value.split('\n');
+    let offset = 0;
+    for (let i = 0; i < lineIndex; i++) {
+      offset += lines[i].length + 1; // +1 for newline
+    }
+
+    textarea.focus();
+    textarea.setSelectionRange(offset, offset);
+    
+    // 粗略估算滚动位置
+    const lineHeight = 24; // 1.7 line-height * 14px font size is roughly 24px
+    textarea.scrollTop = lineIndex * lineHeight - 100;
+
+    // 同步幻灯片预览
+    const mdLines = markdown.split('\n');
+    let slideIndex = 0;
+    for (let i = 0; i < lineIndex; i++) {
+      if (mdLines[i].trim() === '---') {
+        slideIndex++;
+      }
+    }
+    setActivePreviewSlideIndex(slideIndex);
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -231,7 +534,22 @@ export const App: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (event) => setMarkdown(event.target?.result as string);
+      reader.onload = (event) => {
+        const content = event.target?.result as string;
+        setMarkdown(content);
+        setActiveFile(file.name);
+        
+        // 将文件添加到左侧列表（如果不存在则添加，存在则更新内容）
+        setFileList(prev => {
+          const index = prev.findIndex(f => f.name === file.name);
+          if (index !== -1) {
+            const newList = [...prev];
+            newList[index] = { ...newList[index], content };
+            return newList;
+          }
+          return [...prev, { name: file.name, kind: 'file', content }];
+        });
+      };
       reader.readAsText(file);
     }
   };
@@ -718,86 +1036,368 @@ export const App: React.FC = () => {
         background: theme.colors.background,
         transition: 'background 0.3s ease'
       }}>
-        {/* Editor Side */}
-        {showEditor && (
-          <div style={{
-            width: isMobile ? '100%' : '450px',
-            minWidth: isMobile ? '100%' : '350px',
-            borderRight: showEditor && !isMobile ? `1px solid ${theme.colors.border}` : 'none',
-            borderBottom: showEditor && isMobile ? `1px solid ${theme.colors.border}` : 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            background: theme === darkTheme ? '#0a0a0a' : '#ffffff',
-            transition: 'all 0.3s ease'
-          }}>
-            <div style={{
-              padding: '10px 20px',
-              fontSize: '11px',
-              color: theme.colors.textSecondary,
-              borderBottom: `1px solid ${theme.colors.border}`,
-              textTransform: 'uppercase',
-              letterSpacing: '1px',
-              fontWeight: 700
-            }}>
-              Markdown 编辑器
-            </div>
-            <textarea
-              ref={editorRef}
-              value={markdown}
-              onChange={(e) => setMarkdown(e.target.value)}
-              style={{
-                flex: 1,
-                background: 'transparent',
-                border: 'none',
-                padding: '20px',
-                color: theme.colors.textSecondary,
-                fontSize: '14px',
-                fontFamily: 'JetBrains Mono, Fira Code, Consolas, monospace',
-                resize: 'none',
-                outline: 'none',
-                lineHeight: '1.7',
-                tabSize: 2
-              }}
-              placeholder="在此输入 Markdown 内容..."
-            />
-            <div style={{
-              padding: '12px 20px',
-              fontSize: '12px',
-              color: theme.colors.textSecondary,
-              borderTop: `1px solid ${theme.colors.border}`,
-              background: theme.colors.surface
-            }}>
-              <span style={{ color: theme.primaryColor }}>技巧:</span> 使用 <code style={{ color: theme.colors.textSecondary }}>---</code> 分隔幻灯片。
-            </div>
-          </div>
-        )}
+        {layoutOrder.map((section, index) => {
+          if (section === 'sidebar' && showSidebar && !isMobile && showEditor) {
+            return (
+              <React.Fragment key="sidebar">
+                <div 
+                  id="sidebar-container"
+                  onDragOver={(e) => handleDragOver(e, 'sidebar')}
+                  style={{
+                    width: `${sidebarWidth}px`,
+                    minWidth: '150px',
+                    borderRight: index < layoutOrder.length - 1 ? `1px solid ${theme.colors.border}` : 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    background: theme.colors.surface,
+                    height: '100%',
+                    position: 'relative',
+                    opacity: draggingSection === 'sidebar' ? 0.5 : 1
+                  }}
+                >
+                  <div 
+                    draggable
+                    onDragStart={() => handleDragStart('sidebar')}
+                    onDragEnd={() => setDraggingSection(null)}
+                    style={{
+                      padding: '10px 15px',
+                      fontSize: '11px',
+                      color: theme.colors.textSecondary,
+                      borderBottom: `1px solid ${theme.colors.border}`,
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      cursor: 'grab'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ fontSize: '12px', opacity: 0.5 }}>⠿</span>
+                      文件目录
+                    </div>
+                    {typeof window !== 'undefined' && 'showDirectoryPicker' in window && (
+                      <button
+                        onClick={openFolder}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: theme.primaryColor,
+                          cursor: 'pointer',
+                          fontSize: '10px',
+                          padding: '2px 5px',
+                          borderRadius: '4px',
+                          textTransform: 'none',
+                          letterSpacing: '0',
+                          fontWeight: 600
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = theme.colors.border}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      >
+                        打开文件夹
+                      </button>
+                    )}
+                  </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '10px 0' }}>
+                  {fileList.map(file => (
+                    <FileTreeItem
+                      key={file.name}
+                      item={file}
+                      depth={0}
+                      activeFile={activeFile}
+                      onFileClick={loadFile}
+                      theme={theme}
+                    />
+                  ))}
+                </div>
 
-        {/* Preview Side */}
-        <div style={{
-          flex: 1,
-          padding: showEditor ? (isMobile ? '16px' : '30px') : '0',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          overflow: 'hidden',
-          transition: 'padding 0.3s ease'
-        }}>
-          <div style={{
-            width: '100%',
-            height: isMobile ? 'auto' : '100%',
-            maxWidth: showEditor && !isMobile ? 'none' : '100%',
-            maxHeight: '100%',
-            aspectRatio: '16/9',
-            boxShadow: showEditor ? (theme === darkTheme ? '0 20px 50px rgba(0,0,0,0.5)' : '0 20px 50px rgba(0,0,0,0.1)') : 'none',
-            borderRadius: showEditor ? '12px' : '0',
-            overflow: 'hidden',
-            border: showEditor ? `1px solid ${theme.colors.border}` : 'none',
-            transition: 'all 0.3s ease',
-            background: theme.colors.background
-          }}>
-            <SlideTemplate slides={slides} />
-          </div>
-        </div>
+                {/* Vertical Resize Handle for TOC */}
+                <div
+                  onMouseDown={() => setIsResizingTOC(true)}
+                  style={{
+                    height: '4px',
+                    width: '100%',
+                    cursor: 'row-resize',
+                    background: isResizingTOC ? theme.primaryColor : 'transparent',
+                    position: 'absolute',
+                    bottom: `${showTOC ? tocHeight : 35}px`,
+                    zIndex: 10,
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = theme.primaryColor}
+                  onMouseLeave={(e) => !isResizingTOC && (e.currentTarget.style.background = 'transparent')}
+                />
+
+                {/* TOC Section */}
+                <div style={{
+                  borderTop: `1px solid ${theme.colors.border}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: showTOC ? `${tocHeight}px` : '35px',
+                  minHeight: '35px',
+                  background: theme.theme === 'dark' ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.02)',
+                  transition: isResizingTOC ? 'none' : 'height 0.3s ease'
+                }}>
+                  <div 
+                    onClick={() => setShowTOC(!showTOC)}
+                    style={{
+                      padding: '10px 15px',
+                      fontSize: '11px',
+                      color: theme.colors.textSecondary,
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      height: '35px',
+                      flexShrink: 0
+                    }}
+                  >
+                    文章大纲
+                    <span style={{ transform: showTOC ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', fontSize: '10px' }}>▶</span>
+                  </div>
+                  {showTOC && (
+                    <div style={{ 
+                      flex: 1, 
+                      overflowY: 'auto', 
+                      padding: '5px 0 15px 0'
+                    }}>
+                      {toc.length > 0 ? (
+                        toc.map(item => (
+                          <div
+                            key={item.id}
+                            onClick={() => scrollToLine(item.lineIndex)}
+                            style={{
+                              padding: '5px 15px',
+                              paddingLeft: `${15 + (item.level - 1) * 12}px`,
+                              fontSize: '12px',
+                              color: theme.colors.textSecondary,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              transition: 'all 0.2s',
+                              opacity: 0.8
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = theme.primaryColor;
+                              e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = theme.colors.textSecondary;
+                              e.currentTarget.style.background = 'transparent';
+                            }}
+                          >
+                            {item.text}
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ padding: '10px 15px', fontSize: '12px', color: theme.colors.textSecondary, opacity: 0.5, fontStyle: 'italic' }}>
+                          暂无标题内容
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                  {/* Horizontal Resize Handle for Sidebar */}
+                  {!isMobile && index < layoutOrder.length - 1 && (
+                    <div
+                      onMouseDown={() => setIsResizingSidebar(true)}
+                      style={{
+                        width: '4px',
+                        height: '100%',
+                        cursor: 'col-resize',
+                        position: 'absolute',
+                        right: '-2px',
+                        top: 0,
+                        zIndex: 20,
+                        background: isResizingSidebar ? theme.primaryColor : 'transparent',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = theme.primaryColor}
+                      onMouseLeave={(e) => !isResizingSidebar && (e.currentTarget.style.background = 'transparent')}
+                    />
+                  )}
+                </div>
+              </React.Fragment>
+            );
+          }
+
+          if (section === 'editor' && showEditor) {
+            return (
+              <React.Fragment key="editor">
+                <div 
+                  onDragOver={(e) => handleDragOver(e, 'editor')}
+                  style={{
+                    width: isMobile ? '100%' : `${editorWidth}px`,
+                    flex: isResizingEditor || isMobile ? 'none' : (index === layoutOrder.length - 1 ? 1 : 'none'),
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minWidth: isMobile ? '100%' : '300px',
+                    position: 'relative',
+                    background: theme === darkTheme ? '#0a0a0a' : '#ffffff',
+                    borderRight: index < layoutOrder.length - 1 && !isMobile ? `1px solid ${theme.colors.border}` : 'none',
+                    opacity: draggingSection === 'editor' ? 0.5 : 1
+                  }}
+                >
+                  <div 
+                    draggable
+                    onDragStart={() => handleDragStart('editor')}
+                    onDragEnd={() => setDraggingSection(null)}
+                    style={{
+                      padding: '10px 20px',
+                      fontSize: '11px',
+                      color: theme.colors.textSecondary,
+                      borderBottom: `1px solid ${theme.colors.border}`,
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      cursor: 'grab'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '12px', opacity: 0.5 }}>⠿</span>
+                      {!isMobile && (
+                        <button
+                          onClick={() => setShowSidebar(!showSidebar)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: theme.colors.textSecondary,
+                            cursor: 'pointer',
+                            padding: '2px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '4px',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = theme.colors.border}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                          title={showSidebar ? "折叠目录" : "展开目录"}
+                        >
+                          {showSidebar ? '◀' : '▶'}
+                        </button>
+                      )}
+                      Markdown 编辑器
+                    </div>
+                    {activeFile && (
+                      <span style={{ fontSize: '10px', opacity: 0.6, textTransform: 'none' }}>
+                        正在编辑: {activeFile}
+                      </span>
+                    )}
+                  </div>
+                  <textarea
+                    ref={editorRef}
+                    value={markdown}
+                    onChange={(e) => setMarkdown(e.target.value)}
+                    style={{
+                      flex: 1,
+                      background: 'transparent',
+                      border: 'none',
+                      padding: '20px',
+                      color: theme.colors.textSecondary,
+                      fontSize: '14px',
+                      fontFamily: 'JetBrains Mono, Fira Code, Consolas, monospace',
+                      resize: 'none',
+                      outline: 'none',
+                      lineHeight: '1.7',
+                      tabSize: 2
+                    }}
+                    placeholder="在此输入 Markdown 内容..."
+                  />
+                  <div style={{
+                    padding: '12px 20px',
+                    fontSize: '12px',
+                    color: theme.colors.textSecondary,
+                    borderTop: `1px solid ${theme.colors.border}`,
+                    background: theme.colors.surface
+                  }}>
+                    <span style={{ color: theme.primaryColor }}>技巧:</span> 使用 <code style={{ color: theme.colors.textSecondary }}>---</code> 分隔幻灯片。
+                  </div>
+
+                  {/* Horizontal Resize Handle for Editor */}
+                  {!isMobile && index < layoutOrder.length - 1 && (
+                    <div
+                      onMouseDown={() => setIsResizingEditor(true)}
+                      style={{
+                        width: '4px',
+                        height: '100%',
+                        cursor: 'col-resize',
+                        position: 'absolute',
+                        right: '-2px',
+                        top: 0,
+                        zIndex: 20,
+                        background: isResizingEditor ? theme.primaryColor : 'transparent',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = theme.primaryColor}
+                      onMouseLeave={(e) => !isResizingEditor && (e.currentTarget.style.background = 'transparent')}
+                    />
+                  )}
+                </div>
+              </React.Fragment>
+            );
+          }
+
+          if (section === 'preview') {
+            return (
+              <React.Fragment key="preview">
+                <div 
+                  onDragOver={(e) => handleDragOver(e, 'preview')}
+                  style={{
+                    flex: !showEditor || index === layoutOrder.length - 1 ? 1 : 'none',
+                    width: showEditor && index < layoutOrder.length - 1 ? '500px' : 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minWidth: isMobile ? '100%' : '300px',
+                    position: 'relative',
+                    opacity: draggingSection === 'preview' ? 0.5 : 1,
+                    borderRight: index < layoutOrder.length - 1 && !isMobile ? `1px solid ${theme.colors.border}` : 'none'
+                  }}
+                >
+                  <div 
+                    draggable
+                    onDragStart={() => handleDragStart('preview')}
+                    onDragEnd={() => setDraggingSection(null)}
+                    style={{
+                      padding: '10px 20px',
+                      fontSize: '11px',
+                      color: theme.colors.textSecondary,
+                      borderBottom: `1px solid ${theme.colors.border}`,
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      cursor: 'grab',
+                      background: theme.colors.surface
+                    }}
+                  >
+                    <span style={{ fontSize: '12px', opacity: 0.5 }}>⠿</span>
+                    幻灯片预览
+                  </div>
+                  <div style={{ flex: 1, position: 'relative' }}>
+                    <SlideTemplate 
+                      slides={slides} 
+                      activeSlideIndex={activePreviewSlideIndex}
+                      onSlideChange={(index) => setActivePreviewSlideIndex(index)}
+                    />
+                  </div>
+                </div>
+              </React.Fragment>
+            );
+          }
+          return null;
+        })}
       </main>
     </div>
   );
