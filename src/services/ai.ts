@@ -23,21 +23,146 @@ export class AIService {
    * 发送请求到AI模型
    */
   async request(options: AIRequestOptions): Promise<AIResponse> {
-    // 这里是一个模拟实现，实际部署时需要替换为真实的AI API调用
-    console.log(`AI Service: Request to ${this.config.provider}`, options);
+    // 根据配置的提供商调用相应的API
+    switch (this.config.provider) {
+      case 'openai':
+        return this.callOpenAIAPI(options);
+      case 'anthropic':
+        return this.callAnthropicAPI(options);
+      case 'ollama':
+        return this.callOllamaAPI(options);
+      case 'local':
+        return this.callLocalAPI(options);
+      default:
+        throw new Error(`不支持的AI提供商: ${this.config.provider}`);
+    }
+  }
 
-    // 模拟API调用延迟
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  /**
+   * 调用OpenAI API
+   */
+  private async callOpenAIAPI(options: AIRequestOptions): Promise<AIResponse> {
+    const apiKey = this.config.apiKey;
+    if (!apiKey) {
+      throw new Error('OpenAI API密钥未配置');
+    }
 
-    // 返回模拟响应
-    return {
-      content: this.generateMockResponse(options.prompt),
-      usage: {
-        promptTokens: options.prompt.length,
-        completionTokens: Math.floor(options.prompt.length * 0.5),
-        totalTokens: options.prompt.length + Math.floor(options.prompt.length * 0.5),
+    const response = await fetch(this.config.baseURL || 'https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
       },
-      model: this.config.model || 'mock-model'
+      body: JSON.stringify({
+        model: this.config.model || 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: options.prompt }],
+        max_tokens: options.maxTokens || 1000,
+        temperature: options.temperature || 0.7,
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`OpenAI API错误: ${response.status} - ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    return {
+      content: data.choices[0]?.message?.content || '未能获取AI响应',
+      usage: data.usage,
+      model: data.model
+    };
+  }
+
+  /**
+   * 调用Anthropic API
+   */
+  private async callAnthropicAPI(options: AIRequestOptions): Promise<AIResponse> {
+    const apiKey = this.config.apiKey;
+    if (!apiKey) {
+      throw new Error('Anthropic API密钥未配置');
+    }
+
+    const response = await fetch(this.config.baseURL || 'https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: this.config.model || 'claude-3-haiku-20240307',
+        messages: [{ role: 'user', content: options.prompt }],
+        max_tokens: options.maxTokens || 1000,
+        temperature: options.temperature || 0.7,
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Anthropic API错误: ${response.status} - ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    return {
+      content: data.content[0]?.text || '未能获取AI响应',
+      usage: {
+        promptTokens: data.usage?.input_tokens,
+        completionTokens: data.usage?.output_tokens,
+        totalTokens: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0)
+      },
+      model: data.model
+    };
+  }
+
+  /**
+   * 调用Ollama API
+   */
+  private async callOllamaAPI(options: AIRequestOptions): Promise<AIResponse> {
+    const response = await fetch(this.config.baseURL || 'http://localhost:11434/api/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: this.config.model || 'llama2',
+        prompt: options.prompt,
+        stream: false,
+        options: {
+          temperature: options.temperature || 0.7,
+          num_predict: options.maxTokens || 1000,
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama API错误: ${response.status} - ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    return {
+      content: data.response || '未能获取AI响应',
+      usage: undefined, // Ollama API通常不返回token使用情况
+      model: data.model
+    };
+  }
+
+  /**
+   * 调用本地API（用于测试或其他目的）
+   */
+  private async callLocalAPI(options: AIRequestOptions): Promise<AIResponse> {
+    // 本地API的具体实现可以根据需要定制
+    // 这里只是一个占位符实现
+    console.warn('使用本地API模式，这通常是用于测试的目的');
+    
+    // 可以在这里实现一个本地的模拟响应或者连接到本地运行的服务
+    return {
+      content: `本地API响应：${options.prompt.substring(0, 100)}...`,
+      usage: undefined,
+      model: this.config.model || 'local-model'
     };
   }
 
@@ -79,25 +204,6 @@ export class AIService {
   async translate(text: string, targetLanguage: string = 'zh'): Promise<AIResponse> {
     const prompt = `请将以下文本翻译成${targetLanguage === 'zh' ? '中文' : '英文'}：\n\n${text}`;
     return this.request({ prompt });
-  }
-
-  /**
-   * 生成模拟响应（仅用于演示）
-   */
-  private generateMockResponse(prompt: string): string {
-    if (prompt.includes('总结')) {
-      return '这是根据您提供的文本生成的摘要。在实际应用中，AI模型会分析文本内容并生成简洁的总结。';
-    } else if (prompt.includes('改进')) {
-      return '这是改进后的文本。在实际应用中，AI模型会优化文本的表达方式，使其更加清晰和专业。';
-    } else if (prompt.includes('关键点')) {
-      return '- 关键点1：这是第一个重要概念\n- 关键点2：这是第二个重要概念\n- 关键点3：这是第三个重要概念';
-    } else if (prompt.includes('幻灯片') || prompt.includes('大纲')) {
-      return '# 幻灯片1：标题\n- 要点1\n- 要点2\n\n# 幻灯片2：标题\n- 要点1\n- 要点2';
-    } else if (prompt.includes('翻译')) {
-      return 'This is the translated text. In a real implementation, the AI model would translate the content accurately.';
-    } else {
-      return '这是AI助手的响应。在实际部署中，这将来自真实的AI模型API。';
-    }
   }
 
   /**

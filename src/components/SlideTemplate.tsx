@@ -877,17 +877,52 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                     <XCircle size={14} />
                   </button>
                 </div>
-                <pre style={{
-                  margin: 0,
-                  fontSize: '12px',
-                  color: theme.theme === 'dark' ? '#10b981' : '#059669',
-                  whiteSpace: 'pre-wrap',
-                  fontFamily: 'inherit',
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                }}>
-                  {codeOutputs[el.id]}
-                </pre>
+                {(() => {
+                  const output = codeOutputs[el.id];
+                  // 检查output是否为对象且有content属性
+                  if (output && typeof output === 'object' && 'content' in output) {
+                    return output.type === 'html' ? (
+                      <div 
+                        style={{ 
+                          background: '#fff', 
+                          color: '#000', 
+                          padding: '10px', 
+                          borderRadius: '4px',
+                          minHeight: '50px',
+                          overflow: 'auto'
+                        }}
+                        dangerouslySetInnerHTML={{ __html: output.content || '' }} 
+                      />
+                    ) : (
+                      <pre style={{
+                        margin: 0,
+                        fontSize: '12px',
+                        color: theme.theme === 'dark' ? '#10b981' : '#059669',
+                        whiteSpace: 'pre-wrap',
+                        fontFamily: 'inherit',
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                      }}>
+                        {output.content}
+                      </pre>
+                    );
+                  } else {
+                    // 如果output不是期望的格式，安全地显示它
+                    return (
+                      <pre style={{
+                        margin: 0,
+                        fontSize: '12px',
+                        color: theme.theme === 'dark' ? '#10b981' : '#059669',
+                        whiteSpace: 'pre-wrap',
+                        fontFamily: 'inherit',
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                      }}>
+                        {String(output || '')}
+                      </pre>
+                    );
+                  }
+                })()}
               </div>
             )}
           </div>
