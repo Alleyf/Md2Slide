@@ -1,4 +1,4 @@
-# <div align="center">
+<div align="center">
 
 ![md2slide](https://img.shields.io/badge/md2slide-v1.0.0-blue)
 ![React](https://img.shields.io/badge/React-18.2.0-61DAFB)
@@ -6,7 +6,7 @@
 ![Vite](https://img.shields.io/badge/Vite-7.3.1-646CFF)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-<div align="center">
+
 
 # Md2Slide
 
@@ -28,7 +28,8 @@
 ![Alt](https://repobeats.axiom.co/api/embed/9ceba9cb70a482471450ba7d435104b8582d4d2a.svg "Repobeats analytics image")
 
 </div>
-</div>
+
+
 ---
 
 ## ✨ 特性概览
