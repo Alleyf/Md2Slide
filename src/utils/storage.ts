@@ -1,9 +1,9 @@
 // localStorage 工具函数
 
 export const storageKeys = {
-  THEME: 'paper2slide-theme',
-  MARKDOWN: 'paper2slide-markdown',
-  EDITOR_STATE: 'paper2slide-editor-state',
+  THEME: 'md2slide-theme',
+  MARKDOWN: 'md2slide-markdown',
+  EDITOR_STATE: 'md2slide-editor-state',
 } as const;
 
 /**

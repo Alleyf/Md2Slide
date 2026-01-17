@@ -1,4 +1,4 @@
-# AGENTS.md - Paper2Slide 代码编写指南
+# AGENTS.md - Md2Slide 代码编写指南
 
 本指南为在该代码库中工作的 AI 编码代理提供必要的信息。
 
