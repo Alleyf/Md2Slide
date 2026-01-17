@@ -757,11 +757,23 @@ chore: 构建/工具链更新
 
 
 
- <img src="./assets/donate-qr.png" alt="赞赏码" width="200"/> 
+ <img src="public/donate-qr.png" alt="赞赏码" width="200"/> 
+
+ 
 
 
 </div>
 
-[⬆ 回到顶部](#md2slide)
+
+
+## Star History
+
+<picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Alleyf/Md2Slide&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Alleyf/Md2Slide&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Alleyf/Md2Slide&type=Date" />
+</picture>
+
+### 🏠 [⬆ 回到顶部](https://github.com/Alleyf/Md2Slide#readme)
 
 </div>
