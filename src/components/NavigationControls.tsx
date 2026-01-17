@@ -38,6 +38,16 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
   isVisible = true,
 }) => {
   const { themeConfig: theme } = useTheme();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [isEditing, setIsEditing] = useState(false);
   const [jumpValue, setJumpValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -183,7 +193,7 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
         onClick={onPrev}
         disabled={currentSlideIndex === 0 && clickState === 0}
         style={{
-          padding: '4px',
+          padding: isMobile ? '6px' : '4px',
           background: 'transparent',
           border: 'none',
           color: theme.primaryColor,
@@ -192,37 +202,41 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          minWidth: isMobile ? '44px' : 'auto',
+          minHeight: isMobile ? '44px' : 'auto',
         }}
         title="上一张"
       >
-        <ChevronLeft size={20} strokeWidth={2.5} />
+        <ChevronLeft size={isMobile ? 24 : 20} strokeWidth={2.5} />
       </button>
 
-      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: isMobile ? '8px' : '8px', alignItems: 'center' }}>
         <button
           onClick={onAutoPlayToggle}
           style={{
-            padding: '4px',
+            padding: isMobile ? '6px' : '4px',
             background: 'transparent',
             border: 'none',
             color: isAutoPlaying ? theme.primaryColor : theme.colors.text,
             cursor: 'pointer',
             opacity: isAutoPlaying ? 1 : 0.6,
-            display: 'flex',
+            display: isMobile ? 'none' : 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             transition: 'all 0.2s',
+            minWidth: isMobile ? '44px' : 'auto',
+            minHeight: isMobile ? '44px' : 'auto',
           }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = isAutoPlaying ? '1' : '0.6'}
+          onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
+          onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = isAutoPlaying ? '1' : '0.6')}
           title={isAutoPlaying ? "暂停自动播放" : "开始自动播放"}
         >
           {isAutoPlaying ? <Pause size={16} /> : <Play size={16} />}
         </button>
 
-        {isAutoPlaying && (
+        {isAutoPlaying && !isMobile && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <input 
+            <input
               type="range"
               min="1000"
               max="10000"
@@ -246,19 +260,21 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
         <button
           onClick={onReplay}
           style={{
-            padding: '4px',
+            padding: isMobile ? '6px' : '4px',
             background: 'transparent',
             border: 'none',
             color: theme.colors.text,
             cursor: 'pointer',
             opacity: 0.6,
-            display: 'flex',
+            display: isMobile ? 'none' : 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             transition: 'all 0.2s',
+            minWidth: isMobile ? '44px' : 'auto',
+            minHeight: isMobile ? '44px' : 'auto',
           }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+          onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
+          onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.6')}
           title="回到首页"
         >
           <RotateCcw size={16} />
@@ -336,7 +352,7 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
         onClick={onNext}
         disabled={currentSlideIndex === slidesCount - 1 && clickState === totalClicks - 1}
         style={{
-          padding: '4px',
+          padding: isMobile ? '6px' : '4px',
           background: 'transparent',
           border: 'none',
           color: theme.primaryColor,
@@ -345,34 +361,40 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          minWidth: isMobile ? '44px' : 'auto',
+          minHeight: isMobile ? '44px' : 'auto',
         }}
         title="下一张"
       >
-        <ChevronRight size={20} strokeWidth={2.5} />
+        <ChevronRight size={isMobile ? 24 : 20} strokeWidth={2.5} />
       </button>
 
-      <div style={{ height: '15px', width: '1px', background: theme.colors.border, margin: '0 5px' }} />
+      {!isMobile && (
+        <>
+          <div style={{ height: '15px', width: '1px', background: theme.colors.border, margin: '0 5px' }} />
 
-      <button
-        onClick={onFullscreenToggle}
-        style={{
-          padding: '4px',
-          background: 'transparent',
-          border: 'none',
-          color: theme.colors.text,
-          cursor: 'pointer',
-          opacity: 0.6,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'all 0.2s',
-        }}
-        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
-        title="全屏播放"
-      >
-        <Maximize size={18} />
-      </button>
+          <button
+            onClick={onFullscreenToggle}
+            style={{
+              padding: '4px',
+              background: 'transparent',
+              border: 'none',
+              color: theme.colors.text,
+              cursor: 'pointer',
+              opacity: 0.6,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+            title="全屏播放"
+          >
+            <Maximize size={18} />
+          </button>
+        </>
+      )}
     </div>
   );
 };

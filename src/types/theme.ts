@@ -27,6 +27,30 @@ export interface ThemeConfig {
     codeBackground: string;
     codeText: string;
   };
+  responsive?: {
+    fontSize: {
+      mobile: {
+        title: string;
+        heading: string;
+        body: string;
+      };
+      desktop: {
+        title: string;
+        heading: string;
+        body: string;
+      };
+    };
+    spacing: {
+      mobile: {
+        padding: string;
+        gap: string;
+      };
+      desktop: {
+        padding: string;
+        gap: string;
+      };
+    };
+  };
 }
 
 // 主题上下文接口

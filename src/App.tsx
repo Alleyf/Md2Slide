@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
-import { ArrowUp, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Layout, HelpCircle } from 'lucide-react';
+import { ArrowUp, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Layout, HelpCircle, Menu, X } from 'lucide-react';
 import { SlideTemplate, SlideContent, SlideElement } from './components/SlideTemplate';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useTheme } from './context/ThemeContext';
@@ -27,6 +27,7 @@ export const App: React.FC = () => {
   const [showSidebar, setShowSidebar] = useState(true);
   const [showTOC, setShowTOC] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeFile, setActiveFile] = useState<string | null>('tutorial.md');
   const [toc, setToc] = useState<TOCItem[]>([]);
   const [activePreviewSlideIndex, setActivePreviewSlideIndex] = useState(0);
@@ -369,7 +370,8 @@ export const App: React.FC = () => {
       show: true,
       type: 'image',
       value: 'https://',
-      callback: (url) => applySnippet(`!image(${url})`, '')
+      titleValue: '图片描述',
+      callback: (url, alt = '图片') => applySnippet(`![${alt}](${url})`, '')
     });
   };
 
@@ -541,10 +543,11 @@ export const App: React.FC = () => {
      }
    };
 
-   // 格式化行内 Markdown（如公式、加粗等）
+   // 格式化行内 Markdown（如公式、加粗、图片等）
   const formatInlineMarkdown = (text: string) => {
     if (!text) return '';
     return text
+      .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" style="max-width: 100%; height: auto;" />')
       .replace(/\$([^\$]+)\$/g, '<span class="math-inline">$1</span>')
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
@@ -612,7 +615,11 @@ export const App: React.FC = () => {
       return;
     }
     const handleResize = () => {
-      setIsMobile(window.innerWidth <= 900);
+      const width = window.innerWidth;
+      setIsMobile(width <= 768);
+      if (width > 768) {
+        setMobileMenuOpen(false);
+      }
     };
     handleResize();
     window.addEventListener('resize', handleResize);
@@ -663,34 +670,55 @@ export const App: React.FC = () => {
       `}</style>
       {/* Header */}
       <header style={{
-        padding: '10px 25px',
+        padding: isMobile ? '8px 16px' : '10px 25px',
         borderBottom: `1px solid ${theme.colors.border}`,
         display: isFullscreenMode ? 'none' : 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         background: theme.colors.surface,
-        height: '60px',
+        height: isMobile ? '52px' : '60px',
         boxSizing: 'border-box',
-        transition: 'background 0.3s ease, border-color 0.3s ease'
+        transition: 'background 0.3s ease, border-color 0.3s ease',
+        position: 'relative',
+        zIndex: 100
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '15px' }}>
+          {isMobile && (
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: theme.colors.textSecondary,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '4px',
+                transition: 'all 0.2s',
+              }}
+              title="菜单"
+            >
+              <Menu size={24} />
+            </button>
+          )}
           <h1 style={{
             margin: 0,
-            fontSize: '20px',
+            fontSize: isMobile ? '18px' : '20px',
             fontWeight: 800,
             letterSpacing: '-0.5px',
             textShadow: theme.theme === 'light' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px'
+            gap: isMobile ? '6px' : '8px'
           }}>
             <img
               src="/logo.jpg"
               alt="Md2Slide logo"
               style={{
-                width: 26,
-                height: 26,
-                borderRadius: 8,
+                width: isMobile ? 22 : 26,
+                height: isMobile ? 22 : 26,
+                borderRadius: isMobile ? 6 : 8,
                 objectFit: 'cover',
                 boxShadow: theme.theme === 'dark'
                   ? '0 0 16px rgba(58,134,255,0.6)'
@@ -711,11 +739,15 @@ export const App: React.FC = () => {
               Md2Slide
             </span>
           </h1>
-          <div style={{ height: '15px', width: '1px', background: theme.colors.border }} />
-          <span style={{ color: theme.colors.textSecondary, fontSize: '12px', fontWeight: 500 }}>Elevate Your Markdown into Cinematic Presentations</span>
+          {!isMobile && (
+            <>
+              <div style={{ height: '15px', width: '1px', background: theme.colors.border }} />
+              <span style={{ color: theme.colors.textSecondary, fontSize: '12px', fontWeight: 500 }}>Elevate Your Markdown into Cinematic Presentations</span>
+            </>
+          )}
         </div>
 
-        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: isMobile ? '12px' : '15px', alignItems: 'center' }}>
           <button
             onClick={() => setShowHelp(true)}
             style={{
@@ -727,18 +759,121 @@ export const App: React.FC = () => {
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'all 0.2s',
-              opacity: 0.7
+              opacity: 0.7,
+              padding: isMobile ? '4px' : '0'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
             title="帮助文档"
           >
-            <HelpCircle size={20} />
+            <HelpCircle size={isMobile ? 22 : 20} />
           </button>
           
           <ThemeToggle />
         </div>
       </header>
+
+      {/* Mobile Menu Overlay */}
+      {isMobile && mobileMenuOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 200,
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: '80%',
+              maxWidth: '300px',
+              background: theme.colors.surface,
+              boxShadow: '0 0 30px rgba(0,0,0,0.4)',
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
+              animation: 'slideIn 0.2s ease-out'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>菜单</h2>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: theme.colors.textSecondary,
+                  cursor: 'pointer',
+                  padding: '4px'
+                }}
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              <FileTree 
+                files={fileList}
+                activeFile={activeFile}
+                onFileClick={(file) => {
+                  loadFile(file);
+                  setMobileMenuOpen(false);
+                }}
+                onDelete={deleteFile}
+                onRename={renameFile}
+                onExport={handleExportPDF}
+                onImport={handleImportFile}
+                onOpenFolder={openFolder}
+                theme={theme}
+              />
+            </div>
+
+            {/* TOC Section */}
+            <div style={{ borderTop: `1px solid ${theme.colors.border}`, paddingTop: '15px' }}>
+              <div style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: '10px', fontWeight: 600 }}>
+                文章大纲
+              </div>
+              {toc.length > 0 ? (
+                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  {toc.map(item => (
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        scrollToLine(item.lineIndex);
+                        setMobileMenuOpen(false);
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        paddingLeft: `${12 + (item.level - 1) * 8}px`,
+                        fontSize: '14px',
+                        color: theme.colors.textSecondary,
+                        cursor: 'pointer',
+                        borderRadius: '4px',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      {item.text}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ padding: '10px 12px', fontSize: '14px', color: theme.colors.textSecondary, opacity: 0.5 }}>
+                  暂无标题内容
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showHelp && (
         <div
@@ -1049,7 +1184,7 @@ export const App: React.FC = () => {
       <main style={{
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
-        height: isMobile ? 'auto' : (isFullscreenMode ? '100vh' : 'calc(100vh - 60px)'),
+        height: isMobile ? 'calc(100vh - 52px)' : (isFullscreenMode ? '100vh' : 'calc(100vh - 60px)'),
         minHeight: isFullscreenMode ? '100vh' : 'calc(100vh - 60px)',
         overflow: 'hidden',
         background: theme.colors.background,
@@ -1058,7 +1193,8 @@ export const App: React.FC = () => {
         {layoutOrder.map((section, index) => {
           if (isFullscreenMode && section !== 'preview') return null;
           
-          if (section === 'sidebar' && !isMobile) {
+          if (section === 'sidebar') {
+            if (isMobile) return null; // 移动端不显示侧边栏（使用汉堡菜单）
             if (!showSidebar) {
               return (
                 <div 
@@ -1350,6 +1486,7 @@ export const App: React.FC = () => {
                   onDragOver={(e) => handleDragOver(e, 'editor')}
                   style={{
                     width: isMobile ? '100%' : `${editorWidth}px`,
+                    height: isMobile ? '100%' : 'auto',
                     flex: isResizingEditor || isMobile ? 'none' : (index === layoutOrder.length - 1 ? 1 : 'none'),
                     display: 'flex',
                     flexDirection: 'column',
@@ -1466,14 +1603,15 @@ export const App: React.FC = () => {
                       flex: 1,
                       background: 'transparent',
                       border: 'none',
-                      padding: '20px',
+                      padding: isMobile ? '16px' : '20px',
                       color: theme.colors.textSecondary,
-                      fontSize: '14px',
+                      fontSize: isMobile ? '13px' : '14px',
                       fontFamily: 'JetBrains Mono, Fira Code, Consolas, monospace',
                       resize: 'none',
                       outline: 'none',
                       lineHeight: '1.7',
-                      tabSize: 2
+                      tabSize: 2,
+                      WebkitOverflowScrolling: 'touch'
                     }}
                     placeholder="在此输入 Markdown 内容..."
                   />
@@ -1484,10 +1622,10 @@ export const App: React.FC = () => {
                       onClick={scrollToTop}
                       style={{
                         position: 'absolute',
-                        right: '20px',
-                        bottom: '80px',
-                        width: '40px',
-                        height: '40px',
+                        right: isMobile ? '16px' : '20px',
+                        bottom: isMobile ? '100px' : '80px',
+                        width: isMobile ? '44px' : '40px',
+                        height: isMobile ? '44px' : '40px',
                         borderRadius: '50%',
                         background: theme.primaryColor,
                         color: '#fff',
@@ -1502,18 +1640,18 @@ export const App: React.FC = () => {
                         opacity: 0.9,
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-3px)';
-                        e.currentTarget.style.opacity = '1';
-                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.3)';
+                        !isMobile && (e.currentTarget.style.transform = 'translateY(-3px)');
+                        !isMobile && (e.currentTarget.style.opacity = '1');
+                        !isMobile && (e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.3)');
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.opacity = '0.9';
-                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+                        !isMobile && (e.currentTarget.style.transform = 'translateY(0)');
+                        !isMobile && (e.currentTarget.style.opacity = '0.9');
+                        !isMobile && (e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)');
                       }}
                       title="回到顶部"
                     >
-                      <ArrowUp size={20} strokeWidth={2.5} />
+                      <ArrowUp size={isMobile ? 22 : 20} strokeWidth={2.5} />
                     </button>
                   )}
 

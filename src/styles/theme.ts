@@ -26,6 +26,30 @@ export const darkTheme: ThemeConfig = {
     codeBackground: '#1e1e1e',
     codeText: '#d4d4d4',
   },
+  responsive: {
+    fontSize: {
+      mobile: {
+        title: 'clamp(24px, 5vw, 32px)',
+        heading: 'clamp(20px, 4vw, 26px)',
+        body: 'clamp(14px, 2.5vw, 18px)',
+      },
+      desktop: {
+        title: 'clamp(32px, 4vw, 72px)',
+        heading: 'clamp(24px, 3vw, 48px)',
+        body: 'clamp(16px, 2vw, 28px)',
+      },
+    },
+    spacing: {
+      mobile: {
+        padding: '16px',
+        gap: '12px',
+      },
+      desktop: {
+        padding: '24px',
+        gap: '20px',
+      },
+    },
+  },
 };
 
 // 保持向后兼容的别名
@@ -56,6 +80,30 @@ export const lightTheme: ThemeConfig = {
     border: '#e5e7eb',
     codeBackground: '#f3f4f6',
     codeText: '#374151',
+  },
+  responsive: {
+    fontSize: {
+      mobile: {
+        title: 'clamp(24px, 5vw, 32px)',
+        heading: 'clamp(20px, 4vw, 26px)',
+        body: 'clamp(14px, 2.5vw, 18px)',
+      },
+      desktop: {
+        title: 'clamp(32px, 4vw, 72px)',
+        heading: 'clamp(24px, 3vw, 48px)',
+        body: 'clamp(16px, 2vw, 28px)',
+      },
+    },
+    spacing: {
+      mobile: {
+        padding: '16px',
+        gap: '12px',
+      },
+      desktop: {
+        padding: '24px',
+        gap: '20px',
+      },
+    },
   },
 };
 

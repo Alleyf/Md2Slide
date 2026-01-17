@@ -1,10 +1,11 @@
 /**
  * 格式化行内 Markdown
- * 处理公式、加粗、斜体、删除线、代码、链接和任务列表
+ * 处理公式、加粗、斜体、删除线、代码、链接、图片和任务列表
  */
 export const formatInlineMarkdown = (text: string): string => {
   if (!text) return '';
   return text
+    .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" style="max-width: 100%; height: auto;" />')
     .replace(/\$([^\$]+)\$/g, '<span class="math-inline">$1</span>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')

@@ -114,15 +114,30 @@ if (typeof document !== 'undefined') {
       pointer-events: auto;
     }
 
-    @media (max-width: 900px) {
+    @media (max-width: 768px) {
       .nav-controls {
         gap: 8px !important;
-        padding: 6px 10px !important;
+        padding: 10px 16px !important;
       }
 
       .nav-controls button {
-        padding: 4px 8px !important;
+        padding: 6px 8px !important;
         font-size: 16px !important;
+      }
+
+      .slide-content {
+        font-size: 14px !important;
+      }
+
+      .slide-title {
+        font-size: 24px !important;
+      }
+    }
+
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .nav-controls {
+        gap: 12px !important;
+        padding: 8px 14px !important;
       }
     }
   `;
@@ -1075,6 +1090,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
           overflowX: 'hidden',
           background: theme.colors.background,
           pageBreakAfter: 'always',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         {slide.title && (
@@ -1129,13 +1145,13 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         position: 'relative',
         width: '100%',
         height: '100%',
-        minHeight: 'min(700px, 100%)',
-        maxHeight: '90vh',
+        minHeight: window.innerWidth <= 768 ? 'calc(100vh - 52px)' : 'min(700px, 100%)',
+        maxHeight: window.innerWidth <= 768 ? 'calc(100vh - 52px)' : '90vh',
         background: theme.colors.background,
         color: theme.colors.text,
         fontFamily: theme.fontFamily,
         overflow: 'hidden',
-        borderRadius: '12px',
+        borderRadius: window.innerWidth <= 768 ? 0 : '12px',
         display: 'flex',
         flexDirection: 'column',
         transition: 'background 0.3s ease, color 0.3s ease',

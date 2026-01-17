@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Bold, Italic, Strikethrough, Code, Heading1, Heading2, Heading3, 
   SeparatorHorizontal, Quote, List, ListOrdered, CheckSquare, 
@@ -108,17 +108,103 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   setShowEmojiPicker,
   theme
 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const basicTools = [
+    { icon: <Bold size={16} />, title: "加粗", shortcut: "Ctrl + B", action: () => applySnippet('**', '**') },
+    { icon: <Italic size={16} />, title: "斜体", shortcut: "Ctrl + I", action: () => applySnippet('*', '*') },
+    { icon: <SeparatorHorizontal size={16} />, title: "分页符", shortcut: "Ctrl + Shift + Enter", action: () => applySnippet('\n---\n', '') },
+  ];
+
+  const advancedTools = [
+    { icon: <Strikethrough size={16} />, title: "删除线", shortcut: "Ctrl + Shift + S", action: () => applySnippet('~~', '~~') },
+    { icon: <Code size={16} />, title: "行内代码", shortcut: "Ctrl + E", action: () => applySnippet('`', '`') },
+    { icon: <Heading1 size={16} />, title: "一级标题", shortcut: "Ctrl + 1", action: () => applySnippet('# ', '') },
+    { icon: <Heading2 size={16} />, title: "二级标题", shortcut: "Ctrl + 2", action: () => applySnippet('## ', '') },
+    { icon: <Heading3 size={16} />, title: "三级标题", shortcut: "Ctrl + 3", action: () => applySnippet('### ', '') },
+    { icon: <Quote size={16} />, title: "引用", shortcut: "Ctrl + Shift + Q", action: () => applySnippet('> ', '') },
+    { icon: <List size={16} />, title: "无序列表", shortcut: "Ctrl + L", action: () => applySnippet('- ', '') },
+    { icon: <ListOrdered size={16} />, title: "有序列表", shortcut: "Ctrl + Shift + L", action: () => applySnippet('1. ', '') },
+    { icon: <CheckSquare size={16} />, title: "任务列表", shortcut: "Ctrl + Shift + T", action: () => applySnippet('- [ ] ', '') },
+    { icon: <FileCode size={16} />, title: "代码块", shortcut: "Ctrl + Shift + K", action: () => applySnippet('```\n', '\n```') },
+    { icon: <Table size={16} />, title: "表格", shortcut: "Ctrl + Alt + T", action: () => applySnippet('| 列1 | 列2 |\n| :--- | :--- |\n| 内容1 | 内容2 |', '') },
+    { icon: <Link size={16} />, title: "链接", shortcut: "Ctrl + K", action: handleLinkInsert },
+    { icon: <Image size={16} />, title: "图片", shortcut: "Ctrl + Shift + I", action: handleImageInsert },
+    { icon: <Sigma size={16} />, title: "行内公式", shortcut: "Ctrl + M", action: () => applySnippet('$', '$') },
+    { icon: <Sigma size={16} strokeWidth={3} />, title: "块级公式", shortcut: "Ctrl + Shift + M", action: () => applySnippet('$$\n', '\n$$') },
+    { icon: <Variable size={16} />, title: "向量", shortcut: "Ctrl + Alt + V", action: () => applySnippet('!vector', '') },
+    { icon: <Grid3X3 size={16} />, title: "网格", shortcut: "Ctrl + Alt + G", action: () => applySnippet('!grid', '') },
+    { icon: <Video size={16} />, title: "视频", shortcut: "Ctrl + Alt + M", action: handleVideoInsert },
+    { icon: <Mic size={16} />, title: "语音", shortcut: "Ctrl + Alt + A", action: handleAudioInsert },
+    { icon: <Smile size={16} />, title: "图标", shortcut: "Ctrl + Shift + E", action: () => setShowEmojiPicker(!showEmojiPicker) },
+    { icon: <Globe size={16} />, title: "原生HTML", shortcut: "Ctrl + Alt + H", action: () => applySnippet('!html(', ')') },
+  ];
+
   return (
     <div style={{
-      padding: '6px 10px',
+      padding: isMobile ? '8px' : '6px 10px',
       background: theme.colors.surface,
       borderBottom: `1px solid ${theme.colors.border}`,
       display: 'flex',
       alignItems: 'center',
-      gap: '12px',
+      gap: isMobile ? '8px' : '12px',
       flexWrap: 'wrap',
       zIndex: 10
     }}>
+      {/* 移动端基础工具栏 */}
+      {isMobile && (
+        <>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {basicTools.map((tool, index) => (
+              <ToolbarButton key={index} icon={tool.icon} title={tool.title} shortcut={tool.shortcut} onClick={tool.action} />
+            ))}
+          </div>
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            style={{
+              padding: '4px 8px',
+              background: isExpanded ? theme.primaryColor : 'transparent',
+              border: `1px solid ${theme.colors.border}`,
+              color: isExpanded ? '#fff' : theme.colors.textSecondary,
+              borderRadius: '4px',
+              fontSize: '12px',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {isExpanded ? '收起' : '更多'}
+          </button>
+          {isExpanded && (
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '4px',
+              width: '100%',
+              marginTop: '8px',
+              borderTop: `1px solid ${theme.colors.border}`,
+              paddingTop: '8px'
+            }}>
+              {advancedTools.map((tool, index) => (
+                <ToolbarButton key={index} icon={tool.icon} title={tool.title} shortcut={tool.shortcut} onClick={tool.action} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* 桌面端完整工具栏 */}
+      {!isMobile && (
+        <>
       <div style={{ display: 'flex', gap: '2px', paddingRight: '10px', borderRight: `1px solid ${theme.colors.border}` }}>
         <ToolbarButton icon={<Bold size={16} />} title="加粗" shortcut="Ctrl + B" onClick={() => applySnippet('**', '**')} />
         <ToolbarButton icon={<Italic size={16} />} title="斜体" shortcut="Ctrl + I" onClick={() => applySnippet('*', '*')} />
@@ -160,6 +246,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <ToolbarButton icon={<Smile size={16} />} title="图标" shortcut="Ctrl + Shift + E" onClick={() => setShowEmojiPicker(!showEmojiPicker)} />
         <ToolbarButton icon={<Globe size={16} />} title="原生HTML" shortcut="Ctrl + Alt + H" onClick={() => applySnippet('!html(', ')')} />
       </div>
+        </>
+      )}
     </div>
   );
 };

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { ThemeProvider } from './context/ThemeContext';
 import { App } from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import './styles/global.css';
 
 // 渲染应用
 const container = document.getElementById('root');

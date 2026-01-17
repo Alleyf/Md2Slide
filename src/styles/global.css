@@ -1,0 +1,146 @@
+/* 全局样式和移动端优化 */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  overscroll-behavior-y: none;
+  touch-action: pan-y pinch-zoom;
+}
+
+/* 滚动条样式优化 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(88, 196, 221, 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(88, 196, 221, 0.5);
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  /* 隐藏桌面端特定元素 */
+  .desktop-only {
+    display: none !important;
+  }
+
+  /* 移动端滚动优化 */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 移动端字体优化 */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* 移动端输入框优化 */
+  input, textarea {
+    font-size: 16px; /* 防止iOS自动缩放 */
+  }
+
+  /* 移动端触摸目标优化 */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* 移动端链接优化 */
+  a {
+    text-decoration-skip-ink: auto;
+  }
+}
+
+@media (min-width: 769px) {
+  /* 隐藏移动端特定元素 */
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+/* 平板设备优化 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  body {
+    font-size: 15px;
+  }
+}
+
+/* 大屏幕优化 */
+@media (min-width: 1921px) {
+  body {
+    font-size: 18px;
+  }
+}
+
+/* 深色模式特定优化 */
+@media (prefers-color-scheme: dark) {
+  ::selection {
+    background: rgba(58, 134, 255, 0.3);
+    color: #fff;
+  }
+}
+
+/* 浅色模式特定优化 */
+@media (prefers-color-scheme: light) {
+  ::selection {
+    background: rgba(37, 99, 235, 0.3);
+    color: #000;
+  }
+}
+
+/* 减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  * {
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+  }
+
+  .nav-controls,
+  .desktop-only,
+  .mobile-only {
+    display: none !important;
+  }
+}
