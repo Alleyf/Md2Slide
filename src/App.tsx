@@ -123,7 +123,12 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({ icon, title, shortcut, on
   return (
     <div style={{ position: 'relative' }}>
       <button
-        onClick={onClick}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
         style={{
           width: '32px',
           height: '32px',
@@ -139,16 +144,7 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({ icon, title, shortcut, on
           fontWeight: 600,
           transition: 'all 0.2s',
         }}
-        onMouseEnter={(e) => {
-          setShowTooltip(true);
-          e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
-          e.currentTarget.style.color = theme.primaryColor;
-        }}
-        onMouseLeave={(e) => {
-          setShowTooltip(false);
-          e.currentTarget.style.background = 'transparent';
-          e.currentTarget.style.color = theme.colors.textSecondary;
-        }}
+        className="toolbar-button"
       >
         {icon}
       </button>
@@ -214,6 +210,12 @@ export const App: React.FC = () => {
   const [isResizingTOC, setIsResizingTOC] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [inputModal, setInputModal] = useState<{
+    show: boolean;
+    type: 'link' | 'image' | 'video';
+    value: string;
+    callback?: (val: string) => void;
+  }>({ show: false, type: 'link', value: '' });
   const [layoutOrder, setLayoutOrder] = useState<('sidebar' | 'editor' | 'preview')[]>(['sidebar', 'editor', 'preview']);
   const [draggingSection, setDraggingSection] = useState<string | null>(null);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
@@ -358,9 +360,9 @@ export const App: React.FC = () => {
     const textarea = editorRef.current;
     if (!textarea) return;
 
-    // 保存当前选区，用于后续恢复
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
+    const scrollTop = textarea.scrollTop; // 保存滚动位置
     const selection = markdown.slice(start, end);
     
     let nextMarkdown = '';
@@ -393,11 +395,13 @@ export const App: React.FC = () => {
       if (selection && isWrapped) {
         const innerText = selection.slice(beforeStr.length, selection.length - afterStr.length);
         nextMarkdown = markdown.slice(0, start) + innerText + markdown.slice(end);
+        newStart = start;
         newEnd = start + innerText.length;
       } else {
         const insertion = beforeStr + selection + afterStr;
         nextMarkdown = markdown.slice(0, start) + insertion + markdown.slice(end);
         if (selection) {
+          newStart = start;
           newEnd = start + insertion.length;
         } else {
           newStart = start + beforeStr.length;
@@ -408,50 +412,79 @@ export const App: React.FC = () => {
 
     setMarkdown(nextMarkdown);
     
-    // 触发 onChange 模拟，以便一些编辑器逻辑能感知到
-    const event = new Event('input', { bubbles: true });
-    textarea.dispatchEvent(event);
-
+    // 立即同步滚动位置和光标
     requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(newStart, newEnd);
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(newStart, newEnd);
+        textarea.scrollTop = scrollTop; // 恢复滚动位置
+      }
     });
   };
 
   const handleLinkInsert = () => {
-    const url = window.prompt('请输入链接地址 (URL):', 'https://');
-    if (url) {
-      applySnippet('[', `](${url})`);
-    }
+    setInputModal({
+      show: true,
+      type: 'link',
+      value: 'https://',
+      callback: (url) => applySnippet('[链接文字](', `)`) // 默认插入 [链接文字](url)
+    });
   };
 
   const handleImageInsert = () => {
-    const url = window.prompt('请输入图片链接或路径:', 'https://');
-    if (url) {
-      applySnippet('![描述](', `)`);
-      // 稍微延迟一下，让 applySnippet 完成，然后手动更新内容
-      setMarkdown(prev => {
+    setInputModal({
+      show: true,
+      type: 'image',
+      value: 'https://',
+      callback: (url) => {
         const textarea = editorRef.current;
-        if (!textarea) return prev;
+        if (!textarea) return;
         const start = textarea.selectionStart;
-        const before = prev.slice(0, start);
-        const after = prev.slice(start);
-        return before + url + after;
-      });
-    }
+        const end = textarea.selectionEnd;
+        const scrollTop = textarea.scrollTop;
+        
+        const insertion = `!image(${url})`;
+        const next = markdown.slice(0, start) + insertion + markdown.slice(end);
+        setMarkdown(next);
+        
+        requestAnimationFrame(() => {
+          if (textarea) {
+            textarea.focus();
+            const newPos = start + insertion.length;
+            textarea.setSelectionRange(newPos, newPos);
+            textarea.scrollTop = scrollTop;
+          }
+        });
+      }
+    });
   };
 
   const handleVideoInsert = () => {
-    const url = window.prompt('请输入视频链接 (MP4/WebM):', 'https://');
-    if (url) {
-      applySnippet('!video(', `)`);
-      setMarkdown(prev => {
+    setInputModal({
+      show: true,
+      type: 'video',
+      value: 'https://',
+      callback: (url) => {
         const textarea = editorRef.current;
-        if (!textarea) return prev;
+        if (!textarea) return;
         const start = textarea.selectionStart;
-        return prev.slice(0, start) + url + prev.slice(start);
-      });
-    }
+        const end = textarea.selectionEnd;
+        const scrollTop = textarea.scrollTop;
+        
+        const insertion = `!video(${url})`;
+        const next = markdown.slice(0, start) + insertion + markdown.slice(end);
+        setMarkdown(next);
+        
+        requestAnimationFrame(() => {
+          if (textarea) {
+            textarea.focus();
+            const newPos = start + insertion.length;
+            textarea.setSelectionRange(newPos, newPos);
+            textarea.scrollTop = scrollTop;
+          }
+        });
+      }
+    });
   };
 
   const handleEmojiClick = (emojiData: any) => {
@@ -589,6 +622,7 @@ export const App: React.FC = () => {
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
       .replace(/~~(.+?)~~/g, '<del>$1</del>')
       .replace(/`(.+?)`/g, '<code>$1</code>')
+      .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color: #58c4dd; text-decoration: underline;">$1</a>')
       .replace(/^\[ \]\s+/, '<input type="checkbox" disabled style="margin-right: 8px; vertical-align: middle;" />')
       .replace(/^\[x\]\s+/, '<input type="checkbox" checked disabled style="margin-right: 8px; vertical-align: middle;" />');
   };
@@ -864,7 +898,18 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div style={{ background: theme.colors.background, minHeight: '100vh', color: theme.colors.text, fontFamily: theme.fontFamily, transition: 'background 0.3s ease, color 0.3s ease' }}>
+    <div style={{ background: theme.colors.background, minHeight: '100vh', color: theme.colors.text, fontFamily: theme.fontFamily, transition: 'background 0.3s ease, color 0.3s ease', position: 'relative' }}>
+      <style>{`
+        .toolbar-button:hover {
+          background: ${theme.theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'} !important;
+          color: ${theme.primaryColor} !important;
+        }
+        .EmojiPickerReact {
+          --epr-bg-color: ${theme.colors.surface} !important;
+          --epr-category-label-bg-color: ${theme.colors.surface} !important;
+          --epr-search-input-bg-color: ${theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'} !important;
+        }
+      `}</style>
       {/* Header */}
       <header style={{
         padding: '10px 25px',
@@ -1667,10 +1712,11 @@ export const App: React.FC = () => {
                       <EmojiPicker 
                         onEmojiClick={handleEmojiClick}
                         theme={theme.theme === 'dark' ? EmojiTheme.DARK : EmojiTheme.LIGHT}
-                        autoFocusSearch={false}
+                        autoFocusSearch={true}
                         searchPlaceholder="搜索表情..."
                         width={350}
                         height={400}
+                        lazyLoadEmojis={true}
                       />
                       <div 
                         onClick={() => setShowEmojiPicker(false)}
@@ -1683,6 +1729,94 @@ export const App: React.FC = () => {
                           zIndex: -1
                         }}
                       />
+                    </div>
+                  )}
+
+                  {/* Input Modal Overlay */}
+                  {inputModal.show && (
+                    <div style={{
+                      position: 'fixed',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      background: 'rgba(0,0,0,0.5)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 2000,
+                      backdropFilter: 'blur(4px)'
+                    }}>
+                      <div style={{
+                        background: theme.colors.surface,
+                        padding: '24px',
+                        borderRadius: '12px',
+                        width: '400px',
+                        boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+                        border: `1px solid ${theme.colors.border}`
+                      }}>
+                        <h3 style={{ margin: '0 0 16px 0', color: theme.colors.textSecondary }}>
+                          插入{inputModal.type === 'link' ? '链接' : inputModal.type === 'image' ? '图片' : '视频'}
+                        </h3>
+                        <input 
+                          autoFocus
+                          type="text"
+                          value={inputModal.value}
+                          onChange={(e) => setInputModal(prev => ({ ...prev, value: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              inputModal.callback?.(inputModal.value);
+                              setInputModal(prev => ({ ...prev, show: false }));
+                            } else if (e.key === 'Escape') {
+                              setInputModal(prev => ({ ...prev, show: false }));
+                            }
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            borderRadius: '6px',
+                            border: `1px solid ${theme.colors.border}`,
+                            background: theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : '#fff',
+                            color: theme.colors.textSecondary,
+                            fontSize: '14px',
+                            outline: 'none',
+                            marginBottom: '20px'
+                          }}
+                          placeholder="在此输入 URL 地址..."
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                          <button 
+                            onClick={() => setInputModal(prev => ({ ...prev, show: false }))}
+                            style={{
+                              padding: '8px 16px',
+                              borderRadius: '6px',
+                              border: `1px solid ${theme.colors.border}`,
+                              background: 'transparent',
+                              color: theme.colors.textSecondary,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            取消
+                          </button>
+                          <button 
+                            onClick={() => {
+                              inputModal.callback?.(inputModal.value);
+                              setInputModal(prev => ({ ...prev, show: false }));
+                            }}
+                            style={{
+                              padding: '8px 16px',
+                              borderRadius: '6px',
+                              border: 'none',
+                              background: theme.primaryColor,
+                              color: '#fff',
+                              cursor: 'pointer',
+                              fontWeight: 600
+                            }}
+                          >
+                            确定
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
