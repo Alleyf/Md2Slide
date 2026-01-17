@@ -1,4 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
+import { 
+  Bold, Italic, Strikethrough, Code, Heading1, Heading2, Heading3, 
+  SeparatorHorizontal, Quote, List, ListOrdered, CheckSquare, 
+  FileCode, Table, Link, Image, Sigma, Variable, Grid3X3, 
+  Video, Smile, Globe, ArrowUp
+} from 'lucide-react';
 import { SlideTemplate, SlideContent, SlideElement } from './components/SlideTemplate';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useTheme } from './context/ThemeContext';
@@ -102,6 +109,89 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({ item, depth, activeFile, on
   );
 };
 
+interface ToolbarButtonProps {
+  icon: React.ReactNode;
+  title: string;
+  shortcut?: string;
+  onClick: () => void;
+}
+
+const ToolbarButton: React.FC<ToolbarButtonProps> = ({ icon, title, shortcut, onClick }) => {
+  const { themeConfig: theme } = useTheme();
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={onClick}
+        style={{
+          width: '32px',
+          height: '32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'transparent',
+          border: 'none',
+          borderRadius: '4px',
+          color: theme.colors.textSecondary,
+          cursor: 'pointer',
+          fontSize: '13px',
+          fontWeight: 600,
+          transition: 'all 0.2s',
+        }}
+        onMouseEnter={(e) => {
+          setShowTooltip(true);
+          e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+          e.currentTarget.style.color = theme.primaryColor;
+        }}
+        onMouseLeave={(e) => {
+          setShowTooltip(false);
+          e.currentTarget.style.background = 'transparent';
+          e.currentTarget.style.color = theme.colors.textSecondary;
+        }}
+      >
+        {icon}
+      </button>
+      
+      {showTooltip && (
+        <div style={{
+          position: 'absolute',
+          bottom: '-35px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#333',
+          color: '#fff',
+          padding: '4px 8px',
+          borderRadius: '4px',
+          fontSize: '11px',
+          whiteSpace: 'nowrap',
+          zIndex: 100,
+          pointerEvents: 'none',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '2px'
+        }}>
+          <span style={{ fontWeight: 600 }}>{title}</span>
+          {shortcut && (
+            <span style={{ fontSize: '9px', opacity: 0.7 }}>{shortcut}</span>
+          )}
+          <div style={{
+            position: 'absolute',
+            top: '-4px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            borderLeft: '4px solid transparent',
+            borderRight: '4px solid transparent',
+            borderBottom: '4px solid #333'
+          }} />
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const App: React.FC = () => {
   const [markdown, setMarkdown] = useState('');
   const [slides, setSlides] = useState<SlideContent[]>([]);
@@ -122,6 +212,8 @@ export const App: React.FC = () => {
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [isResizingEditor, setIsResizingEditor] = useState(false);
   const [isResizingTOC, setIsResizingTOC] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [layoutOrder, setLayoutOrder] = useState<('sidebar' | 'editor' | 'preview')[]>(['sidebar', 'editor', 'preview']);
   const [draggingSection, setDraggingSection] = useState<string | null>(null);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
@@ -262,31 +354,243 @@ export const App: React.FC = () => {
     loadFile({ name: 'tutorial.md', isStatic: true });
   }, []);
 
-  const applySnippet = (snippet: string) => {
+  const applySnippet = (beforeStr: string, afterStr: string = '') => {
     const textarea = editorRef.current;
-    if (!textarea) {
-      setMarkdown(prev => `${prev}\n\n${snippet}`);
-      return;
+    if (!textarea) return;
+
+    // 保存当前选区，用于后续恢复
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selection = markdown.slice(start, end);
+    
+    let nextMarkdown = '';
+    let newStart = start;
+    let newEnd = end;
+
+    // 检查是否是行首语法 (标题、列表、引用)
+    const isLineStart = beforeStr.startsWith('#') || beforeStr.startsWith('- ') || beforeStr.startsWith('1. ') || beforeStr.startsWith('> ');
+    
+    if (isLineStart) {
+      const lastNewLine = markdown.lastIndexOf('\n', start - 1);
+      const lineStart = lastNewLine === -1 ? 0 : lastNewLine + 1;
+      const lineEnd = markdown.indexOf('\n', start);
+      const actualLineEnd = lineEnd === -1 ? markdown.length : lineEnd;
+      const lineText = markdown.slice(lineStart, actualLineEnd);
+      
+      if (lineText.startsWith(beforeStr)) {
+        const newLineText = lineText.slice(beforeStr.length);
+        nextMarkdown = markdown.slice(0, lineStart) + newLineText + markdown.slice(actualLineEnd);
+        newStart = Math.max(lineStart, start - beforeStr.length);
+        newEnd = Math.max(lineStart, end - beforeStr.length);
+      } else {
+        nextMarkdown = markdown.slice(0, lineStart) + beforeStr + lineText + markdown.slice(actualLineEnd);
+        newStart = start + beforeStr.length;
+        newEnd = end + beforeStr.length;
+      }
+    } else {
+      const isWrapped = selection.startsWith(beforeStr) && selection.endsWith(afterStr) && (beforeStr !== '' || afterStr !== '');
+      
+      if (selection && isWrapped) {
+        const innerText = selection.slice(beforeStr.length, selection.length - afterStr.length);
+        nextMarkdown = markdown.slice(0, start) + innerText + markdown.slice(end);
+        newEnd = start + innerText.length;
+      } else {
+        const insertion = beforeStr + selection + afterStr;
+        nextMarkdown = markdown.slice(0, start) + insertion + markdown.slice(end);
+        if (selection) {
+          newEnd = start + insertion.length;
+        } else {
+          newStart = start + beforeStr.length;
+          newEnd = newStart;
+        }
+      }
     }
-    const start = textarea.selectionStart ?? textarea.value.length;
-    const end = textarea.selectionEnd ?? textarea.value.length;
-    const before = markdown.slice(0, start);
-    const after = markdown.slice(end);
-    const insertion = (before && !before.endsWith('\n') ? '\n' : '') + snippet;
-    const next = before + insertion + (after.startsWith('\n') ? after : `\n${after}`);
-    setMarkdown(next);
+
+    setMarkdown(nextMarkdown);
+    
+    // 触发 onChange 模拟，以便一些编辑器逻辑能感知到
+    const event = new Event('input', { bubbles: true });
+    textarea.dispatchEvent(event);
+
     requestAnimationFrame(() => {
-      const pos = (before + insertion).length;
-      textarea.selectionStart = textarea.selectionEnd = pos;
       textarea.focus();
+      textarea.setSelectionRange(newStart, newEnd);
     });
   };
 
-  // 格式化行内 Markdown（如公式、加粗等）
+  const handleLinkInsert = () => {
+    const url = window.prompt('请输入链接地址 (URL):', 'https://');
+    if (url) {
+      applySnippet('[', `](${url})`);
+    }
+  };
+
+  const handleImageInsert = () => {
+    const url = window.prompt('请输入图片链接或路径:', 'https://');
+    if (url) {
+      applySnippet('![描述](', `)`);
+      // 稍微延迟一下，让 applySnippet 完成，然后手动更新内容
+      setMarkdown(prev => {
+        const textarea = editorRef.current;
+        if (!textarea) return prev;
+        const start = textarea.selectionStart;
+        const before = prev.slice(0, start);
+        const after = prev.slice(start);
+        return before + url + after;
+      });
+    }
+  };
+
+  const handleVideoInsert = () => {
+    const url = window.prompt('请输入视频链接 (MP4/WebM):', 'https://');
+    if (url) {
+      applySnippet('!video(', `)`);
+      setMarkdown(prev => {
+        const textarea = editorRef.current;
+        if (!textarea) return prev;
+        const start = textarea.selectionStart;
+        return prev.slice(0, start) + url + prev.slice(start);
+      });
+    }
+  };
+
+  const handleEmojiClick = (emojiData: any) => {
+    applySnippet(`!icon(${emojiData.emoji})`, '');
+    setShowEmojiPicker(false);
+  };
+
+  // 处理编辑器快捷键
+  const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const isCtrl = e.ctrlKey || e.metaKey;
+    const isShift = e.shiftKey;
+    const isAlt = e.altKey;
+
+    // 常用快捷键映射
+    if (isCtrl) {
+      if (isAlt) {
+        switch (e.key.toLowerCase()) {
+          case 't': // 表格
+            e.preventDefault();
+            applySnippet('| 列1 | 列2 |\n| :--- | :--- |\n| 内容1 | 内容2 |', '');
+            break;
+          case 'v': // 向量
+            e.preventDefault();
+            applySnippet('!vector', '');
+            break;
+          case 'g': // 网格
+            e.preventDefault();
+            applySnippet('!grid', '');
+            break;
+          case 'm': // 视频 (Media)
+            e.preventDefault();
+            handleVideoInsert();
+            break;
+          case 'h': // HTML
+            e.preventDefault();
+            applySnippet('!html(', ')');
+            break;
+        }
+        return;
+      }
+
+      switch (e.key.toLowerCase()) {
+        case 'b': // 加粗
+          e.preventDefault();
+          applySnippet('**', '**');
+          break;
+        case 'i': // 斜体
+          e.preventDefault();
+          if (isShift) {
+            handleImageInsert();
+          } else {
+            applySnippet('*', '*');
+          }
+          break;
+        case 's': // 删除线
+          if (isShift) {
+            e.preventDefault();
+            applySnippet('~~', '~~');
+          }
+          break;
+        case 'k': // 链接/代码块
+          e.preventDefault();
+          if (isShift) applySnippet('```\n', '\n```');
+          else handleLinkInsert();
+          break;
+        case 'e': // 行内代码 / 表情
+          e.preventDefault();
+          if (isShift) setShowEmojiPicker(!showEmojiPicker);
+          else applySnippet('`', '`');
+          break;
+        case '1': // H1
+          e.preventDefault();
+          applySnippet('# ', '');
+          break;
+        case '2': // H2
+          e.preventDefault();
+          applySnippet('## ', '');
+          break;
+        case '3': // H3
+          e.preventDefault();
+          applySnippet('### ', '');
+          break;
+        case 'l': // 列表
+          e.preventDefault();
+          if (isShift) applySnippet('1. ', '');
+          else applySnippet('- ', '');
+          break;
+        case 't': // 任务列表
+          if (isShift) {
+            e.preventDefault();
+            applySnippet('- [ ] ', '');
+          }
+          break;
+        case 'q': // 引用
+          if (isShift) {
+            e.preventDefault();
+            applySnippet('> ', '');
+          }
+          break;
+        case 'm': // 数学公式
+          e.preventDefault();
+          if (isShift) applySnippet('$$\n', '\n$$');
+          else applySnippet('$', '$');
+          break;
+        case 'enter': // 分页符
+          if (isShift) {
+            e.preventDefault();
+            applySnippet('\n---\n', '');
+          }
+          break;
+      }
+    }
+  };
+ 
+   const handleEditorScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
+     const scrollTop = e.currentTarget.scrollTop;
+     setShowScrollTop(scrollTop > 300);
+   };
+
+   const scrollToTop = () => {
+     if (editorRef.current) {
+       editorRef.current.scrollTo({
+         top: 0,
+         behavior: 'smooth'
+       });
+     }
+   };
+
+   // 格式化行内 Markdown（如公式、加粗等）
   const formatInlineMarkdown = (text: string) => {
     if (!text) return '';
-    // 处理行内公式 $...$ -> <span class="math-inline">...</span>
-    return text.replace(/\$([^\$]+)\$/g, '<span class="math-inline">$1</span>');
+    return text
+      .replace(/\$([^\$]+)\$/g, '<span class="math-inline">$1</span>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/~~(.+?)~~/g, '<del>$1</del>')
+      .replace(/`(.+?)`/g, '<code>$1</code>')
+      .replace(/^\[ \]\s+/, '<input type="checkbox" disabled style="margin-right: 8px; vertical-align: middle;" />')
+      .replace(/^\[x\]\s+/, '<input type="checkbox" checked disabled style="margin-right: 8px; vertical-align: middle;" />');
   };
 
   // 解析 Markdown 为幻灯片
@@ -1287,17 +1591,108 @@ export const App: React.FC = () => {
                         </button>
                       )}
                       Markdown 编辑器
-                    </div>
-                    {activeFile && (
-                      <span style={{ fontSize: '10px', opacity: 0.6, textTransform: 'none' }}>
-                        正在编辑: {activeFile}
-                      </span>
-                    )}
                   </div>
-                  <textarea
+                  {activeFile && (
+                    <span style={{ fontSize: '10px', opacity: 0.6, textTransform: 'none' }}>
+                      正在编辑: {activeFile}
+                    </span>
+                  )}
+                </div>
+
+                {/* Markdown Toolbar */}
+                <div style={{
+                  padding: '8px 15px',
+                  background: theme.theme === 'dark' ? '#111' : '#f9fafb',
+                  borderBottom: `1px solid ${theme.colors.border}`,
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '6px',
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 30,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                }}>
+                  <div style={{ display: 'flex', gap: '2px', paddingRight: '8px', borderRight: `1px solid ${theme.colors.border}` }}>
+                    <ToolbarButton icon={<Bold size={16} />} title="加粗" shortcut="Ctrl + B" onClick={() => applySnippet('**', '**')} />
+                    <ToolbarButton icon={<Italic size={16} />} title="斜体" shortcut="Ctrl + I" onClick={() => applySnippet('*', '*')} />
+                    <ToolbarButton icon={<Strikethrough size={16} />} title="删除线" shortcut="Ctrl + Shift + S" onClick={() => applySnippet('~~', '~~')} />
+                    <ToolbarButton icon={<Code size={16} />} title="行内代码" shortcut="Ctrl + E" onClick={() => applySnippet('`', '`')} />
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: '2px', paddingRight: '8px', borderRight: `1px solid ${theme.colors.border}` }}>
+                    <ToolbarButton icon={<Heading1 size={16} />} title="一级标题" shortcut="Ctrl + 1" onClick={() => applySnippet('# ', '')} />
+                    <ToolbarButton icon={<Heading2 size={16} />} title="二级标题" shortcut="Ctrl + 2" onClick={() => applySnippet('## ', '')} />
+                    <ToolbarButton icon={<Heading3 size={16} />} title="三级标题" shortcut="Ctrl + 3" onClick={() => applySnippet('### ', '')} />
+                    <ToolbarButton icon={<SeparatorHorizontal size={16} />} title="分页符" shortcut="Ctrl + Shift + Enter" onClick={() => applySnippet('\n---\n', '')} />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '2px', paddingRight: '8px', borderRight: `1px solid ${theme.colors.border}` }}>
+                    <ToolbarButton icon={<Quote size={16} />} title="引用" shortcut="Ctrl + Shift + Q" onClick={() => applySnippet('> ', '')} />
+                    <ToolbarButton icon={<List size={16} />} title="无序列表" shortcut="Ctrl + L" onClick={() => applySnippet('- ', '')} />
+                    <ToolbarButton icon={<ListOrdered size={16} />} title="有序列表" shortcut="Ctrl + Shift + L" onClick={() => applySnippet('1. ', '')} />
+                    <ToolbarButton icon={<CheckSquare size={16} />} title="任务列表" shortcut="Ctrl + Shift + T" onClick={() => applySnippet('- [ ] ', '')} />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '2px', paddingRight: '8px', borderRight: `1px solid ${theme.colors.border}` }}>
+                    <ToolbarButton icon={<FileCode size={16} />} title="代码块" shortcut="Ctrl + Shift + K" onClick={() => applySnippet('```\n', '\n```')} />
+                    <ToolbarButton icon={<Table size={16} />} title="表格" shortcut="Ctrl + Alt + T" onClick={() => applySnippet('| 列1 | 列2 |\n| :--- | :--- |\n| 内容1 | 内容2 |', '')} />
+                    <ToolbarButton icon={<Link size={16} />} title="链接" shortcut="Ctrl + K" onClick={handleLinkInsert} />
+                    <ToolbarButton icon={<Image size={16} />} title="图片" shortcut="Ctrl + Shift + I" onClick={handleImageInsert} />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '2px', paddingRight: '8px', borderRight: `1px solid ${theme.colors.border}` }}>
+                    <ToolbarButton icon={<Sigma size={16} />} title="行内公式" shortcut="Ctrl + M" onClick={() => applySnippet('$', '$')} />
+                    <ToolbarButton icon={<Sigma size={16} strokeWidth={3} />} title="块级公式" shortcut="Ctrl + Shift + M" onClick={() => applySnippet('$$\n', '\n$$')} />
+                    <ToolbarButton icon={<Variable size={16} />} title="向量" shortcut="Ctrl + Alt + V" onClick={() => applySnippet('!vector', '')} />
+                    <ToolbarButton icon={<Grid3X3 size={16} />} title="网格" shortcut="Ctrl + Alt + G" onClick={() => applySnippet('!grid', '')} />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '2px' }}>
+                    <ToolbarButton icon={<Video size={16} />} title="视频" shortcut="Ctrl + Alt + M" onClick={handleVideoInsert} />
+                    <ToolbarButton icon={<Smile size={16} />} title="图标" shortcut="Ctrl + Shift + E" onClick={() => setShowEmojiPicker(!showEmojiPicker)} />
+                    <ToolbarButton icon={<Globe size={16} />} title="原生HTML" shortcut="Ctrl + Alt + H" onClick={() => applySnippet('!html(', ')')} />
+                  </div>
+
+                  {/* Emoji Picker Overlay */}
+                  {showEmojiPicker && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      right: '0',
+                      zIndex: 1000,
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
+                      borderRadius: '8px',
+                      marginTop: '8px'
+                    }}>
+                      <EmojiPicker 
+                        onEmojiClick={handleEmojiClick}
+                        theme={theme.theme === 'dark' ? EmojiTheme.DARK : EmojiTheme.LIGHT}
+                        autoFocusSearch={false}
+                        searchPlaceholder="搜索表情..."
+                        width={350}
+                        height={400}
+                      />
+                      <div 
+                        onClick={() => setShowEmojiPicker(false)}
+                        style={{
+                          position: 'fixed',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          zIndex: -1
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <textarea
                     ref={editorRef}
                     value={markdown}
                     onChange={(e) => setMarkdown(e.target.value)}
+                    onKeyDown={handleEditorKeyDown}
+                    onScroll={handleEditorScroll}
                     style={{
                       flex: 1,
                       background: 'transparent',
@@ -1313,6 +1708,46 @@ export const App: React.FC = () => {
                     }}
                     placeholder="在此输入 Markdown 内容..."
                   />
+
+                  {/* Scroll to Top Button */}
+                  {showScrollTop && (
+                    <button
+                      onClick={scrollToTop}
+                      style={{
+                        position: 'absolute',
+                        right: '20px',
+                        bottom: '80px',
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        background: theme.primaryColor,
+                        color: '#fff',
+                        border: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                        zIndex: 100,
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        opacity: 0.9,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-3px)';
+                        e.currentTarget.style.opacity = '1';
+                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.3)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.opacity = '0.9';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+                      }}
+                      title="回到顶部"
+                    >
+                      <ArrowUp size={20} strokeWidth={2.5} />
+                    </button>
+                  )}
+
                   <div style={{
                     padding: '12px 20px',
                     fontSize: '12px',

@@ -25,6 +25,24 @@ if (typeof document !== 'undefined') {
       color: #E2B026;
     }
 
+    .slide-content em {
+      font-style: italic;
+      opacity: 0.9;
+    }
+
+    .slide-content del {
+      text-decoration: line-through;
+      opacity: 0.6;
+    }
+
+    .slide-content code {
+      background: rgba(88, 196, 221, 0.15);
+      padding: 0.1em 0.3em;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9em;
+    }
+
     .slide-content a {
       color: #58C4DD;
       text-decoration: underline;
@@ -258,6 +276,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         return (
           <h1
             key={el.id}
+            className="slide-content slide-title"
             style={{
               fontSize: 'clamp(24px, 3.5vw, 42px)',
               fontWeight: 700,
@@ -273,6 +292,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         return (
           <h2
             key={el.id}
+            className="slide-content"
             style={{
               fontSize: 'clamp(18px, 2.5vw, 30px)',
               opacity: 0.8,
@@ -325,24 +345,28 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                 style={{
                   marginBottom: '12px',
                   padding: el.listType === 'ol' ? '8px 12px' : '12px 16px',
-                  background: 'rgba(88, 196, 221, 0.08)',
+                  background: bullet.includes('type="checkbox"') ? 'transparent' : 'rgba(88, 196, 221, 0.08)',
                   borderRadius: '6px',
-                  borderLeft: el.listType === 'ol' ? 'none' : `3px solid ${theme.primaryColor}`,
+                  borderLeft: el.listType === 'ol' || bullet.includes('type="checkbox"') ? 'none' : `3px solid ${theme.primaryColor}`,
                   fontSize: 'clamp(15px, 1.8vw, 18px)',
                   lineHeight: 1.6,
                   wordWrap: 'break-word',
                   overflowWrap: 'break-word',
+                  display: 'flex',
+                  alignItems: 'flex-start',
                 }}
               >
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeKatex]}
-                  components={{
-                    p: ({ children }) => <span style={{ margin: 0 }}>{children}</span>,
-                  }}
-                >
-                  {bullet}
-                </ReactMarkdown>
+                <div style={{ flex: 1 }}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeRaw, rehypeKatex]}
+                    components={{
+                      p: ({ children }) => <span style={{ margin: 0 }}>{children}</span>,
+                    }}
+                  >
+                    {bullet}
+                  </ReactMarkdown>
+                </div>
               </li>
             ))}
           </ListTag>

@@ -1,4 +1,4 @@
-import { SlideContent, SlideElement } from '../components/SlideTemplate';
+import { formatInlineMarkdown } from './markdownHelpers';
 
 export interface TOCItem {
   id: string;
@@ -8,32 +8,18 @@ export interface TOCItem {
 }
 
 /**
- * 格式化行内 Markdown
- * 处理 HTML 转义和粗体标记
- */
-export const formatInlineMarkdown = (text: string): string => {
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-  return escaped
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/__(.+?)__/g, '<strong>$1</strong>');
-};
-
-/**
  * 解析 Markdown 为幻灯片
  */
-export const parseMarkdownToSlides = (md: string): SlideContent[] => {
+export const parseMarkdownToSlides = (md: string): any[] => {
   // 归一化换行符
   const normalizedMd = md.replace(/\r\n/g, '\n');
   // 支持 --- 作为分页符，支持前后空格，以及在文件开头或结尾的情况
   const slideBlocks = normalizedMd.split(/(?:\n|^)\s*---\s*(?:\n|$)/);
-  const parsedSlides: SlideContent[] = [];
+  const parsedSlides: any[] = [];
 
   slideBlocks.forEach((block, index) => {
     const lines = block.trim().split(/\r?\n/);
-    const elements: SlideElement[] = [];
+    const elements: any[] = [];
     let clickState = 0;
 
     for (let i = 0; i < lines.length; i++) {
@@ -71,7 +57,7 @@ export const parseMarkdownToSlides = (md: string): SlideContent[] => {
         elements.push({
           id: `s${index}-e${i}`,
           type: 'bullets',
-          content: [bulletContent],
+          content: [formatInlineMarkdown(bulletContent)],
           clickState: clickState++,
         });
       } else if (line.startsWith('```')) {
