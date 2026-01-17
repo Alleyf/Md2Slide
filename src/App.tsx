@@ -1186,6 +1186,7 @@ export const App: React.FC = () => {
                     onRename={renameFile}
                     onExport={handleExportPDF}
                     onImport={handleImportFile}
+                    onOpenFolder={openFolder}
                     theme={theme}
                   />
                 </div>

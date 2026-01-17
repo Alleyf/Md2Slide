@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { darkTheme } from '../styles/theme';
 import { Play, Pause, RotateCcw, ChevronLeft, ChevronRight, Maximize } from 'lucide-react';
+import { getStorageItem, setStorageItem, storageKeys } from '../utils/storage';
 
 interface NavigationControlsProps {
   currentSlideIndex: number;
@@ -17,6 +18,7 @@ interface NavigationControlsProps {
   autoPlayInterval: number;
   onAutoPlayIntervalChange: (interval: number) => void;
   onFullscreenToggle?: () => void;
+  isVisible?: boolean;
 }
 
 export const NavigationControls: React.FC<NavigationControlsProps> = ({
@@ -33,11 +35,16 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
   autoPlayInterval,
   onAutoPlayIntervalChange,
   onFullscreenToggle,
+  isVisible = true,
 }) => {
   const { themeConfig: theme } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [jumpValue, setJumpValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -45,6 +52,58 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
       inputRef.current.select();
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !containerRef.current) return;
+      const parent = containerRef.current.parentElement;
+      if (!parent) return;
+      const parentRect = parent.getBoundingClientRect();
+      const containerRect = containerRef.current.getBoundingClientRect();
+
+      let x = e.clientX - parentRect.left - dragOffsetRef.current.x;
+      let y = e.clientY - parentRect.top - dragOffsetRef.current.y;
+
+      const maxX = parentRect.width - containerRect.width;
+      const maxY = parentRect.height - containerRect.height;
+
+      if (x < 0) x = 0;
+      if (y < 0) y = 0;
+      if (x > maxX) x = maxX;
+      if (y > maxY) y = maxY;
+
+      const newPos = { x, y };
+      setPosition(newPos);
+      setStorageItem(storageKeys.PREVIEW_NAV_POSITION, newPos);
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging) {
+        setIsDragging(false);
+      }
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  const handleDragStart = (e: React.MouseEvent) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    dragOffsetRef.current = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
+    setIsDragging(true);
+    e.preventDefault();
+  };
 
   const handleJumpSubmit = (e: React.FormEvent | React.FocusEvent) => {
     e.preventDefault();
@@ -65,13 +124,32 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
     }
   };
 
+  useEffect(() => {
+    const saved = getStorageItem<{ x: number; y: number } | null>(
+      storageKeys.PREVIEW_NAV_POSITION,
+      null
+    );
+    if (saved && containerRef.current && containerRef.current.parentElement) {
+      const parentRect = containerRef.current.parentElement.getBoundingClientRect();
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const maxX = parentRect.width - containerRect.width;
+      const maxY = parentRect.height - containerRect.height;
+      const clampedX = Math.min(Math.max(saved.x, 0), maxX);
+      const clampedY = Math.min(Math.max(saved.y, 0), maxY);
+      setPosition({ x: clampedX, y: clampedY });
+    }
+  }, []);
+
   return (
     <div
       className="nav-controls"
+      ref={containerRef}
       style={{
         position: 'absolute',
-        bottom: '25px',
-        right: '25px',
+        top: position ? position.y : 'auto',
+        left: position ? position.x : 'auto',
+        bottom: position ? 'auto' : 25,
+        right: position ? 'auto' : 25,
         display: 'flex',
         gap: '15px',
         alignItems: 'center',
@@ -81,9 +159,26 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
         borderRadius: '12px',
         border: theme === darkTheme ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
         backdropFilter: 'blur(15px)',
+        opacity: isVisible ? 1 : 0,
+        pointerEvents: isVisible ? 'auto' : 'none',
         transition: 'opacity 0.3s ease',
       }}
     >
+      <div
+        onMouseDown={handleDragStart}
+        style={{
+          cursor: isDragging ? 'grabbing' : 'grab',
+          padding: '4px 2px',
+          marginRight: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          color: theme.colors.textSecondary,
+          userSelect: 'none',
+        }}
+        title="拖动工具栏"
+      >
+        <span style={{ fontSize: '10px' }}>⠿</span>
+      </div>
       <button
         onClick={onPrev}
         disabled={currentSlideIndex === 0 && clickState === 0}

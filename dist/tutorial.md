@@ -101,7 +101,7 @@ const quickSort = (arr) => {
 ### 媒体嵌入
 - **图片**：`![描述](链接)`
 
-![Md2Slide](https://github.com/Alleyf/Md2Slide/blob/main/public/logo.jpg)
+![Md2Slide](public/logo.jpg)
 
 - **视频**：`!video(链接)`
 

@@ -116,8 +116,6 @@ if (typeof document !== 'undefined') {
 
     @media (max-width: 900px) {
       .nav-controls {
-        bottom: 12px !important;
-        right: 12px !important;
         gap: 8px !important;
         padding: 6px 10px !important;
       }
@@ -172,6 +170,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   onFullscreenToggle,
 }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [showNavControls, setShowNavControls] = useState(true);
   const [clickState, setClickState] = useState(0);
   const [totalClicks, setTotalClicks] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
@@ -1057,10 +1056,10 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         className={exportMode ? "pdf-slide-page" : ""}
         style={{
           position: exportMode ? 'relative' : 'absolute',
-          top: 0,
+          top: exportMode ? 0 : 24,
           left: 0,
           width: '100%',
-          height: exportMode ? '1080px' : '100%',
+          height: exportMode ? '1080px' : 'calc(100% - 48px)',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'flex-start',
@@ -1124,6 +1123,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
 
   return (
     <div
+      onMouseEnter={() => setShowNavControls(true)}
+      onMouseLeave={() => setShowNavControls(false)}
       style={{
         position: 'relative',
         width: '100%',
@@ -1174,6 +1175,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
           onAutoPlayToggle={() => setIsAutoPlaying(!isAutoPlaying)}
           autoPlayInterval={localAutoPlayInterval}
           onAutoPlayIntervalChange={(val) => setLocalAutoPlayInterval(val)}
+          isVisible={showNavControls}
           onFullscreenToggle={onFullscreenToggle}
         />
       )}

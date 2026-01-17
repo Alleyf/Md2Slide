@@ -1,5 +1,7 @@
 node_modules
-
+dist
+.codebuddy
+.trae
 todolist.md
 AGENTS.md
 MARKDOWN_GUIDE.md
