@@ -8,7 +8,10 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useTheme } from '../context/ThemeContext';
 import { darkTheme } from '../styles/theme';
+import { SlideContent, SlideElement } from '../types/slide';
 import { NavigationControls } from './NavigationControls';
+import { AutoAnimateWrapper } from './AutoAnimateWrapper';
+import { announceToScreenReader } from '../utils/accessibility';
 import 'katex/dist/katex.min.css';
 
 // 添加全局样式支持
@@ -144,27 +147,6 @@ if (typeof document !== 'undefined') {
   document.head.appendChild(style);
 }
 
-// 幻灯片内容类型定义
-export interface SlideContent {
-  id: string;
-  title?: string;
-  subtitle?: string;
-  elements: SlideElement[];
-}
-
-export interface SlideElement {
-  id: string;
-  type: 'title' | 'subtitle' | 'text' | 'bullets' | 'vector' | 'grid' | 'code' | 'quote' | 'image' | 'video' | 'icon' | 'html' | 'math' | 'markdown' | 'table' | 'audio';
-  content: string | string[] | any;
-  clickState: number;
-  animation?: 'fade' | 'scale' | 'grow' | 'transform' | 'highlight' | 'slide-left' | 'slide-right' | 'slide-up' | 'pop';
-  style?: React.CSSProperties;
-  children?: SlideElement[];
-  listStart?: number;
-  listType?: 'ul' | 'ol';
-  language?: string;
-}
-
 interface SlideTemplateProps {
   slides: SlideContent[];
   activeSlideIndex?: number;
@@ -173,6 +155,11 @@ interface SlideTemplateProps {
   autoPlayInterval?: number;
   exportMode?: boolean;
   onFullscreenToggle?: () => void;
+  onPresenterModeToggle?: () => void;
+  isFullscreen?: boolean;
+  enableAutoAnimate?: boolean;
+  autoAnimateDuration?: number;
+  autoAnimateEasing?: string;
 }
 
 export const SlideTemplate: React.FC<SlideTemplateProps> = ({
@@ -183,6 +170,11 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   autoPlayInterval = 5000,
   exportMode = false,
   onFullscreenToggle,
+  onPresenterModeToggle,
+  isFullscreen = false,
+  enableAutoAnimate = false,
+  autoAnimateDuration = 600,
+  autoAnimateEasing = 'ease-in-out',
 }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [showNavControls, setShowNavControls] = useState(true);
@@ -192,6 +184,35 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   const [localAutoPlayInterval, setLocalAutoPlayInterval] = useState(autoPlayInterval);
   const autoPlayIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  // 触摸手势处理
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+
+    const deltaX = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const deltaY = e.changedTouches[0].clientY - touchStartRef.current.y;
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+
+    // 只有当水平滑动距离超过 50px 且大于垂直滑动时才触发
+    if (absX > 50 && absX > absY) {
+      if (deltaX > 0) {
+        handleNavigate('prev');
+      } else {
+        handleNavigate('next');
+      }
+    }
+
+    touchStartRef.current = null;
+  };
 
   // 同步外部传入的页码
   useEffect(() => {
@@ -211,7 +232,28 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   useEffect(() => {
     setCurrentSlideIndex(0);
     setClickState(0);
+    localStorage.setItem('md2slide_current_index', '0');
   }, [slides]);
+
+  useEffect(() => {
+    localStorage.setItem('md2slide_current_index', currentSlideIndex.toString());
+  }, [currentSlideIndex]);
+
+  // Sync from presenter view via localStorage
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'md2slide_current_index' && e.newValue !== null) {
+        const newIndex = parseInt(e.newValue);
+        if (newIndex !== currentSlideIndex) {
+          setCurrentSlideIndex(newIndex);
+          setClickState(0);
+          onSlideChange?.(newIndex);
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [currentSlideIndex, onSlideChange]);
 
   // 计算每个幻灯片的总点击次数
   // 自动播放逻辑
@@ -301,6 +343,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
       }
     }
     onSlideChange?.(currentSlideIndex);
+    announceToScreenReader(`幻灯片 ${currentSlideIndex + 1} / ${slides.length}`);
   };
 
   // 键盘导航
@@ -399,6 +442,16 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
       ...el.style,
     };
 
+    // Auto-animation attributes
+    const autoAnimateProps: Record<string, any> = {};
+    if (el.autoAnimate) {
+      autoAnimateProps['data-auto-animate'] = true;
+      if (el.autoAnimateId) autoAnimateProps['data-id'] = el.autoAnimateId;
+      if (el.autoAnimateType) autoAnimateProps['data-type'] = el.autoAnimateType;
+      if (el.autoAnimateDuration) autoAnimateProps['data-duration'] = el.autoAnimateDuration;
+      if (el.autoAnimateEasing) autoAnimateProps['data-easing'] = el.autoAnimateEasing;
+    };
+
     switch (el.type) {
       case 'title':
         return (
@@ -406,6 +459,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
             key={el.id}
             className="slide-content slide-title slide-element"
             data-click-state={el.clickState}
+            {...autoAnimateProps}
             style={{
               fontSize: 'clamp(24px, 3.5vw, 42px)',
               fontWeight: 700,
@@ -423,6 +477,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
             key={el.id}
             className="slide-content slide-element"
             data-click-state={el.clickState}
+            {...autoAnimateProps}
             style={{
               fontSize: 'clamp(18px, 2.5vw, 30px)',
               opacity: 0.8,
@@ -441,10 +496,13 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
             key={el.id}
             className="slide-element"
             data-click-state={el.clickState}
+            {...autoAnimateProps}
             style={{
               fontSize: 'clamp(16px, 2vw, 20px)',
               lineHeight: 1.8,
               marginBottom: '10px',
+              textIndent: '2em',
+              textAlign: 'justify',
               ...baseStyle,
             }}
             dangerouslySetInnerHTML={{ __html: el.content as string }}
@@ -465,6 +523,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
             key={el.id}
             className="slide-element"
             data-click-state={el.clickState}
+            {...autoAnimateProps}
             start={el.listStart}
             style={{
               listStyle: el.listType === 'ol' ? 'decimal' : 'none',
@@ -512,6 +571,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
             key={el.id}
             className="slide-element"
             data-click-state={el.clickState}
+            {...autoAnimateProps}
             style={{
               width: '200px',
               height: '200px',
@@ -941,7 +1001,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                   <h3 style={{ fontSize: 'clamp(18px, 2.2vw, 24px)', fontWeight: 600, marginBottom: '14px', marginTop: '6px' }}>{children}</h3>
                 ),
                 p: ({ children }) => (
-                  <p style={{ marginBottom: '12px', lineHeight: 1.7 }}>{children}</p>
+                  <p style={{ marginBottom: '12px', lineHeight: 1.7, textIndent: '2em', textAlign: 'justify' }}>{children}</p>
                 ),
                 span: ({ className, children }) => {
                   if (className === 'math-inline') {
@@ -1088,12 +1148,15 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         key={slide.id}
         ref={(el) => (slideRefs.current[index] = el)}
         className={exportMode ? "pdf-slide-page" : ""}
+        role="region"
+        aria-roledescription="slide"
+        aria-label={`幻灯片 ${index + 1} / ${slides.length}`}
         style={{
           position: exportMode ? 'relative' : 'absolute',
-          top: exportMode ? 0 : 24,
+          top: (exportMode || isFullscreen) ? 0 : 24,
           left: 0,
           width: '100%',
-          height: exportMode ? '1080px' : 'calc(100% - 48px)',
+          height: exportMode ? '1080px' : (isFullscreen ? '100%' : 'calc(100% - 48px)'),
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'flex-start',
@@ -1121,7 +1184,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
               marginBottom: '10px',
               color: theme.colors.text,
               width: '100%',
-              maxWidth: '1100px',
+              maxWidth: isFullscreen ? '100%' : '1100px',
             }}
             dangerouslySetInnerHTML={{ __html: slide.title }}
           />
@@ -1135,23 +1198,46 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
               marginBottom: '30px',
               color: theme.primaryColor,
               width: '100%',
-              maxWidth: '1100px',
+              maxWidth: isFullscreen ? '100%' : '1100px',
             }}
             dangerouslySetInnerHTML={{ __html: slide.subtitle }}
           />
         )}
-        <div
+        <AutoAnimateWrapper
+          config={{
+            enabled: (enableAutoAnimate || slide.elements.some(el => el.autoAnimate)) && slide.elements.some(el => el.autoAnimate),
+            duration: autoAnimateDuration || 600,
+            easing: autoAnimateEasing || 'ease-in-out'
+          }}
+          slideIndex={index}
+          isActive={isActive}
+        >
+          <div
           style={{
             width: '100%',
-            maxWidth: '1100px',
+            maxWidth: isFullscreen ? '100%' : '1100px',
             flex: 1,
             display: 'flex',
-            flexDirection: 'column',
-            gap: '15px',
+            flexDirection: slide.layout === 'two-column' ? 'row' : 'column',
+            gap: '30px',
+            alignItems: slide.layout === 'title-center' ? 'center' : 'stretch',
+            justifyContent: slide.layout === 'title-center' ? 'center' : 'flex-start',
           }}
         >
-          {slide.elements.map(el => renderElement(el, index))}
+          {slide.layout === 'two-column' ? (
+            <>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                {slide.elements.slice(0, Math.ceil(slide.elements.length / 2)).map(el => renderElement(el, index))}
+              </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                {slide.elements.slice(Math.ceil(slide.elements.length / 2)).map(el => renderElement(el, index))}
+              </div>
+            </>
+          ) : (
+            slide.elements.map(el => renderElement(el, index))
+          )}
         </div>
+        </AutoAnimateWrapper>
       </div>
     );
   };
@@ -1181,19 +1267,23 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
       onMouseLeave={() => setShowNavControls(false)}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
       style={{
         position: 'relative',
         width: '100%',
         height: '100%',
-        minHeight: window.innerWidth <= 768 ? 'calc(100vh - 52px)' : 'min(700px, 100%)',
-        maxHeight: window.innerWidth <= 768 ? 'calc(100vh - 52px)' : '90vh',
+        minHeight: isFullscreen ? '100vh' : (window.innerWidth <= 768 ? 'calc(100vh - 52px)' : 'min(700px, 100%)'),
+        maxHeight: isFullscreen ? '100vh' : (window.innerWidth <= 768 ? 'calc(100vh - 52px)' : '90vh'),
         background: theme.colors.background,
         color: theme.colors.text,
         fontFamily: theme.fontFamily,
         overflow: 'hidden',
-        borderRadius: window.innerWidth <= 768 ? 0 : '12px',
+        borderRadius: (isFullscreen || window.innerWidth <= 768) ? 0 : '12px',
         display: 'flex',
         flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: isFullscreen ? 'stretch' : 'center',
         transition: 'background 0.3s ease, color 0.3s ease',
         cursor: 'pointer',
       }}
@@ -1234,6 +1324,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
           onAutoPlayIntervalChange={(val) => setLocalAutoPlayInterval(val)}
           isVisible={showNavControls}
           onFullscreenToggle={onFullscreenToggle}
+          onPresenterModeToggle={onPresenterModeToggle}
         />
       )}
 

@@ -1,4 +1,4 @@
-import { SlideContent, SlideElement } from '../components/SlideTemplate';
+import { SlideContent, SlideElement } from '../types/slide';
 import { formatInlineMarkdown } from './markdownHelpers';
 
 export interface TOCItem {
@@ -6,6 +6,14 @@ export interface TOCItem {
   text: string;
   level: number;
   lineIndex: number;
+}
+
+export interface AutoAnimateMetadata {
+  autoAnimate?: boolean;
+  autoAnimateId?: string;
+  autoAnimateType?: 'move' | 'scale' | 'fade' | 'opacity' | 'transform' | 'all';
+  autoAnimateDuration?: number;
+  autoAnimateEasing?: string;
 }
 
 export interface ParserOptions {
@@ -40,7 +48,7 @@ export const parseMarkdownToSlides = (md: string, options?: ParserOptions): Slid
       return false;
     }
     // 支持特殊字符后跟标题的情况，如 ⚡### 或 🇨🇳###
-    const match = line.match(/^(.*?)?(#{1,6})\s+/);
+    const match = line.match(/^([^#]*?)(#{1,6})\s+/);
     if (!match) {
       return false;
     }
@@ -76,7 +84,7 @@ export const parseMarkdownToSlides = (md: string, options?: ParserOptions): Slid
     
     // 检查标题模式但排除在行内代码中的情况
     // 支持特殊字符后跟标题的情况，如 ⚡### 或 🇨🇳###
-    const headingPattern = /^(.*?)?(#{1,6})\s+(.*)/;
+    const headingPattern = /^([^#]*?)(#{1,6})\s+(.*)/;
     const headingMatch = trimmed.match(headingPattern);
     
     if (isDelimiterLine) {
@@ -120,40 +128,61 @@ export const parseMarkdownToSlides = (md: string, options?: ParserOptions): Slid
     const linesInBlock = block.trim().split(/\r?\n/);
     const elements: SlideElement[] = [];
     let clickState = 0;
+    let notes = '';
+    let inNotes = false;
+    let layout = 'auto';
 
     for (let i = 0; i < linesInBlock.length; i++) {
       const line = linesInBlock[i].trim();
       if (!line) continue;
 
+      // 检查布局元数据
+      const layoutMatch = line.match(/^layout:\s*([a-z-]+)/i);
+      if (layoutMatch) {
+        layout = layoutMatch[1].toLowerCase();
+        continue;
+      }
+
+      // 检查是否进入演讲者备注部分
+      if (line.toLowerCase().startsWith('### notes:') || line.toLowerCase() === '### notes') {
+        inNotes = true;
+        continue;
+      }
+
+      if (inNotes) {
+        notes += (notes ? '\n' : '') + linesInBlock[i];
+        continue;
+      }
+
       // 检查是否为标题，支持特殊字符后跟标题的情况
-      const titleMatch = line.match(/^(.*?)?(#{1,6})\s+(.*)/);
+      const titleMatch = line.match(/^([^#]*?)(#{1,6})\s+(.*)/);
       if (titleMatch) {
         const prefix = titleMatch[1] || '';
         const hashes = titleMatch[2];
         const content = titleMatch[3];
         const fullContent = prefix + content; // 包含前缀特殊字符
+        const level = hashes.length;
         
-        if (hashes === '#' && content) {
+        const autoAnimateMetadata = parseAutoAnimateMetadata(linesInBlock[i]);
+        
+        if (level === 1) {
           elements.push({
             id: `s${index}-e${i}`,
             type: 'title',
             content: formatInlineMarkdown(fullContent),
             clickState: 0,
+            ...autoAnimateMetadata,
           });
-        } else if (hashes === '##' && content) {
+        } else {
+          // H2-H6 都视为 subtitle，但通过样式进行区分
+          const fontSize = level === 2 ? undefined : (level === 3 ? '24px' : `${Math.max(18, 24 - (level - 3) * 2)}px`);
           elements.push({
             id: `s${index}-e${i}`,
             type: 'subtitle',
             content: formatInlineMarkdown(fullContent),
             clickState: clickState++,
-          });
-        } else if (hashes === '###' && content) {
-          elements.push({
-            id: `s${index}-e${i}`,
-            type: 'subtitle',
-            content: formatInlineMarkdown(fullContent),
-            clickState: clickState++,
-            style: { fontSize: '24px', marginTop: '10px' },
+            style: fontSize ? { fontSize, marginTop: '10px' } : undefined,
+            ...autoAnimateMetadata,
           });
         }
       } else if (
@@ -169,6 +198,7 @@ export const parseMarkdownToSlides = (md: string, options?: ParserOptions): Slid
           ? parseInt(line.match(/^(\d+)\./)![1])
           : undefined;
 
+        const autoAnimateMetadata = parseAutoAnimateMetadata(linesInBlock[i]);
         elements.push({
           id: `s${index}-e${i}`,
           type: 'bullets',
@@ -176,6 +206,7 @@ export const parseMarkdownToSlides = (md: string, options?: ParserOptions): Slid
           clickState: clickState++,
           listType: isOrdered ? 'ol' : 'ul',
           listStart: listStart,
+          ...autoAnimateMetadata,
         });
       } else if (line.startsWith('```')) {
         const language = line.slice(3).trim();
@@ -185,12 +216,14 @@ export const parseMarkdownToSlides = (md: string, options?: ParserOptions): Slid
           code += linesInBlock[j] + '\n';
           j++;
         }
+        const autoAnimateMetadata = parseAutoAnimateMetadata(linesInBlock[i]);
         elements.push({
           id: `s${index}-e${i}`,
           type: 'code',
           content: code.trim(),
           clickState: clickState++,
           language: language || 'text',
+          ...autoAnimateMetadata,
         });
         i = j;
       } else if (line.startsWith('> ')) {
@@ -203,11 +236,13 @@ export const parseMarkdownToSlides = (md: string, options?: ParserOptions): Slid
           quoteContent += '\n' + linesInBlock[j].trim().slice(2);
           j++;
         }
+        const autoAnimateMetadata = parseAutoAnimateMetadata(linesInBlock[i]);
         elements.push({
           id: `s${index}-e${i}`,
           type: 'quote',
           content: formatInlineMarkdown(quoteContent),
           clickState: clickState++,
+          ...autoAnimateMetadata,
         });
         i = j - 1;
       } else if (line.startsWith('|')) {
@@ -222,71 +257,91 @@ export const parseMarkdownToSlides = (md: string, options?: ParserOptions): Slid
           j++;
         }
         if (tableContent.split('\n').length >= 3) {
+          const autoAnimateMetadata = parseAutoAnimateMetadata(linesInBlock[i]);
           elements.push({
             id: `s${index}-e${i}`,
             type: 'table',
             content: tableContent.trim(),
             clickState: clickState++,
+            ...autoAnimateMetadata,
           });
           i = j - 1;
         } else {
+          const autoAnimateMetadata = parseAutoAnimateMetadata(linesInBlock[i]);
           elements.push({
             id: `s${index}-e${i}`,
             type: 'markdown',
             content: formatInlineMarkdown(line),
             clickState: clickState++,
+            ...autoAnimateMetadata,
           });
         }
       } else if (line.startsWith('!icon(')) {
         const match = line.match(/!icon\(([^)]+)\)/);
-        if (match)
+        if (match) {
+          const autoAnimateMetadata = parseAutoAnimateMetadata(linesInBlock[i]);
           elements.push({
             id: `s${index}-e${i}`,
             type: 'icon',
             content: match[1],
             clickState: clickState++,
+            ...autoAnimateMetadata,
           });
+        }
       } else if (line.startsWith('!grid')) {
+        const autoAnimateMetadata = parseAutoAnimateMetadata(linesInBlock[i]);
         elements.push({
           id: `s${index}-e${i}`,
           type: 'grid',
           content: '',
           clickState: clickState++,
+          ...autoAnimateMetadata,
         });
       } else if (line.startsWith('!vector')) {
+        const autoAnimateMetadata = parseAutoAnimateMetadata(linesInBlock[i]);
         elements.push({
           id: `s${index}-e${i}`,
           type: 'vector',
           content: '',
           clickState: clickState++,
+          ...autoAnimateMetadata,
         });
       } else if (line.startsWith('!image(')) {
         const match = line.match(/!image\(([^)]+)\)/);
-        if (match)
+        if (match) {
+          const autoAnimateMetadata = parseAutoAnimateMetadata(linesInBlock[i]);
           elements.push({
             id: `s${index}-e${i}`,
             type: 'image',
             content: match[1],
             clickState: clickState++,
+            ...autoAnimateMetadata,
           });
+        }
       } else if (line.startsWith('!video(')) {
         const match = line.match(/!video\(([^)]+)\)/);
-        if (match)
+        if (match) {
+          const autoAnimateMetadata = parseAutoAnimateMetadata(linesInBlock[i]);
           elements.push({
             id: `s${index}-e${i}`,
             type: 'video',
             content: match[1],
             clickState: clickState++,
+            ...autoAnimateMetadata,
           });
+        }
       } else if (line.startsWith('!audio(')) {
         const match = line.match(/!audio\(([^)]+)\)/);
-        if (match)
+        if (match) {
+          const autoAnimateMetadata = parseAutoAnimateMetadata(linesInBlock[i]);
           elements.push({
             id: `s${index}-e${i}`,
             type: 'audio',
             content: match[1],
             clickState: clickState++,
+            ...autoAnimateMetadata,
           });
+        }
       } else if (line.startsWith('!html(')) {
         let htmlContent = '';
         let j = i;
@@ -318,11 +373,13 @@ export const parseMarkdownToSlides = (md: string, options?: ParserOptions): Slid
           j++;
         }
 
+        const autoAnimateMetadata = parseAutoAnimateMetadata(linesInBlock[i]);
         elements.push({
           id: `s${index}-e${i}`,
           type: 'html',
           content: htmlContent,
           clickState: clickState++,
+          ...autoAnimateMetadata,
         });
 
         i = j;
@@ -353,30 +410,91 @@ export const parseMarkdownToSlides = (md: string, options?: ParserOptions): Slid
           j++;
         }
 
+        const autoAnimateMetadata = parseAutoAnimateMetadata(linesInBlock[i]);
         elements.push({
           id: `s${index}-e${i}`,
           type: 'math',
           content: { latex: latexContent.trim(), displayMode: true },
           clickState: clickState++,
+          ...autoAnimateMetadata,
         });
 
         if (foundEnd) i = j;
       } else {
+        const autoAnimateMetadata = parseAutoAnimateMetadata(linesInBlock[i]);
         elements.push({
           id: `s${index}-e${i}`,
           type: 'markdown',
           content: formatInlineMarkdown(line),
           clickState: clickState++,
+          ...autoAnimateMetadata,
         });
       }
     }
 
     if (elements.length > 0) {
-      parsedSlides.push({ id: `slide-${index}`, elements });
+      parsedSlides.push({ id: `slide-${index}`, elements, notes: notes.trim(), layout });
     }
   });
 
   return parsedSlides;
+};
+
+/**
+ * Parse auto-animate metadata from a line
+ */
+export const parseAutoAnimateMetadata = (line: string): AutoAnimateMetadata | null => {
+  // Check for auto-animate directives in comments or special syntax
+  const autoAnimateRegex = /<!--\s*auto-animate:\s*(.*?)\s*-->/gi;
+  const idRegex = /<!--\s*data-id:\s*(.*?)\s*-->/gi;
+  
+  const autoAnimateMatch = autoAnimateRegex.exec(line);
+  const idMatch = idRegex.exec(line);
+  
+  if (autoAnimateMatch || idMatch) {
+    const metadata: AutoAnimateMetadata = {};
+    
+    if (autoAnimateMatch) {
+      const params = autoAnimateMatch[1].split(',').map(p => p.trim());
+      
+      params.forEach(param => {
+        if (param === 'true' || param === 'enable') {
+          metadata.autoAnimate = true;
+        } else if (param === 'false' || param === 'disable') {
+          metadata.autoAnimate = false;
+        } else if (param.includes('=')) {
+          const [key, value] = param.split('=');
+          const cleanKey = key.trim();
+          const cleanValue = value.trim();
+          
+          switch (cleanKey) {
+            case 'id':
+              metadata.autoAnimateId = cleanValue;
+              break;
+            case 'type':
+              if (['move', 'scale', 'fade', 'opacity', 'transform', 'all'].includes(cleanValue)) {
+                metadata.autoAnimateType = cleanValue as any;
+              }
+              break;
+            case 'duration':
+              metadata.autoAnimateDuration = parseInt(cleanValue);
+              break;
+            case 'easing':
+              metadata.autoAnimateEasing = cleanValue;
+              break;
+          }
+        }
+      });
+    }
+    
+    if (idMatch) {
+      metadata.autoAnimateId = idMatch[1].trim();
+    }
+    
+    return metadata;
+  }
+  
+  return null;
 };
 
 /**
@@ -387,12 +505,14 @@ export const parseTableOfContents = (md: string): TOCItem[] => {
   const toc: TOCItem[] = [];
 
   lines.forEach((line, index) => {
-    const match = line.match(/^(#{1,3})\s+(.+)$/);
+    const match = line.match(/^([^#]*?)(#{1,6})\s+(.+)$/);
     if (match) {
+      const prefix = match[1] || '';
+      const content = match[3];
       toc.push({
         id: `toc-${index}`,
-        level: match[1].length,
-        text: match[2].trim(),
+        level: match[2].length,
+        text: (prefix + content).trim(),
         lineIndex: index,
       });
     }

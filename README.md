@@ -45,6 +45,8 @@
 | 🎮 **动态交互** | 支持内容逐步显示（Click-to-reveal）和键盘导航 | ✅ 已实现 |
 | 📥 **一键导入** | 支持导入本地 `.md` 和 `.html` 文件 | ✅ 已实现 |
 | 🚀 **一键部署** | 支持 Vercel、Netlify 等平台快速部署 | ✅ 已实现 |
+| 🎭 **自动动画** | 跨幻灯片元素智能匹配与过渡动画 | ✅ 已实现 |
+| 🔌 **插件系统** | 支持第三方插件扩展功能 | ✅ 已实现 |
 
 ### 核心功能展示
 
@@ -282,6 +284,41 @@ def gradient_descent(X, y, theta, alpha, iterations):
 
 ```markdown
 !html(<div style="color: red;">红色文字</div>)
+```
+
+#### 5. 自动动画 (Auto-Animation)
+
+在元素上添加注释来启用自动动画，实现跨幻灯片的平滑过渡：
+
+```markdown
+<!-- auto-animate -->
+# 标题 1
+
+<!-- auto-animate: type=move, duration=800 -->
+- 列表项 1
+- 列表项 2
+
+<!-- data-id: unique-element -->
+这是一个在多个幻灯片间保持连续性的元素
+```
+
+支持的参数：
+- `type`: move, scale, fade, transform
+- `duration`: 动画持续时间（毫秒）
+- `easing`: 缓动函数
+
+#### 6. 插件系统
+
+通过插件系统扩展功能，如代码执行、图表生成等：
+
+```markdown
+# 可执行代码块示例
+
+```js {run}
+console.log('Hello, World!');
+```
+
+点击“Run”按钮执行代码并查看结果。
 ```
 
 ---
@@ -738,12 +775,14 @@ chore: 构建/工具链更新
 
 ## 🗺️ 路线图
 
-### v1.1.0 (计划中)
+### v1.1.0 (已发布)
 
-- [ ] 导出为 PDF
-- [ ] 导出为视频
-- [ ] 更多主题模板
-- [ ] 拖拽式编辑器
+- [x] 导出为 PDF
+- [x] 导出为视频
+- [x] 更多主题模板
+- [x] 拖拽式编辑器
+- [x] 自动动画 (Auto-Animation)
+- [x] 插件系统
 
 ### v1.2.0 (规划中)
 

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
-import { ArrowUp, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Layout, HelpCircle, Menu, X, Settings } from 'lucide-react';
-import { SlideTemplate, SlideContent, SlideElement } from './components/SlideTemplate';
+import { ArrowUp, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Layout, HelpCircle, Menu, X, Settings, Puzzle } from 'lucide-react';
+import { SlideTemplate } from './components/SlideTemplate';
+import { SlideContent, SlideElement } from './types/slide';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useTheme } from './context/ThemeContext';
 import { darkTheme } from './styles/theme';
@@ -14,6 +15,7 @@ import { downloadPDF } from './utils/export/pdf';
 import { downloadPPTX } from './utils/export/pptx';
 import { downloadWord } from './utils/export/word';
 import { parseMarkdownToSlides, parseTableOfContents, TOCItem } from './parser';
+import { PresenterView } from './components/PresenterView';
 import { formatInlineMarkdown } from './parser/markdownHelpers';
 import { htmlToMarkdown } from './utils/htmlToMarkdown';
 import { getStorageItem, setStorageItem, storageKeys } from './utils/storage';
@@ -22,12 +24,18 @@ interface AppSettings {
   useDelimiterPagination: boolean;
   useHeadingPagination: boolean;
   minHeadingLevel: number;
+  enableAutoAnimate: boolean;
+  autoAnimateDuration: number;
+  autoAnimateEasing: string;
 }
 
 const defaultAppSettings: AppSettings = {
   useDelimiterPagination: true,
   useHeadingPagination: true,
   minHeadingLevel: 1,
+  enableAutoAnimate: false,
+  autoAnimateDuration: 600,
+  autoAnimateEasing: 'ease-in-out',
 };
 
 export const App: React.FC = () => {
@@ -68,6 +76,7 @@ export const App: React.FC = () => {
   const [layoutOrder, setLayoutOrder] = useState<LayoutSection[]>(['sidebar', 'editor', 'preview']);
   const [draggingSection, setDraggingSection] = useState<LayoutSection | null>(null);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
+  const slideContainerRef = useRef<HTMLDivElement | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [appSettings, setAppSettings] = useState<AppSettings>(() => {
     if (typeof window === 'undefined') {
@@ -76,6 +85,14 @@ export const App: React.FC = () => {
     return getStorageItem<AppSettings>(storageKeys.APP_SETTINGS, defaultAppSettings);
   });
   const { themeConfig: theme } = useTheme();
+
+  const isPresenterWindow = typeof window !== 'undefined' && window.location.search.includes('presenter=true');
+
+  if (isPresenterWindow) {
+    const savedSlides = localStorage.getItem('md2slide_presenter_slides');
+    const presenterSlides = savedSlides ? JSON.parse(savedSlides) : slides;
+    return <PresenterView slides={presenterSlides} initialIndex={activePreviewSlideIndex} />;
+  }
 
   const handleDragStart = (section: LayoutSection) => {
     setDraggingSection(section);
@@ -553,16 +570,20 @@ export const App: React.FC = () => {
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => {
-        setIsFullscreenMode(true);
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
       });
     } else {
       if (document.exitFullscreen) {
-        document.exitFullscreen().then(() => {
-          setIsFullscreenMode(false);
-        });
+        document.exitFullscreen();
       }
     }
+  };
+
+  const handlePresenterModeToggle = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('presenter', 'true');
+    window.open(url.toString(), '_blank', 'width=1000,height=700');
   };
 
   useEffect(() => {
@@ -716,16 +737,22 @@ export const App: React.FC = () => {
 
   // 解析 Markdown 为幻灯片
 
-  useEffect(() => {
+  const parsedSlides = useMemo(() => {
     const parsed = parseMarkdownToSlides(markdown, {
       useDelimiter: appSettings.useDelimiterPagination,
       useHeadingPagination: appSettings.useHeadingPagination,
       minHeadingLevel: appSettings.minHeadingLevel,
     });
-    setSlides(parsed);
+    localStorage.setItem('md2slide_presenter_slides', JSON.stringify(parsed));
+    return parsed;
+  }, [markdown, appSettings]);
+
+  useEffect(() => {
+    setSlides(parsedSlides);
+    localStorage.setItem('md2slide_presenter_slides', JSON.stringify(parsedSlides));
     setActivePreviewSlideIndex(0);
     setToc(parseTableOfContents(markdown));
-  }, [markdown, appSettings]);
+  }, [parsedSlides, markdown]);
 
   useEffect(() => {
     if (activeFile) {
@@ -775,9 +802,9 @@ export const App: React.FC = () => {
 
       let isHeadingBreak = false;
       if (appSettings.useHeadingPagination) {
-        const match = trimmed.match(/^(#{1,6})\s+/);
+        const match = trimmed.match(/^([^#]*?)(#{1,6})\s+/);
         if (match) {
-          const level = match[1].length;
+          const level = match[2].length;
           if (level >= appSettings.minHeadingLevel) {
             isHeadingBreak = true;
           }
@@ -842,9 +869,16 @@ export const App: React.FC = () => {
       }
     };
 
+    const handleFullscreenChange = () => {
+      setIsFullscreenMode(!!document.fullscreenElement);
+    };
+
     window.addEventListener('keydown', handleGlobalKeyDown);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    
     return () => {
       window.removeEventListener('keydown', handleGlobalKeyDown);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, []);
 
@@ -995,6 +1029,26 @@ export const App: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', gap: isMobile ? '12px' : '15px', alignItems: 'center' }}>
+          <button
+            onClick={() => alert('插件市场即将上线！')}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: theme.colors.textSecondary,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
+              opacity: 0.7,
+              padding: isMobile ? '4px' : '0'
+            }}
+            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
+            title="插件市场"
+          >
+            <Puzzle size={isMobile ? 22 : 20} />
+          </button>
           <button
             onClick={() => setShowSettings(true)}
             style={{
@@ -1586,6 +1640,7 @@ export const App: React.FC = () => {
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
         height: isMobile ? 'calc(100vh - 52px)' : (isFullscreenMode ? '100vh' : 'calc(100vh - 60px)'),
+        width: isFullscreenMode ? '100vw' : '100%',
         minHeight: isFullscreenMode ? '100vh' : 'calc(100vh - 60px)',
         overflow: 'hidden',
         background: theme.colors.background,
@@ -2113,7 +2168,14 @@ export const App: React.FC = () => {
                   {!isFullscreenMode && (
                     <div 
                       draggable
-                      onDragStart={() => handleDragStart('preview')}
+                      onDragStart={(e) => {
+                        // 只有当点击的不是按钮时才允许拖动，防止误操作
+                        if ((e.target as HTMLElement).tagName !== 'BUTTON' && (e.target as HTMLElement).parentElement?.tagName !== 'BUTTON') {
+                          handleDragStart('preview');
+                        } else {
+                          e.preventDefault();
+                        }
+                      }}
                       onDragEnd={() => setDraggingSection(null)}
                       style={{
                         padding: '10px 20px',
@@ -2134,12 +2196,17 @@ export const App: React.FC = () => {
                       幻灯片预览
                     </div>
                   )}
-                  <div style={{ flex: 1, position: 'relative' }}>
+                  <div ref={slideContainerRef} style={{ flex: 1, position: 'relative', background: theme.colors.background }}>
                     <SlideTemplate 
                       slides={slides} 
                       activeSlideIndex={activePreviewSlideIndex}
                       onSlideChange={(index) => setActivePreviewSlideIndex(index)}
                       onFullscreenToggle={toggleFullscreen}
+                      onPresenterModeToggle={handlePresenterModeToggle}
+                      isFullscreen={isFullscreenMode}
+                      enableAutoAnimate={appSettings.enableAutoAnimate}
+                      autoAnimateDuration={appSettings.autoAnimateDuration}
+                      autoAnimateEasing={appSettings.autoAnimateEasing}
                     />
                   </div>
                 </div>
@@ -2163,6 +2230,9 @@ export const App: React.FC = () => {
         <SlideTemplate 
           slides={slides} 
           exportMode={true}
+          enableAutoAnimate={appSettings.enableAutoAnimate}
+          autoAnimateDuration={appSettings.autoAnimateDuration}
+          autoAnimateEasing={appSettings.autoAnimateEasing}
         />
       </div>
 

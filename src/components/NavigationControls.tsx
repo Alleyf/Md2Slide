@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { darkTheme } from '../styles/theme';
-import { Play, Pause, RotateCcw, ChevronLeft, ChevronRight, Maximize } from 'lucide-react';
+import { Play, Pause, RotateCcw, ChevronLeft, ChevronRight, Maximize, Monitor } from 'lucide-react';
 import { getStorageItem, setStorageItem, storageKeys } from '../utils/storage';
 
 interface NavigationControlsProps {
@@ -18,6 +18,7 @@ interface NavigationControlsProps {
   autoPlayInterval: number;
   onAutoPlayIntervalChange: (interval: number) => void;
   onFullscreenToggle?: () => void;
+  onPresenterModeToggle?: () => void;
   isVisible?: boolean;
 }
 
@@ -35,6 +36,7 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
   autoPlayInterval,
   onAutoPlayIntervalChange,
   onFullscreenToggle,
+  onPresenterModeToggle,
   isVisible = true,
 }) => {
   const { themeConfig: theme } = useTheme();
@@ -192,6 +194,7 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
       <button
         onClick={onPrev}
         disabled={currentSlideIndex === 0 && clickState === 0}
+        aria-label="上一张幻灯片"
         style={{
           padding: isMobile ? '6px' : '4px',
           background: 'transparent',
@@ -213,6 +216,7 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
       <div style={{ display: 'flex', gap: isMobile ? '8px' : '8px', alignItems: 'center' }}>
         <button
           onClick={onAutoPlayToggle}
+          aria-label={isAutoPlaying ? "暂停自动播放" : "开始自动播放"}
           style={{
             padding: isMobile ? '6px' : '4px',
             background: 'transparent',
@@ -259,6 +263,7 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
 
         <button
           onClick={onReplay}
+          aria-label="回到第一张幻灯片"
           style={{
             padding: isMobile ? '6px' : '4px',
             background: 'transparent',
@@ -351,6 +356,7 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
       <button
         onClick={onNext}
         disabled={currentSlideIndex === slidesCount - 1 && clickState === totalClicks - 1}
+        aria-label="下一张幻灯片"
         style={{
           padding: isMobile ? '6px' : '4px',
           background: 'transparent',
@@ -374,7 +380,30 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
           <div style={{ height: '15px', width: '1px', background: theme.colors.border, margin: '0 5px' }} />
 
           <button
+            onClick={onPresenterModeToggle}
+            aria-label="打开演讲者模式"
+            style={{
+              padding: '4px',
+              background: 'transparent',
+              border: 'none',
+              color: theme.colors.text,
+              cursor: 'pointer',
+              opacity: 0.6,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+            title="演讲者模式"
+          >
+            <Monitor size={18} />
+          </button>
+
+          <button
             onClick={onFullscreenToggle}
+            aria-label="全屏播放"
             style={{
               padding: '4px',
               background: 'transparent',

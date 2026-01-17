@@ -156,6 +156,16 @@ export const HelpModal: React.FC<HelpModalProps> = ({
               </div>
 
               <div style={{ marginBottom: '15px' }}>
+                <div style={{ fontWeight: 600, color: theme.colors.text, marginBottom: '6px', fontSize: '14px' }}>自动动画 (Auto-Animation)</div>
+                <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                  <li>在元素上添加 <code>&lt;!-- auto-animate --&gt;</code> 注释以启用自动动画。</li>
+                  <li>使用 <code>&lt;!-- data-id: unique-id --&gt;</code> 为元素指定唯一ID，实现跨幻灯片元素匹配。</li>
+                  <li>支持参数：<code>type=move|scale|fade|transform</code>、<code>duration=600</code>、<code>easing=ease-in-out</code>。</li>
+                  <li>示例：<code>&lt;!-- auto-animate: type=move, duration=800, easing=ease-out --&gt;</code></li>
+                </ul>
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
                 <div style={{ fontWeight: 600, color: theme.colors.text, marginBottom: '6px', fontSize: '14px' }}>多媒体与交互</div>
                 <ul style={{ paddingLeft: '18px', margin: 0 }}>
                   <li><strong>图片</strong>：使用 <code>!image(url)</code>，工具栏支持弹出输入。</li>

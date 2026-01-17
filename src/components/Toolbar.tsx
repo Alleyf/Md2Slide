@@ -3,7 +3,7 @@ import {
   Bold, Italic, Strikethrough, Code, Heading1, Heading2, Heading3, 
   SeparatorHorizontal, Quote, List, ListOrdered, CheckSquare, 
   FileCode, Table, Link, Image, Sigma, Variable, Grid3X3, 
-  Video, Mic, Smile, Globe 
+  Video, Mic, Smile, Globe, Play 
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { ThemeConfig } from '../types/theme';
@@ -28,6 +28,7 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({ icon, title, shortcut, on
         }}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
+        aria-label={title + (shortcut ? ` (${shortcut})` : '')}
         style={{
           width: '32px',
           height: '32px',
@@ -151,6 +152,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     { icon: <Smile size={16} />, title: "图标", shortcut: "Ctrl + Shift + E", action: () => setShowEmojiPicker(!showEmojiPicker) },
     { icon: <Globe size={16} />, title: "原生HTML", shortcut: "Ctrl + Alt + H", action: () => applySnippet('!html(', ')') },
     { icon: <FileCode size={16} />, title: "导入HTML文件", shortcut: "Ctrl + Shift + H", action: handleHtmlImport },
+    { icon: <Play size={16} />, title: "自动动画", shortcut: "Ctrl + Alt + A", action: () => applySnippet('<!-- auto-animate -->', '') },
   ];
 
   return (
@@ -249,6 +251,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <ToolbarButton icon={<Smile size={16} />} title="图标" shortcut="Ctrl + Shift + E" onClick={() => setShowEmojiPicker(!showEmojiPicker)} />
         <ToolbarButton icon={<Globe size={16} />} title="原生HTML" shortcut="Ctrl + Alt + H" onClick={() => applySnippet('!html(', ')')} />
         <ToolbarButton icon={<FileCode size={16} />} title="导入HTML文件" shortcut="Ctrl + Shift + H" onClick={handleHtmlImport} />
+        <ToolbarButton icon={<Play size={16} />} title="自动动画" shortcut="Ctrl + Alt + A" onClick={() => applySnippet('<!-- auto-animate -->', '')} />
       </div>
         </>
       )}
