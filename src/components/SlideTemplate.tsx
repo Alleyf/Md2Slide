@@ -13,6 +13,7 @@ import { NavigationControls } from './NavigationControls';
 import { AutoAnimateWrapper } from './AutoAnimateWrapper';
 import { announceToScreenReader } from '../utils/accessibility';
 import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Monitor, Play, Pause, RotateCcw, Volume2, VolumeX, Terminal, PlayCircle, XCircle } from 'lucide-react';
+import { pluginManager } from '../services/pluginManager';
 import 'katex/dist/katex.min.css';
 
 // 添加全局样式支持
@@ -745,7 +746,10 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         const language = el.language || 'text';
         const isExecutable = ['javascript', 'js', 'typescript', 'ts', 'html', 'css', 'json'].includes(language.toLowerCase());
         const runButtonText = ['html', 'css'].includes(language.toLowerCase()) ? '预览' : (language.toLowerCase() === 'json' ? '格式化' : '运行');
-        
+              
+        // 检查CodeRunner插件是否启用
+        const isCodeRunnerEnabled = pluginManager.isPluginEnabled('code-runner-plugin');
+              
         return (
           <div
             key={el.id}
@@ -784,7 +788,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                 }}>
                   {language}
                 </span>
-                {isExecutable && (
+                {isExecutable && isCodeRunnerEnabled && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -809,6 +813,16 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                     <PlayCircle size={12} />
                     {runButtonText}
                   </button>
+                )}
+                {isExecutable && !isCodeRunnerEnabled && (
+                  <span style={{
+                    fontSize: '10px',
+                    color: theme.colors.textSecondary,
+                    opacity: 0.6,
+                    fontStyle: 'italic',
+                  }}>
+                    (需要启用代码运行插件)
+                  </span>
                 )}
               </div>
               <div style={{ display: 'flex', gap: '6px' }}>
