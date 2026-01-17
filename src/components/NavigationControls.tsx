@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { darkTheme } from '../styles/theme';
+import { Play, Pause, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface NavigationControlsProps {
   currentSlideIndex: number;
@@ -11,6 +12,8 @@ interface NavigationControlsProps {
   onPrev: () => void;
   onJump?: (index: number) => void;
   onReplay?: () => void;
+  isAutoPlaying?: boolean;
+  onAutoPlayToggle?: () => void;
 }
 
 export const NavigationControls: React.FC<NavigationControlsProps> = ({
@@ -22,6 +25,8 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
   onPrev,
   onJump,
   onReplay,
+  isAutoPlaying = false,
+  onAutoPlayToggle,
 }) => {
   const { themeConfig: theme } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
@@ -77,41 +82,64 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
         onClick={onPrev}
         disabled={currentSlideIndex === 0 && clickState === 0}
         style={{
-          padding: '5px 12px',
+          padding: '4px',
           background: 'transparent',
           border: 'none',
           color: theme.primaryColor,
           cursor: currentSlideIndex === 0 && clickState === 0 ? 'not-allowed' : 'pointer',
           opacity: currentSlideIndex === 0 && clickState === 0 ? 0.2 : 1,
-          fontSize: '20px',
-          fontWeight: 800,
-        }}
-        title="上一张"
-      >
-        ‹
-      </button>
-      
-      <button
-        onClick={onReplay}
-        style={{
-          padding: '4px',
-          background: 'transparent',
-          border: 'none',
-          color: theme.colors.text,
-          cursor: 'pointer',
-          opacity: 0.6,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          transition: 'all 0.2s',
-          fontSize: '14px',
         }}
-        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
-        title="回到首页"
+        title="上一张"
       >
-        ↺
+        <ChevronLeft size={20} strokeWidth={2.5} />
       </button>
+
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <button
+          onClick={onAutoPlayToggle}
+          style={{
+            padding: '4px',
+            background: 'transparent',
+            border: 'none',
+            color: isAutoPlaying ? theme.primaryColor : theme.colors.text,
+            cursor: 'pointer',
+            opacity: isAutoPlaying ? 1 : 0.6,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = isAutoPlaying ? '1' : '0.6'}
+          title={isAutoPlaying ? "暂停自动播放" : "开始自动播放"}
+        >
+          {isAutoPlaying ? <Pause size={16} /> : <Play size={16} />}
+        </button>
+
+        <button
+          onClick={onReplay}
+          style={{
+            padding: '4px',
+            background: 'transparent',
+            border: 'none',
+            color: theme.colors.text,
+            cursor: 'pointer',
+            opacity: 0.6,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+          title="回到首页"
+        >
+          <RotateCcw size={16} />
+        </button>
+      </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
         {isEditing ? (
@@ -184,18 +212,19 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
         onClick={onNext}
         disabled={currentSlideIndex === slidesCount - 1 && clickState === totalClicks - 1}
         style={{
-          padding: '5px 12px',
+          padding: '4px',
           background: 'transparent',
           border: 'none',
           color: theme.primaryColor,
           cursor: currentSlideIndex === slidesCount - 1 && clickState === totalClicks - 1 ? 'not-allowed' : 'pointer',
           opacity: currentSlideIndex === slidesCount - 1 && clickState === totalClicks - 1 ? 0.2 : 1,
-          fontSize: '20px',
-          fontWeight: 800,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
         title="下一张"
       >
-        ›
+        <ChevronRight size={20} strokeWidth={2.5} />
       </button>
     </div>
   );

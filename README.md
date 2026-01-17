@@ -6,7 +6,13 @@
 ![Vite](https://img.shields.io/badge/Vite-7.3.1-646CFF)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-# md2slide
+<div align="center">
+
+# Md2Slide
+
+<img src="public/logo.jpg" width="30%" height="30%" alt="coverage">
+
+
 
 ### 🎨 3Blue1Brown 风格幻灯片生成器
 
@@ -19,8 +25,10 @@
 
 [在线演示](https://md2slide.vercel.app) • [快速开始](#-快速开始) • [使用指南](#-使用指南) • [部署指南](#-部署指南)
 
-</div>
+![Alt](https://repobeats.axiom.co/api/embed/9ceba9cb70a482471450ba7d435104b8582d4d2a.svg "Repobeats analytics image")
 
+</div>
+</div>
 ---
 
 ## ✨ 特性概览
@@ -314,6 +322,13 @@ graph LR
 ---
 
 ## 🚀 部署指南
+
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FAlleyf%2FMd2Slide&project-name=Md2Slide&repository-name=Md2Slide)
+&nbsp;&nbsp;
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/Alleyf/Md2Slide)
+
+
 
 ### 一键部署到 Vercel
 
@@ -733,6 +748,19 @@ chore: 构建/工具链更新
 
 **如果这个项目对您有帮助，请给我们一个 ⭐️ Star！**
 
-[⬆ 回到顶部](#-md2slide)
+### ☕ 为爱发电
+
+<div align="center">
+
+**如果你觉得这个项目有用，可以请开发者喝杯咖啡 ☕**
+
+
+
+ <img src="./assets/donate-qr.png" alt="赞赏码" width="200"/> 
+
+
+</div>
+
+[⬆ 回到顶部](#md2slide)
 
 </div>

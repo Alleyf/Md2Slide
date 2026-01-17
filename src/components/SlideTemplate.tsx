@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
@@ -168,6 +168,10 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   autoPlayInterval = 5000,
 }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [clickState, setClickState] = useState(0);
+  const [totalClicks, setTotalClicks] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const autoPlayIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // 同步外部传入的页码
   useEffect(() => {
@@ -176,8 +180,6 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
       setClickState(0);
     }
   }, [activeSlideIndex]);
-  const [clickState, setClickState] = useState(0);
-  const [totalClicks, setTotalClicks] = useState(0);
   const { themeConfig: theme } = useTheme();
 
   // 当幻灯片内容改变时（例如切换文件），重置到第一页
@@ -187,6 +189,25 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   }, [slides]);
 
   // 计算每个幻灯片的总点击次数
+  // 自动播放逻辑
+  useEffect(() => {
+    if (isAutoPlaying) {
+      autoPlayIntervalRef.current = setInterval(() => {
+        handleNavigate('next');
+      }, 3000); // 默认 3 秒切换一次
+    } else {
+      if (autoPlayIntervalRef.current) {
+        clearInterval(autoPlayIntervalRef.current);
+      }
+    }
+
+    return () => {
+      if (autoPlayIntervalRef.current) {
+        clearInterval(autoPlayIntervalRef.current);
+      }
+    };
+  }, [isAutoPlaying, currentSlideIndex, clickState, slides.length]);
+
   const calculateClicks = (slide: SlideContent): number => {
     if (!slide || !slide.elements || slide.elements.length === 0) {
       return 1;
@@ -255,6 +276,14 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentSlideIndex, clickState, totalClicks]);
+
+  const getBilibiliEmbedUrl = (url: string) => {
+    const bvMatch = url.match(/BV[a-zA-Z0-9]+/);
+    if (bvMatch) {
+      return `//player.bilibili.com/player.html?bvid=${bvMatch[0]}&page=1&high_quality=1`;
+    }
+    return null;
+  };
 
   const renderElement = (el: SlideElement | undefined, slideIndex: number) => {
     // 防御性检查
@@ -667,18 +696,36 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         );
 
       case 'video':
+        const bilibiliUrl = getBilibiliEmbedUrl(el.content as string);
         return (
-          <div key={el.id} style={{ ...baseStyle, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <video
-              src={el.content as string}
-              controls
-              style={{
-                maxWidth: '100%',
-                maxHeight: '500px',
-                borderRadius: '8px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-              }}
-            />
+          <div key={el.id} style={{ ...baseStyle, display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+            {bilibiliUrl ? (
+              <iframe
+                src={bilibiliUrl}
+                scrolling="no"
+                frameBorder="no"
+                allowFullScreen={true}
+                style={{
+                  width: '100%',
+                  aspectRatio: '16/9',
+                  maxWidth: '800px',
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
+                  border: 'none'
+                }}
+              />
+            ) : (
+              <video
+                src={el.content as string}
+                controls
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '500px',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                }}
+              />
+            )}
           </div>
         );
 
@@ -983,18 +1030,28 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         clickState={clickState}
         totalClicks={totalClicks}
         slidesCount={slides.length}
-        onNext={() => handleNavigate('next')}
-        onPrev={() => handleNavigate('prev')}
+        onNext={() => {
+          setIsAutoPlaying(false); // 手动操作时停止自动播放
+          handleNavigate('next');
+        }}
+        onPrev={() => {
+          setIsAutoPlaying(false);
+          handleNavigate('prev');
+        }}
         onJump={(index) => {
+          setIsAutoPlaying(false);
           setCurrentSlideIndex(index);
           setClickState(0);
           onSlideChange?.(index);
         }}
         onReplay={() => {
+          setIsAutoPlaying(false);
           setCurrentSlideIndex(0);
           setClickState(0);
           onSlideChange?.(0);
         }}
+        isAutoPlaying={isAutoPlaying}
+        onAutoPlayToggle={() => setIsAutoPlaying(!isAutoPlaying)}
       />
 
       {/* 提示文字 */}

@@ -193,6 +193,7 @@ export const App: React.FC = () => {
   const [slides, setSlides] = useState<SlideContent[]>([]);
   const [showEditor, setShowEditor] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
+  const [helpTab, setHelpTab] = useState<'usage' | 'shortcuts' | 'about'>('usage');
   const [showSidebar, setShowSidebar] = useState(true);
   const [showTOC, setShowTOC] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -214,7 +215,8 @@ export const App: React.FC = () => {
     show: boolean;
     type: 'link' | 'image' | 'video';
     value: string;
-    callback?: (val: string) => void;
+    titleValue?: string;
+    callback?: (val: string, title?: string) => void;
   }>({ show: false, type: 'link', value: '' });
   const [layoutOrder, setLayoutOrder] = useState<('sidebar' | 'editor' | 'preview')[]>(['sidebar', 'editor', 'preview']);
   const [draggingSection, setDraggingSection] = useState<string | null>(null);
@@ -362,13 +364,8 @@ export const App: React.FC = () => {
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const scrollTop = textarea.scrollTop; // 保存滚动位置
     const selection = markdown.slice(start, end);
     
-    let nextMarkdown = '';
-    let newStart = start;
-    let newEnd = end;
-
     // 检查是否是行首语法 (标题、列表、引用)
     const isLineStart = beforeStr.startsWith('#') || beforeStr.startsWith('- ') || beforeStr.startsWith('1. ') || beforeStr.startsWith('> ');
     
@@ -379,55 +376,63 @@ export const App: React.FC = () => {
       const actualLineEnd = lineEnd === -1 ? markdown.length : lineEnd;
       const lineText = markdown.slice(lineStart, actualLineEnd);
       
+      // 对于行首语法，我们需要替换整行内容以支持 Undo
+      // 先选中整行
+      textarea.focus();
+      textarea.setSelectionRange(lineStart, actualLineEnd);
+      
+      let newLineText = '';
       if (lineText.startsWith(beforeStr)) {
-        const newLineText = lineText.slice(beforeStr.length);
-        nextMarkdown = markdown.slice(0, lineStart) + newLineText + markdown.slice(actualLineEnd);
-        newStart = Math.max(lineStart, start - beforeStr.length);
-        newEnd = Math.max(lineStart, end - beforeStr.length);
+        newLineText = lineText.slice(beforeStr.length);
       } else {
-        nextMarkdown = markdown.slice(0, lineStart) + beforeStr + lineText + markdown.slice(actualLineEnd);
-        newStart = start + beforeStr.length;
-        newEnd = end + beforeStr.length;
+        newLineText = beforeStr + lineText;
       }
+      
+      // 使用 execCommand 插入，这样支持 Ctrl+Z
+      document.execCommand('insertText', false, newLineText);
+      
+      // 恢复光标位置
+      const offset = newLineText.length - lineText.length;
+      const newStart = Math.max(lineStart, start + offset);
+      const newEnd = Math.max(lineStart, end + offset);
+      
+      requestAnimationFrame(() => {
+        textarea.setSelectionRange(newStart, newEnd);
+      });
     } else {
       const isWrapped = selection.startsWith(beforeStr) && selection.endsWith(afterStr) && (beforeStr !== '' || afterStr !== '');
       
+      let insertion = '';
       if (selection && isWrapped) {
-        const innerText = selection.slice(beforeStr.length, selection.length - afterStr.length);
-        nextMarkdown = markdown.slice(0, start) + innerText + markdown.slice(end);
-        newStart = start;
-        newEnd = start + innerText.length;
+        // 移除包裹
+        insertion = selection.slice(beforeStr.length, selection.length - afterStr.length);
       } else {
-        const insertion = beforeStr + selection + afterStr;
-        nextMarkdown = markdown.slice(0, start) + insertion + markdown.slice(end);
-        if (selection) {
-          newStart = start;
-          newEnd = start + insertion.length;
-        } else {
-          newStart = start + beforeStr.length;
-          newEnd = newStart;
-        }
+        // 添加包裹
+        insertion = beforeStr + selection + afterStr;
+      }
+      
+      // 直接使用 execCommand 替换当前选区
+      textarea.focus();
+      document.execCommand('insertText', false, insertion);
+
+      // 如果之前没有选区，将光标放在 beforeStr 后面
+      if (!selection && !isWrapped) {
+        const newPos = start + beforeStr.length;
+        textarea.setSelectionRange(newPos, newPos);
       }
     }
-
-    setMarkdown(nextMarkdown);
-    
-    // 立即同步滚动位置和光标
-    requestAnimationFrame(() => {
-      if (textarea) {
-        textarea.focus();
-        textarea.setSelectionRange(newStart, newEnd);
-        textarea.scrollTop = scrollTop; // 恢复滚动位置
-      }
-    });
   };
 
   const handleLinkInsert = () => {
+    const textarea = editorRef.current;
+    const selection = textarea ? markdown.slice(textarea.selectionStart, textarea.selectionEnd) : '';
+    
     setInputModal({
       show: true,
       type: 'link',
       value: 'https://',
-      callback: (url) => applySnippet('[链接文字](', `)`) // 默认插入 [链接文字](url)
+      titleValue: selection || '链接文字',
+      callback: (url, title) => applySnippet(`[${title || '链接文字'}](${url})`, '')
     });
   };
 
@@ -436,26 +441,7 @@ export const App: React.FC = () => {
       show: true,
       type: 'image',
       value: 'https://',
-      callback: (url) => {
-        const textarea = editorRef.current;
-        if (!textarea) return;
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const scrollTop = textarea.scrollTop;
-        
-        const insertion = `!image(${url})`;
-        const next = markdown.slice(0, start) + insertion + markdown.slice(end);
-        setMarkdown(next);
-        
-        requestAnimationFrame(() => {
-          if (textarea) {
-            textarea.focus();
-            const newPos = start + insertion.length;
-            textarea.setSelectionRange(newPos, newPos);
-            textarea.scrollTop = scrollTop;
-          }
-        });
-      }
+      callback: (url) => applySnippet(`!image(${url})`, '')
     });
   };
 
@@ -464,26 +450,7 @@ export const App: React.FC = () => {
       show: true,
       type: 'video',
       value: 'https://',
-      callback: (url) => {
-        const textarea = editorRef.current;
-        if (!textarea) return;
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const scrollTop = textarea.scrollTop;
-        
-        const insertion = `!video(${url})`;
-        const next = markdown.slice(0, start) + insertion + markdown.slice(end);
-        setMarkdown(next);
-        
-        requestAnimationFrame(() => {
-          if (textarea) {
-            textarea.focus();
-            const newPos = start + insertion.length;
-            textarea.setSelectionRange(newPos, newPos);
-            textarea.scrollTop = scrollTop;
-          }
-        });
-      }
+      callback: (url) => applySnippet(`!video(${url})`, '')
     });
   };
 
@@ -1091,29 +1058,64 @@ export const App: React.FC = () => {
                 ✕
               </button>
             </div>
-            <div
-              style={{
-                marginTop: '4px',
-                padding: '10px 0',
-                borderTop: `1px solid ${theme.colors.border}`,
-                borderBottom: `1px solid ${theme.colors.border}`,
-                fontSize: '13px',
-                color: theme.colors.textSecondary,
-                display: 'flex',
-                gap: '16px'
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '12px', marginBottom: '4px', color: theme.colors.text }}>基础操作</div>
-                <div>左侧编辑 Markdown，右侧实时预览幻灯片。</div>
-                <div>使用 <code>---</code> 分隔不同的幻灯片。</div>
-              </div>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '12px', marginBottom: '4px', color: theme.colors.text }}>快捷键</div>
-                <div>空格 / 右方向键：下一步 / 下一页</div>
-                <div>左方向键：上一步 / 上一页</div>
-              </div>
+
+            {/* Tab Selector */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '20px', 
+              borderBottom: `1px solid ${theme.colors.border}`,
+              marginTop: '10px'
+            }}>
+              <button 
+                onClick={() => setHelpTab('usage')}
+                style={{
+                  padding: '8px 4px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: helpTab === 'usage' ? `2px solid ${theme.primaryColor}` : '2px solid transparent',
+                  color: helpTab === 'usage' ? theme.primaryColor : theme.colors.textSecondary,
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                功能用法
+              </button>
+              <button 
+                onClick={() => setHelpTab('shortcuts')}
+                style={{
+                  padding: '8px 4px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: helpTab === 'shortcuts' ? `2px solid ${theme.primaryColor}` : '2px solid transparent',
+                  color: helpTab === 'shortcuts' ? theme.primaryColor : theme.colors.textSecondary,
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                快捷键大全
+              </button>
+              <button 
+                onClick={() => setHelpTab('about')}
+                style={{
+                  padding: '8px 4px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: helpTab === 'about' ? `2px solid ${theme.primaryColor}` : '2px solid transparent',
+                  color: helpTab === 'about' ? theme.primaryColor : theme.colors.textSecondary,
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                关于作者
+              </button>
             </div>
+
             <div
               style={{
                 flex: 1,
@@ -1121,255 +1123,185 @@ export const App: React.FC = () => {
                 paddingRight: '4px',
                 fontSize: '13px',
                 color: theme.colors.textSecondary,
-                lineHeight: 1.7
+                lineHeight: 1.7,
+                marginTop: '10px'
               }}
             >
-              <div style={{ marginBottom: '10px' }}>
-                <div style={{ fontWeight: 600, color: theme.colors.text, marginBottom: '4px' }}>标题与分隔</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span><code># 标题</code>：幻灯片主标题</span>
-                  <button
-                    onClick={() => applySnippet('# 🧠 **深度学习，不止于理论**')}
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      color: theme.colors.textSecondary
-                    }}
-                  >
-                    一键示例
-                  </button>
+              {helpTab === 'usage' ? (
+                <div>
+                  <div style={{ marginBottom: '15px' }}>
+                    <div style={{ fontWeight: 600, color: theme.colors.text, marginBottom: '6px', fontSize: '14px' }}>基础排版</div>
+                    <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                      <li>使用 <code># 标题</code>、<code>## 副标题</code> 定义页面结构。</li>
+                      <li>使用 <code>---</code> 分隔不同的幻灯片页。</li>
+                      <li>列表项（如 <code>- 列表</code>）会自动分配点击动画，实现逐条弹出。</li>
+                    </ul>
+                  </div>
+
+                  <div style={{ marginBottom: '15px' }}>
+                    <div style={{ fontWeight: 600, color: theme.colors.text, marginBottom: '6px', fontSize: '14px' }}>多媒体与交互</div>
+                    <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                      <li><strong>图片</strong>：使用 <code>!image(url)</code>，工具栏支持弹出输入。</li>
+                      <li><strong>视频</strong>：使用 <code>!video(url)</code>，支持 B 站链接自动转换为播放器。</li>
+                      <li><strong>超链接</strong>：使用标准 <code>[标题](url)</code> 语法。</li>
+                      <li><strong>表情</strong>：使用 <code>!icon(emoji)</code> 或快捷键打开选择器。</li>
+                    </ul>
+                  </div>
+
+                  <div style={{ marginBottom: '15px' }}>
+                    <div style={{ fontWeight: 600, color: theme.colors.text, marginBottom: '6px', fontSize: '14px' }}>数学与代码</div>
+                    <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                      <li><strong>公式</strong>：行内 <code>$E=mc^2$</code>，块级使用 <code>$$</code> 包裹。</li>
+                      <li><strong>代码</strong>：使用三个反引号 <code>```</code> 包裹并指定语言。</li>
+                      <li><strong>表格</strong>：支持 GFM 标准表格语法，快捷键 <code>Ctrl+Alt+T</code> 快速插入。</li>
+                    </ul>
+                  </div>
+
+                  <div style={{ marginBottom: '15px' }}>
+                    <div style={{ fontWeight: 600, color: theme.colors.text, marginBottom: '6px', fontSize: '14px' }}>演示控制</div>
+                    <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                      <li><strong>自动播放</strong>：预览页右下角点击播放按钮开启。</li>
+                      <li><strong>页面跳转</strong>：点击右下角页码可输入数字直接跳转。</li>
+                      <li><strong>回到顶部</strong>：编辑器右下角浮动按钮一键置顶。</li>
+                    </ul>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span><code>## 副标题</code> / <code>---</code>：副标题与分页</span>
-                  <button
-                    onClick={() => applySnippet('## 学习目标\n\n---')}
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      color: theme.colors.textSecondary
-                    }}
-                  >
-                    一键示例
-                  </button>
+              ) : helpTab === 'shortcuts' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  <div>
+                    <div style={{ fontWeight: 600, color: theme.colors.text, marginBottom: '8px', borderBottom: `1px solid ${theme.colors.border}`, paddingBottom: '4px' }}>编辑器操作</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>加粗/斜体/删除线</span> <code style={{ color: theme.primaryColor }}>Ctrl + B/I/S</code></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>一/二/三级标题</span> <code style={{ color: theme.primaryColor }}>Ctrl + 1/2/3</code></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>插入超链接</span> <code style={{ color: theme.primaryColor }}>Ctrl + K</code></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>插入代码块</span> <code style={{ color: theme.primaryColor }}>Ctrl+Shift+K</code></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>行内代码</span> <code style={{ color: theme.primaryColor }}>Ctrl + E</code></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>打开表情库</span> <code style={{ color: theme.primaryColor }}>Ctrl+Shift+E</code></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>数学公式</span> <code style={{ color: theme.primaryColor }}>Ctrl + M</code></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>插入表格</span> <code style={{ color: theme.primaryColor }}>Ctrl+Alt+T</code></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>插入分页符</span> <code style={{ color: theme.primaryColor }}>Ctrl+Shift+↵</code></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>撤销操作</span> <code style={{ color: theme.primaryColor }}>Ctrl + Z</code></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, color: theme.colors.text, marginBottom: '8px', borderBottom: `1px solid ${theme.colors.border}`, paddingBottom: '4px' }}>预览演示</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>下一步 / 下一页</span> <code style={{ color: theme.primaryColor }}>Space / →</code></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>上一步 / 上一页</span> <code style={{ color: theme.primaryColor }}>←</code></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>进入全屏模式</span> <code style={{ color: theme.primaryColor }}>F11</code></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>显示大纲</span> <code style={{ color: theme.primaryColor }}>Ctrl + O</code></div>
+                    </div>
+                    
+                    <div style={{ fontWeight: 600, color: theme.colors.text, marginTop: '15px', marginBottom: '8px', borderBottom: `1px solid ${theme.colors.border}`, paddingBottom: '4px' }}>多媒体快捷键</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>插入图片</span> <code style={{ color: theme.primaryColor }}>Ctrl+Shift+I</code></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>插入视频</span> <code style={{ color: theme.primaryColor }}>Ctrl+Alt+M</code></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>插入向量/网格</span> <code style={{ color: theme.primaryColor }}>Ctrl+Alt+V/G</code></div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div style={{ marginBottom: '10px' }}>
-                <div style={{ fontWeight: 600, color: theme.colors.text, marginBottom: '4px' }}>列表与引用</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span><code>- 列表项</code>：支持逐条出现的项目符号列表</span>
-                  <button
-                    onClick={() => applySnippet('- 优点一：直观形象\n- 优点二：结构清晰\n- 优点三：便于演示')}
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      color: theme.colors.textSecondary
-                    }}
-                  >
-                    一键示例
-                  </button>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+                    <div style={{
+                      width: '100px',
+                      height: '100px',
+                      borderRadius: '20px',
+                      overflow: 'hidden',
+                      border: `2px solid ${theme.primaryColor}`,
+                      boxShadow: '0 8px 20px rgba(0,0,0,0.1)',
+                      flexShrink: 0
+                    }}>
+                      <img src="/logo.jpg" alt="Author" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                        <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800, color: theme.colors.text }}>糕手小范 (Alleyf)</h2>
+                        <span style={{ padding: '2px 8px', borderRadius: '999px', background: `${theme.primaryColor}20`, color: theme.primaryColor, fontSize: '11px', fontWeight: 700 }}>Author</span>
+                      </div>
+                      <div style={{ fontSize: '14px', color: theme.colors.textSecondary, marginBottom: '12px', fontWeight: 500 }}>
+                        华中科技大学 (HUST) · 信息与通信工程
+                      </div>
+                      <div style={{ 
+                        padding: '12px 16px', 
+                        background: theme.theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', 
+                        borderRadius: '10px',
+                        borderLeft: `4px solid ${theme.primaryColor}`,
+                        fontStyle: 'italic',
+                        color: theme.colors.text,
+                        fontSize: '14px'
+                      }}>
+                        "You know more, you will do not know more."
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div style={{ background: theme.theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)', padding: '16px', borderRadius: '12px', border: `1px solid ${theme.colors.border}` }}>
+                      <div style={{ fontWeight: 700, color: theme.colors.text, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '16px' }}>🔬</span> 研究方向
+                      </div>
+                      <ul style={{ paddingLeft: '18px', margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <li>分布式微服务软件开发设计</li>
+                        <li>知识图谱 (Knowledge Graph)</li>
+                        <li>自然语言处理 (NLP)</li>
+                      </ul>
+                    </div>
+                    <div style={{ background: theme.theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)', padding: '16px', borderRadius: '12px', border: `1px solid ${theme.colors.border}` }}>
+                      <div style={{ fontWeight: 700, color: theme.colors.text, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '16px' }}>💻</span> 日常工作
+                      </div>
+                      <ul style={{ paddingLeft: '18px', margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <li>软件全栈开发</li>
+                        <li>算法学习与研究</li>
+                        <li>开源项目维护</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '16px', borderRadius: '12px', background: theme.primaryColor + '08', border: `1px dashed ${theme.primaryColor}40` }}>
+                    <div style={{ fontWeight: 700, color: theme.colors.text, marginBottom: '10px' }}>🍀 个人感悟</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <span style={{ color: theme.primaryColor }}>•</span>
+                        <span>不是牛码，就在成为牛码的路上。</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <span style={{ color: theme.primaryColor }}>•</span>
+                        <span>在每个平庸的日子里，找到属于自己的归属感。</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <span style={{ color: theme.primaryColor }}>•</span>
+                        <span>无论做什么事，都要找到支撑自己坚持下去的精神支柱。</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span><code>&gt; 引用内容</code>：引用块，高亮显示重要语句</span>
-                  <button
-                    onClick={() => applySnippet('> 所有复杂的概念，都可以被讲清楚。')}
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      color: theme.colors.textSecondary
-                    }}
-                  >
-                    一键示例
-                  </button>
-                </div>
-              </div>
-              <div style={{ marginBottom: '10px' }}>
-                <div style={{ fontWeight: 600, color: theme.colors.text, marginBottom: '4px' }}>数学公式</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span><code>$a^2 + b^2 = c^2$</code>：行内公式</span>
-                  <button
-                    onClick={() => applySnippet('勾股定理：$a^2 + b^2 = c^2$')}
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      color: theme.colors.textSecondary
-                    }}
-                  >
-                    一键示例
-                  </button>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span><code>$$E = mc^2$$</code>：块级公式</span>
-                  <button
-                    onClick={() => applySnippet('$$\nE = mc^2\n$$')}
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      color: theme.colors.textSecondary
-                    }}
-                  >
-                    一键示例
-                  </button>
-                </div>
-              </div>
-              <div style={{ marginBottom: '10px' }}>
-                <div style={{ fontWeight: 600, color: theme.colors.text, marginBottom: '4px' }}>代码块</div>
-                <div>使用三个反引号包裹代码，例如：</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span>
-                    <code>```python</code> 开头，<code>```</code> 结尾，可以高亮 Python 代码。
-                  </span>
-                  <button
-                    onClick={() => applySnippet('```python\nfor epoch in range(10):\n    print(\"Train\", epoch)\n```')}
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      color: theme.colors.textSecondary
-                    }}
-                  >
-                    一键示例
-                  </button>
-                </div>
-              </div>
-              <div style={{ marginBottom: '10px' }}>
-                <div style={{ fontWeight: 600, color: theme.colors.text, marginBottom: '4px' }}>内置可视化命令</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span><code>!icon(✨)</code>：插入大图标装饰</span>
-                  <button
-                    onClick={() => applySnippet('!icon(🚀)')}
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      color: theme.colors.textSecondary
-                    }}
-                  >
-                    一键示例
-                  </button>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span><code>!grid</code>：显示 3Blue1Brown 风格的网格背景</span>
-                  <button
-                    onClick={() => applySnippet('!grid')}
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      color: theme.colors.textSecondary
-                    }}
-                  >
-                    一键示例
-                  </button>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span><code>!vector</code>：展示示例向量</span>
-                  <button
-                    onClick={() => applySnippet('!vector')}
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      color: theme.colors.textSecondary
-                    }}
-                  >
-                    一键示例
-                  </button>
-                </div>
-              </div>
-              <div style={{ marginBottom: '10px' }}>
-                <div style={{ fontWeight: 600, color: theme.colors.text, marginBottom: '4px' }}>媒体与 HTML</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span><code>!image(url)</code>：插入图片</span>
-                  <button
-                    onClick={() => applySnippet('!image(https://picsum.photos/800/400)')}
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      color: theme.colors.textSecondary
-                    }}
-                  >
-                    一键示例
-                  </button>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span><code>!video(url)</code>：插入视频</span>
-                  <button
-                    onClick={() => applySnippet('!video(https://www.w3schools.com/html/mov_bbb.mp4)')}
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      color: theme.colors.textSecondary
-                    }}
-                  >
-                    一键示例
-                  </button>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span><code>!html(&lt;div&gt;自定义 HTML&lt;/div&gt;)</code>：直接渲染 HTML 片段</span>
-                  <button
-                    onClick={() => applySnippet('!html(<div style=\"padding:12px;border-radius:8px;background:#111827;color:#F9FAFB\">自定义 HTML 内容</div>)')}
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      fontSize: 11,
-                      cursor: 'pointer',
-                      color: theme.colors.textSecondary
-                    }}
-                  >
-                    一键示例
-                  </button>
-                </div>
-              </div>
-              <div>
-                <div style={{ fontWeight: 600, color: theme.colors.text, marginBottom: '4px' }}>建议</div>
-                <div>将一页内容控制在 3~6 行，保证演示效果清晰。</div>
-              </div>
+              )}
+            </div>
+            
+            <div style={{ 
+              marginTop: '4px', 
+              paddingTop: '12px', 
+              borderTop: `1px solid ${theme.colors.border}`,
+              display: 'flex',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={() => setShowHelp(false)}
+                style={{
+                  padding: '6px 20px',
+                  borderRadius: '6px',
+                  background: theme.primaryColor,
+                  color: '#fff',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                我知道了
+              </button>
             </div>
           </div>
         </div>
@@ -1758,32 +1690,62 @@ export const App: React.FC = () => {
                         <h3 style={{ margin: '0 0 16px 0', color: theme.colors.textSecondary }}>
                           插入{inputModal.type === 'link' ? '链接' : inputModal.type === 'image' ? '图片' : '视频'}
                         </h3>
-                        <input 
-                          autoFocus
-                          type="text"
-                          value={inputModal.value}
-                          onChange={(e) => setInputModal(prev => ({ ...prev, value: e.target.value }))}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              inputModal.callback?.(inputModal.value);
-                              setInputModal(prev => ({ ...prev, show: false }));
-                            } else if (e.key === 'Escape') {
-                              setInputModal(prev => ({ ...prev, show: false }));
-                            }
-                          }}
-                          style={{
-                            width: '100%',
-                            padding: '10px 12px',
-                            borderRadius: '6px',
-                            border: `1px solid ${theme.colors.border}`,
-                            background: theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : '#fff',
-                            color: theme.colors.textSecondary,
-                            fontSize: '14px',
-                            outline: 'none',
-                            marginBottom: '20px'
-                          }}
-                          placeholder="在此输入 URL 地址..."
-                        />
+                        
+                        {inputModal.type === 'link' && (
+                          <div style={{ marginBottom: '15px' }}>
+                            <label style={{ display: 'block', fontSize: '12px', color: theme.colors.textSecondary, marginBottom: '5px', opacity: 0.8 }}>
+                              链接标题
+                            </label>
+                            <input 
+                              type="text"
+                              value={inputModal.titleValue}
+                              onChange={(e) => setInputModal(prev => ({ ...prev, titleValue: e.target.value }))}
+                              style={{
+                                width: '100%',
+                                padding: '10px 12px',
+                                borderRadius: '6px',
+                                border: `1px solid ${theme.colors.border}`,
+                                background: theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : '#fff',
+                                color: theme.colors.textSecondary,
+                                fontSize: '14px',
+                                outline: 'none'
+                              }}
+                              placeholder="例如：点击查看详情"
+                            />
+                          </div>
+                        )}
+
+                        <div style={{ marginBottom: '20px' }}>
+                          <label style={{ display: 'block', fontSize: '12px', color: theme.colors.textSecondary, marginBottom: '5px', opacity: 0.8 }}>
+                            URL 地址
+                          </label>
+                          <input 
+                            autoFocus
+                            type="text"
+                            value={inputModal.value}
+                            onChange={(e) => setInputModal(prev => ({ ...prev, value: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                inputModal.callback?.(inputModal.value, inputModal.titleValue);
+                                setInputModal(prev => ({ ...prev, show: false }));
+                              } else if (e.key === 'Escape') {
+                                setInputModal(prev => ({ ...prev, show: false }));
+                              }
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '10px 12px',
+                              borderRadius: '6px',
+                              border: `1px solid ${theme.colors.border}`,
+                              background: theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : '#fff',
+                              color: theme.colors.textSecondary,
+                              fontSize: '14px',
+                              outline: 'none'
+                            }}
+                            placeholder="在此输入 URL 地址..."
+                          />
+                        </div>
+
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                           <button 
                             onClick={() => setInputModal(prev => ({ ...prev, show: false }))}
@@ -1800,7 +1762,7 @@ export const App: React.FC = () => {
                           </button>
                           <button 
                             onClick={() => {
-                              inputModal.callback?.(inputModal.value);
+                              inputModal.callback?.(inputModal.value, inputModal.titleValue);
                               setInputModal(prev => ({ ...prev, show: false }));
                             }}
                             style={{
