@@ -183,34 +183,60 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   const [totalClicks, setTotalClicks] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [localAutoPlayInterval, setLocalAutoPlayInterval] = useState(autoPlayInterval);
-  const [codeOutputs, setCodeOutputs] = useState<Record<string, string>>({});
+  const [codeOutputs, setCodeOutputs] = useState<Record<string, { type: 'text' | 'html' | 'json'; content: string }>>({});
   const autoPlayIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  const runCode = (code: string, elementId: string) => {
-    try {
-      const originalLog = console.log;
-      let output = '';
-      const consoleMock = {
-        log: (...args: any[]) => {
-          output += args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ') + '\n';
-        },
-        error: (...args: any[]) => {
-          output += 'Error: ' + args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ') + '\n';
-        },
-        warn: (...args: any[]) => {
-          output += 'Warn: ' + args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ') + '\n';
-        }
-      };
-      
-      // 创建沙箱环境
-      const runner = new Function('console', code);
-      runner(consoleMock);
-      
-      setCodeOutputs(prev => ({ ...prev, [elementId]: output || '执行成功 (无输出)' }));
-    } catch (err: any) {
-      setCodeOutputs(prev => ({ ...prev, [elementId]: `执行错误: ${err.message}` }));
+  const runCode = (code: string, elementId: string, language: string) => {
+    const lang = language.toLowerCase();
+    
+    // HTML / CSS 处理
+    if (lang === 'html' || lang === 'css') {
+      let finalHtml = code;
+      if (lang === 'css') {
+        finalHtml = `<style>${code}</style><div style="padding: 20px; border: 1px dashed #ccc;">样式已应用到此预览容器</div>`;
+      }
+      setCodeOutputs(prev => ({ ...prev, [elementId]: { type: 'html', content: finalHtml } }));
+      return;
+    }
+
+    // JSON 处理
+    if (lang === 'json') {
+      try {
+        const parsed = JSON.parse(code);
+        const formatted = JSON.stringify(parsed, null, 2);
+        setCodeOutputs(prev => ({ ...prev, [elementId]: { type: 'json', content: formatted } }));
+      } catch (err: any) {
+        setCodeOutputs(prev => ({ ...prev, [elementId]: { type: 'text', content: `JSON 格式错误: ${err.message}` } }));
+      }
+      return;
+    }
+
+    // JS / TS 处理
+    if (lang === 'javascript' || lang === 'js' || lang === 'typescript' || lang === 'ts') {
+      try {
+        let output = '';
+        const consoleMock = {
+          log: (...args: any[]) => {
+            output += args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ') + '\n';
+          },
+          error: (...args: any[]) => {
+            output += 'Error: ' + args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ') + '\n';
+          },
+          warn: (...args: any[]) => {
+            output += 'Warn: ' + args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ') + '\n';
+          }
+        };
+        
+        const runner = new Function('console', code);
+        runner(consoleMock);
+        
+        setCodeOutputs(prev => ({ ...prev, [elementId]: { type: 'text', content: output || '执行成功 (无输出)' } }));
+      } catch (err: any) {
+        setCodeOutputs(prev => ({ ...prev, [elementId]: { type: 'text', content: `执行错误: ${err.message}` } }));
+      }
+      return;
     }
   };
 
@@ -717,7 +743,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
       case 'code':
         const codeLines = el.content as string;
         const language = el.language || 'text';
-        const isExecutable = language === 'javascript' || language === 'js' || language === 'typescript' || language === 'ts';
+        const isExecutable = ['javascript', 'js', 'typescript', 'ts', 'html', 'css', 'json'].includes(language.toLowerCase());
+        const runButtonText = ['html', 'css'].includes(language.toLowerCase()) ? '预览' : (language.toLowerCase() === 'json' ? '格式化' : '运行');
         
         return (
           <div
@@ -761,7 +788,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      runCode(codeLines, el.id);
+                      runCode(codeLines, el.id, language);
                     }}
                     style={{
                       background: theme.primaryColor,
@@ -780,7 +807,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                     onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
                   >
                     <PlayCircle size={12} />
-                    运行
+                    {runButtonText}
                   </button>
                 )}
               </div>

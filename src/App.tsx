@@ -22,7 +22,7 @@ import { getStorageItem, setStorageItem, storageKeys } from './utils/storage';
 import { AIAssistant } from './components/AIAssistant';
 import { ThemeMarketplace } from './components/ThemeMarketplace';
 import { PluginMarketplace } from './components/PluginMarketplace';
-import { pluginManager } from './plugins/PluginManager';
+import { pluginManager } from './services/pluginManager';
 import { ThemePlugin } from './plugins/ThemePlugin';
 
 interface AppSettings {
@@ -32,6 +32,11 @@ interface AppSettings {
   enableAutoAnimate: boolean;
   autoAnimateDuration: number;
   autoAnimateEasing: string;
+  aiProvider: 'openai' | 'anthropic' | 'ollama' | 'local';
+  aiApiKey?: string;
+  aiModel?: string;
+  aiEndpoint?: string;
+  selectedTheme?: string;
 }
 
 const defaultAppSettings: AppSettings = {
@@ -41,6 +46,11 @@ const defaultAppSettings: AppSettings = {
   enableAutoAnimate: false,
   autoAnimateDuration: 600,
   autoAnimateEasing: 'ease-in-out',
+  aiProvider: 'openai',
+  aiApiKey: '',
+  aiModel: 'gpt-3.5-turbo',
+  aiEndpoint: '',
+  selectedTheme: 'default',
 };
 
 export const App: React.FC = () => {
@@ -92,6 +102,8 @@ export const App: React.FC = () => {
     }
     return getStorageItem<AppSettings>(storageKeys.APP_SETTINGS, defaultAppSettings);
   });
+  
+  const [currentTheme, setCurrentTheme] = useState(appSettings.selectedTheme || 'default');
   const { themeConfig: theme } = useTheme();
 
   const isPresenterWindow = typeof window !== 'undefined' && window.location.search.includes('presenter=true');
@@ -780,6 +792,11 @@ export const App: React.FC = () => {
     setStorageItem<AppSettings>(storageKeys.APP_SETTINGS, appSettings);
   }, [appSettings]);
 
+  // 当主题改变时更新DOM
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', currentTheme);
+  }, [currentTheme]);
+
   const scrollToLine = (lineIndex: number) => {
     const textarea = editorRef.current;
     if (!textarea) return;
@@ -1037,66 +1054,69 @@ export const App: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', gap: isMobile ? '12px' : '15px', alignItems: 'center' }}>
-          <button
-            onClick={() => setShowPluginMarketplace(true)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: theme.colors.textSecondary,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s',
-              opacity: 0.7,
-              padding: isMobile ? '4px' : '0'
-            }}
-            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
-            title="插件市场"
-          >
-            <Puzzle size={isMobile ? 22 : 20} />
-          </button>
-          <button
-            onClick={() => setShowThemeMarketplace(true)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: theme.colors.textSecondary,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s',
-              opacity: 0.7,
-              padding: isMobile ? '4px' : '0'
-            }}
-            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
-            title="主题市场"
-          >
-            <Layout size={isMobile ? 22 : 20} />
-          </button>
-          <button
-            onClick={() => setShowAIAssistant(true)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: theme.colors.textSecondary,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s',
-              opacity: 0.7,
-              padding: isMobile ? '4px' : '0'
-            }}
-            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
-            title="AI 助手"
-          >
-            💡
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              onClick={() => setShowAIAssistant(true)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: theme.colors.textSecondary,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s',
+                opacity: 0.7,
+                padding: isMobile ? '4px' : '0',
+                position: 'relative'
+              }}
+              onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
+              onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
+              title="AI 助手"
+            >
+              💡
+            </button>
+            <button
+              onClick={() => setShowThemeMarketplace(true)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: theme.colors.textSecondary,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s',
+                opacity: 0.7,
+                padding: isMobile ? '4px' : '0'
+              }}
+              onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
+              onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
+              title="主题市场"
+            >
+              <Puzzle size={isMobile ? 22 : 20} />
+            </button>
+            <button
+              onClick={() => setShowPluginMarketplace(true)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: theme.colors.textSecondary,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s',
+                opacity: 0.7,
+                padding: isMobile ? '4px' : '0'
+              }}
+              onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
+              onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
+              title="插件市场"
+            >
+              🧩
+            </button>
+          </div>
           <button
             onClick={() => setShowSettings(true)}
             style={{
@@ -1608,71 +1628,286 @@ export const App: React.FC = () => {
               </button>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                padding: '12px 14px',
-                borderRadius: '10px',
-                background: theme.theme === 'dark' ? 'rgba(15,23,42,0.6)' : '#f9fafb',
-                border: `1px dashed ${theme.colors.border}`
-              }}
-            >
-              <div style={{ fontSize: '13px', fontWeight: 600, color: theme.colors.text }}>分页设置</div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: theme.colors.textSecondary }}>
-                <input
-                  type="checkbox"
-                  checked={appSettings.useDelimiterPagination}
-                  onChange={(e) =>
-                    setAppSettings((prev) => ({
-                      ...prev,
-                      useDelimiterPagination: e.target.checked,
-                    }))
-                  }
-                />
-                使用 --- 作为手动分页符
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: theme.colors.textSecondary }}>
-                <input
-                  type="checkbox"
-                  checked={appSettings.useHeadingPagination}
-                  onChange={(e) =>
-                    setAppSettings((prev) => ({
-                      ...prev,
-                      useHeadingPagination: e.target.checked,
-                    }))
-                  }
-                />
-                根据标题自动分页
-              </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
-                <span>标题等级阈值</span>
-                <select
-                  value={appSettings.minHeadingLevel}
-                  disabled={!appSettings.useHeadingPagination}
-                  onChange={(e) =>
-                    setAppSettings((prev) => ({
-                      ...prev,
-                      minHeadingLevel: Number(e.target.value),
-                    }))
-                  }
-                  style={{
-                    padding: '4px 8px',
-                    borderRadius: '6px',
-                    border: `1px solid ${theme.colors.border}`,
-                    background: 'transparent',
-                    color: theme.colors.text,
-                    fontSize: '13px'
-                  }}
-                >
-                  <option value={1}>一级及以上 (#)</option>
-                  <option value={2}>二级及以上 (##)</option>
-                  <option value={3}>三级及以上 (###)</option>
-                  <option value={4}>四级及以上 (####)</option>
-                  <option value={5}>五级及以上 (#####)</option>
-                  <option value={6}>六级及以上 (######)</option>
-                </select>
+            <div style={{ display: 'flex', gap: '16px', flexDirection: 'column' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  background: theme.theme === 'dark' ? 'rgba(15,23,42,0.6)' : '#f9fafb',
+                  border: `1px dashed ${theme.colors.border}`
+                }}
+              >
+                <div style={{ fontSize: '13px', fontWeight: 600, color: theme.colors.text }}>分页设置</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: theme.colors.textSecondary }}>
+                  <input
+                    type="checkbox"
+                    checked={appSettings.useDelimiterPagination}
+                    onChange={(e) =>
+                      setAppSettings((prev) => ({
+                        ...prev,
+                        useDelimiterPagination: e.target.checked,
+                      }))
+                    }
+                  />
+                  使用 --- 作为手动分页符
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: theme.colors.textSecondary }}>
+                  <input
+                    type="checkbox"
+                    checked={appSettings.useHeadingPagination}
+                    onChange={(e) =>
+                      setAppSettings((prev) => ({
+                        ...prev,
+                        useHeadingPagination: e.target.checked,
+                      }))
+                    }
+                  />
+                  根据标题自动分页
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
+                  <span>标题等级阈值</span>
+                  <select
+                    value={appSettings.minHeadingLevel}
+                    disabled={!appSettings.useHeadingPagination}
+                    onChange={(e) =>
+                      setAppSettings((prev) => ({
+                        ...prev,
+                        minHeadingLevel: Number(e.target.value),
+                      }))
+                    }
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      border: `1px solid ${theme.colors.border}`,
+                      background: 'transparent',
+                      color: theme.colors.text,
+                      fontSize: '13px'
+                    }}
+                  >
+                    <option value={1}>一级及以上 (#)</option>
+                    <option value={2}>二级及以上 (##)</option>
+                    <option value={3}>三级及以上 (###)</option>
+                    <option value={4}>四级及以上 (####)</option>
+                    <option value={5}>五级及以上 (#####)</option>
+                    <option value={6}>六级及以上 (######)</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  background: theme.theme === 'dark' ? 'rgba(15,23,42,0.6)' : '#f9fafb',
+                  border: `1px dashed ${theme.colors.border}`
+                }}
+              >
+                <div style={{ fontSize: '13px', fontWeight: 600, color: theme.colors.text }}>AI 设置</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
+                  <span>提供商</span>
+                  <select
+                    value={appSettings.aiProvider}
+                    onChange={(e) =>
+                      setAppSettings((prev) => ({
+                        ...prev,
+                        aiProvider: e.target.value as any,
+                      }))
+                    }
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      border: `1px solid ${theme.colors.border}`,
+                      background: 'transparent',
+                      color: theme.colors.text,
+                      fontSize: '13px'
+                    }}
+                  >
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                    <option value="ollama">Ollama</option>
+                    <option value="local">本地模型</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
+                  <span>API密钥</span>
+                  <input
+                    type="password"
+                    value={appSettings.aiApiKey || ''}
+                    onChange={(e) =>
+                      setAppSettings((prev) => ({
+                        ...prev,
+                        aiApiKey: e.target.value,
+                      }))
+                    }
+                    placeholder="输入API密钥"
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      border: `1px solid ${theme.colors.border}`,
+                      background: 'transparent',
+                      color: theme.colors.text,
+                      fontSize: '13px',
+                      flex: 1
+                    }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
+                  <span>模型</span>
+                  <input
+                    type="text"
+                    value={appSettings.aiModel || ''}
+                    onChange={(e) =>
+                      setAppSettings((prev) => ({
+                        ...prev,
+                        aiModel: e.target.value,
+                      }))
+                    }
+                    placeholder="例如: gpt-3.5-turbo"
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      border: `1px solid ${theme.colors.border}`,
+                      background: 'transparent',
+                      color: theme.colors.text,
+                      fontSize: '13px',
+                      flex: 1
+                    }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
+                  <span>端点</span>
+                  <input
+                    type="text"
+                    value={appSettings.aiEndpoint || ''}
+                    onChange={(e) =>
+                      setAppSettings((prev) => ({
+                        ...prev,
+                        aiEndpoint: e.target.value,
+                      }))
+                    }
+                    placeholder="可选: 自定义API端点"
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      border: `1px solid ${theme.colors.border}`,
+                      background: 'transparent',
+                      color: theme.colors.text,
+                      fontSize: '13px',
+                      flex: 1
+                    }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                  <span style={{ fontSize: '13px', color: theme.colors.textSecondary }}>AI配置测试</span>
+                  <button
+                    onClick={async () => {
+                      try {
+                        // 创建一个临时的AI服务实例来测试配置
+                        const aiService = {
+                          request: async ({ prompt, maxTokens }: { prompt: string; maxTokens?: number }) => {
+                            // 根据当前配置创建适当的请求
+                            const config = appSettings;
+                            
+                            // 使用fetch发送请求到相应的AI服务
+                            let response;
+                            if (config.aiProvider === 'openai') {
+                              response = await fetch(config.aiEndpoint || 'https://api.openai.com/v1/chat/completions', {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': `Bearer ${config.aiApiKey || ''}`
+                                },
+                                body: JSON.stringify({
+                                  model: config.aiModel || 'gpt-3.5-turbo',
+                                  messages: [{ role: 'user', content: prompt }],
+                                  max_tokens: maxTokens || 20
+                                })
+                              });
+                            } else if (config.aiProvider === 'anthropic') {
+                              response = await fetch(config.aiEndpoint || 'https://api.anthropic.com/v1/messages', {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'x-api-key': config.aiApiKey || '',
+                                  'anthropic-version': '2023-06-01'
+                                },
+                                body: JSON.stringify({
+                                  model: config.aiModel || 'claude-3-haiku-20240307',
+                                  messages: [{ role: 'user', content: prompt }],
+                                  max_tokens: maxTokens || 20
+                                })
+                              });
+                            } else {
+                              // 对于Ollama或本地模型，使用不同的端点
+                              response = await fetch(config.aiEndpoint || 'http://localhost:11434/api/generate', {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                  model: config.aiModel || 'llama2',
+                                  prompt: prompt,
+                                  stream: false
+                                })
+                              });
+                            }
+                            
+                            if (!response.ok) {
+                              throw new Error(`AI服务返回错误: ${response.status} ${response.statusText}`);
+                            }
+                            
+                            const data = await response.json();
+                            
+                            // 根据不同API返回格式提取内容
+                            let content;
+                            if (config.aiProvider === 'openai') {
+                              content = data.choices[0]?.message?.content || '无法获取响应';
+                            } else if (config.aiProvider === 'anthropic') {
+                              content = data.content[0]?.text || '无法获取响应';
+                            } else {
+                              content = data.response || data.message || '无法获取响应';
+                            }
+                            
+                            return {
+                              content,
+                              usage: data.usage || undefined,
+                              model: data.model || config.aiModel
+                            };
+                          }
+                        };
+                        
+                        // 发送测试请求
+                        const result = await aiService.request({ 
+                          prompt: '请回复：AI配置测试成功',
+                          maxTokens: 20
+                        });
+                        
+                        alert('AI配置测试成功！');
+                      } catch (error) {
+                        console.error('AI配置测试失败:', error);
+                        alert('AI配置测试失败：' + (error as Error).message);
+                      }
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: 500
+                    }}
+                  >
+                    🧪 测试配置
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -2284,14 +2519,8 @@ export const App: React.FC = () => {
         />
       </div>
 
-      {/* AI Assistant Component */}
-      <AIAssistant
-        markdownContent={markdown}
-        onContentUpdate={(newContent) => setMarkdown(newContent)}
-      />
-
       {/* Plugin Marketplace Component */}
-      <PluginMarketplace 
+      <PluginMarketplace
         isOpen={showPluginMarketplace}
         onClose={() => setShowPluginMarketplace(false)}
       />
@@ -2301,9 +2530,26 @@ export const App: React.FC = () => {
         isOpen={showThemeMarketplace}
         onClose={() => setShowThemeMarketplace(false)}
         onThemeChange={(themeId) => {
-          console.log(`Theme changed to: ${themeId}`);
-          // 这里可以添加实际的主题应用逻辑
+          setCurrentTheme(themeId);
+          setAppSettings(prev => ({
+            ...prev,
+            selectedTheme: themeId
+          }));
         }}
+      />
+
+      {/* AI Assistant Component */}
+      <AIAssistant
+        markdownContent={markdown}
+        onContentUpdate={(newContent) => setMarkdown(newContent)}
+        aiConfig={{
+          provider: appSettings.aiProvider,
+          apiKey: appSettings.aiApiKey,
+          model: appSettings.aiModel,
+          endpoint: appSettings.aiEndpoint
+        }}
+        isOpen={showAIAssistant}
+        onClose={() => setShowAIAssistant(false)}
       />
 
       {/* Global Input Modal Overlay */}

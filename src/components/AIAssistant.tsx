@@ -5,14 +5,26 @@ import { AIResponse } from '../types/ai';
 interface AIAssistantProps {
   markdownContent: string;
   onContentUpdate: (newContent: string) => void;
+  aiConfig?: {
+    provider: 'openai' | 'anthropic' | 'ollama' | 'local';
+    apiKey?: string;
+    model?: string;
+    endpoint?: string;
+  };
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export const AIAssistant: React.FC<AIAssistantProps> = ({ markdownContent, onContentUpdate }) => {
-  const [isOpen, setIsOpen] = useState(false);
+export const AIAssistant: React.FC<AIAssistantProps> = ({ markdownContent, onContentUpdate, aiConfig, isOpen: externalIsOpen, onClose: externalOnClose }) => {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [inputText, setInputText] = useState('');
   const [response, setResponse] = useState<AIResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'general' | 'slides' | 'improve'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'slides' | 'improve' | 'settings'>('general');
+
+  // 决定使用哪个isOpen状态
+  const effectiveIsOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const toggleOpen = externalOnClose !== undefined ? externalOnClose : () => setInternalIsOpen(!internalIsOpen);
 
   useEffect(() => {
     if (markdownContent) {
@@ -23,6 +35,16 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ markdownContent, onCon
   const handleAIRequest = async (prompt: string) => {
     setLoading(true);
     try {
+      // 如果提供了AI配置，则更新AI服务配置
+      if (aiConfig) {
+        aiService.updateConfig({
+          provider: aiConfig.provider,
+          apiKey: aiConfig.apiKey,
+          model: aiConfig.model,
+          baseURL: aiConfig.endpoint
+        });
+      }
+      
       const result = await aiService.request({ prompt });
       setResponse(result);
     } catch (error) {
@@ -56,36 +78,48 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ markdownContent, onCon
   const handleApplyResponse = () => {
     if (response) {
       onContentUpdate(response.content);
-      setIsOpen(false);
+      if (externalOnClose) {
+        externalOnClose();
+      } else {
+        setInternalIsOpen(false);
+      }
     }
   };
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="ai-assistant-toggle"
-        title="AI 助手"
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          right: '20px',
-          width: '50px',
-          height: '50px',
-          borderRadius: '50%',
-          backgroundColor: '#4f46e5',
-          color: 'white',
-          border: 'none',
-          fontSize: '20px',
-          cursor: 'pointer',
-          zIndex: 1000,
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-        }}
-      >
-        💡
-      </button>
+      {!externalIsOpen && (
+        <button
+          onClick={() => {
+            if (externalOnClose) {
+              externalOnClose();
+            } else {
+              setInternalIsOpen(!internalIsOpen);
+            }
+          }}
+          className="ai-assistant-toggle"
+          title="AI 助手"
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            width: '50px',
+            height: '50px',
+            borderRadius: '50%',
+            backgroundColor: '#4f46e5',
+            color: 'white',
+            border: 'none',
+            fontSize: '20px',
+            cursor: 'pointer',
+            zIndex: 1000,
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+          }}
+        >
+          💡
+        </button>
+      )}
 
-      {isOpen && (
+      {effectiveIsOpen && (
         <div
           className="ai-assistant-modal"
           style={{
@@ -116,7 +150,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ markdownContent, onCon
           >
             <h2 style={{ margin: 0 }}>AI 助手</h2>
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={toggleOpen}
               style={{
                 background: 'none',
                 border: 'none',
@@ -167,6 +201,19 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ markdownContent, onCon
               }}
             >
               幻灯片生成
+            </button>
+            <button
+              className={activeTab === 'settings' ? 'active-tab' : ''}
+              onClick={() => setActiveTab('settings')}
+              style={{
+                flex: 1,
+                padding: '12px',
+                border: 'none',
+                backgroundColor: activeTab === 'settings' ? '#f3f4f6' : 'transparent',
+                cursor: 'pointer'
+              }}
+            >
+              AI设置
             </button>
           </div>
 
@@ -309,6 +356,77 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ markdownContent, onCon
               </div>
             )}
 
+            {activeTab === 'settings' && (
+              <div>
+                <div style={{ marginBottom: '16px' }}>
+                  <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>AI 配置测试</h3>
+                  <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#6b7280' }}>
+                    测试当前的AI配置是否有效
+                  </p>
+                  <button
+                    onClick={async () => {
+                      setLoading(true);
+                      try {
+                        // 如果提供了AI配置，则更新AI服务配置
+                        if (aiConfig) {
+                          aiService.updateConfig({
+                            provider: aiConfig.provider,
+                            apiKey: aiConfig.apiKey,
+                            model: aiConfig.model,
+                            baseURL: aiConfig.endpoint
+                          });
+                        }
+                        
+                        const result = await aiService.request({ 
+                          prompt: '请回复：AI配置测试成功',
+                          maxTokens: 20
+                        });
+                        
+                        setResponse(result);
+                        alert('AI配置测试成功！');
+                      } catch (error) {
+                        console.error('AI配置测试失败:', error);
+                        alert('AI配置测试失败，请检查配置信息');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    disabled={loading}
+                    style={{
+                      padding: '10px 16px',
+                      backgroundColor: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    🧪 一键测试AI配置
+                  </button>
+                </div>
+                
+                <div style={{ marginTop: '20px' }}>
+                  <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>当前配置</h3>
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#f9fafb',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    fontSize: '14px'
+                  }}>
+                    <p style={{ margin: '0 0 8px 0' }}><strong>提供商:</strong> {aiConfig?.provider || '未设置'}</p>
+                    <p style={{ margin: '0 0 8px 0' }}><strong>模型:</strong> {aiConfig?.model || '未设置'}</p>
+                    <p style={{ margin: '0 0 8px 0' }}><strong>端点:</strong> {aiConfig?.endpoint || '默认'}</p>
+                    <p style={{ margin: '0 0 0 0' }}><strong>API密钥:</strong> {aiConfig?.apiKey ? '已设置' : '未设置'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {loading && (
               <div style={{ textAlign: 'center', padding: '20px' }}>
                 <div>AI 正在思考中...</div>
@@ -357,7 +475,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ markdownContent, onCon
                     应用到文档
                   </button>
                   <button
-                    onClick={() => setResponse(null)}
+                    onClick={toggleOpen}
                     style={{
                       padding: '8px 12px',
                       backgroundColor: '#6b7280',
@@ -376,7 +494,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ markdownContent, onCon
         </div>
       )}
 
-      {isOpen && (
+      {effectiveIsOpen && (
         <div
           className="ai-assistant-backdrop"
           style={{
@@ -388,7 +506,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ markdownContent, onCon
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
             zIndex: 1000
           }}
-          onClick={() => setIsOpen(false)}
+          onClick={toggleOpen}
         ></div>
       )}
 

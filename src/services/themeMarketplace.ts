@@ -129,19 +129,25 @@ export class ThemeMarketplaceService {
   async applyTheme(themeId: string): Promise<void> {
     const themePackage = this.installedThemes.get(themeId);
     if (!themePackage) {
-      throw new Error(`Theme not found: ${themeId}`);
+      // 如果主题未安装，尝试从模拟数据创建
+      const mockTheme = this.createMockTheme(themeId, `主题 ${themeId} 的描述`);
+      this.installedThemes.set(themeId, mockTheme);
+      console.warn(`Theme not installed, using mock data: ${themeId}`);
     }
 
-    // 这里会实际应用主题到应用程序
-    console.log(`Applying theme: ${themeId}`, themePackage.theme);
+    // 重新获取主题包（可能刚创建了模拟数据）
+    const finalThemePackage = this.installedThemes.get(themeId)!;
 
-    // 模拟应用过程
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // 应用主题到应用程序
+    console.log(`Applying theme: ${themeId}`, finalThemePackage.theme);
 
     // 应用CSS样式（如果存在）
-    if (themePackage.files.css) {
-      this.applyThemeStyles(themePackage.files.css);
+    if (finalThemePackage.files.css) {
+      this.applyThemeStyles(finalThemePackage.files.css);
     }
+    
+    // 应用主题配置到DOM
+    this.applyThemeConfiguration(finalThemePackage.theme);
   }
 
   /**
@@ -203,10 +209,115 @@ export class ThemeMarketplaceService {
   }
 
   /**
+   * 应用主题配置到DOM
+   */
+  private applyThemeConfiguration(themeConfig: any): void {
+    // 获取文档根元素
+    const root = document.documentElement;
+    
+    // 应用颜色配置
+    if (themeConfig.colors) {
+      Object.entries(themeConfig.colors).forEach(([key, value]) => {
+        if (typeof value === 'string') {
+          root.style.setProperty(`--theme-color-${key}`, value);
+        }
+      });
+    }
+    
+    // 应用字体配置
+    if (themeConfig.fonts) {
+      Object.entries(themeConfig.fonts).forEach(([key, value]) => {
+        if (typeof value === 'string') {
+          root.style.setProperty(`--theme-font-${key}`, value);
+        }
+      });
+    }
+    
+    // 应用间距配置
+    if (themeConfig.spacing) {
+      Object.entries(themeConfig.spacing).forEach(([key, value]) => {
+        if (typeof value === 'string') {
+          root.style.setProperty(`--theme-spacing-${key}`, value);
+        }
+      });
+    }
+    
+    // 应用其他配置
+    root.setAttribute('data-theme', themeConfig.id || 'custom-theme');
+  }
+
+  /**
    * 创建模拟主题数据
    */
   private createMockTheme(id: string, description: string): ThemePackage {
     const now = new Date().toISOString();
+
+    // 根据主题ID选择不同的配色方案
+    let colors = {
+      primary: '#007acc',
+      secondary: '#6c757d',
+      background: '#ffffff',
+      text: '#333333',
+      highlight: '#ffeb3b'
+    };
+
+    // 根据主题ID设置特定配色
+    switch(id) {
+      case 'minimal':
+        colors = {
+          primary: '#2563eb',
+          secondary: '#64748b',
+          background: '#ffffff',
+          text: '#1e293b',
+          highlight: '#fef3c7'
+        };
+        break;
+      case 'dark':
+        colors = {
+          primary: '#60a5fa',
+          secondary: '#94a3b8',
+          background: '#0f172a',
+          text: '#f1f5f9',
+          highlight: '#fde68a'
+        };
+        break;
+      case 'cyberpunk':
+        colors = {
+          primary: '#06b6d4',
+          secondary: '#8b5cf6',
+          background: '#000000',
+          text: '#e2e8f0',
+          highlight: '#f472b6'
+        };
+        break;
+      case 'academic':
+        colors = {
+          primary: '#1e40af',
+          secondary: '#475569',
+          background: '#f8fafc',
+          text: '#0f172a',
+          highlight: '#fde68a'
+        };
+        break;
+      case 'presentation':
+        colors = {
+          primary: '#3b82f6',
+          secondary: '#6b7280',
+          background: '#ffffff',
+          text: '#111827',
+          highlight: '#fef3c7'
+        };
+        break;
+      case 'creative':
+        colors = {
+          primary: '#ec4899',
+          secondary: '#8b5cf6',
+          background: '#f9fafb',
+          text: '#111827',
+          highlight: '#a7f3d0'
+        };
+        break;
+    }
 
     return {
       metadata: {
@@ -221,13 +332,8 @@ export class ThemeMarketplaceService {
         updatedAt: now
       },
       theme: {
-        colors: {
-          primary: '#007acc',
-          secondary: '#6c757d',
-          background: '#ffffff',
-          text: '#333333',
-          highlight: '#ffeb3b'
-        },
+        id,
+        colors,
         fonts: {
           heading: 'Arial, sans-serif',
           body: 'Georgia, serif',
@@ -241,10 +347,30 @@ export class ThemeMarketplaceService {
       },
       files: {
         css: `.theme-${id} {
-          --primary-color: #007acc;
-          --secondary-color: #6c757d;
-          --bg-color: #ffffff;
-          --text-color: #333333;
+          --primary-color: ${colors.primary};
+          --secondary-color: ${colors.secondary};
+          --bg-color: ${colors.background};
+          --text-color: ${colors.text};
+          --highlight-color: ${colors.highlight};
+        }
+        
+        /* 主题: ${id} */
+        body {
+          background-color: ${colors.background};
+          color: ${colors.text};
+        }
+        
+        .slide-container {
+          background-color: ${colors.background};
+          color: ${colors.text};
+        }
+        
+        h1, h2, h3 {
+          color: ${colors.primary};
+        }
+        
+        .highlight {
+          color: ${colors.highlight};
         }`,
         assets: [`/themes/assets/${id}/logo.svg`]
       }
