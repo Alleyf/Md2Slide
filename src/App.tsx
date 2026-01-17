@@ -1,192 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
-import { 
-  Bold, Italic, Strikethrough, Code, Heading1, Heading2, Heading3, 
-  SeparatorHorizontal, Quote, List, ListOrdered, CheckSquare, 
-  FileCode, Table, Link, Image, Sigma, Variable, Grid3X3, 
-  Video, Smile, Globe, ArrowUp
-} from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
 import { SlideTemplate, SlideContent, SlideElement } from './components/SlideTemplate';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useTheme } from './context/ThemeContext';
 import { darkTheme } from './styles/theme';
 import { ThemeConfig } from './types/theme';
+import { FileItem } from './types/file';
+import { FileTree } from './components/FileTree';
+import { Toolbar } from './components/Toolbar';
+import { HelpModal } from './components/HelpModal';
+import { downloadPDF } from './utils/export/pdf';
 import {
   parseMarkdownToSlides,
   parseTableOfContents,
   TOCItem,
 } from './parser';
-
-interface FileItem {
-  name: string;
-  kind: 'file' | 'directory';
-  handle?: FileSystemFileHandle | FileSystemDirectoryHandle;
-  isStatic?: boolean;
-  content?: string;
-  children?: FileItem[];
-}
-
-interface FileTreeItemProps {
-  item: FileItem;
-  depth: number;
-  activeFile: string | null;
-  onFileClick: (file: FileItem) => void;
-  theme: ThemeConfig;
-}
-
-const FileTreeItem: React.FC<FileTreeItemProps> = ({ item, depth, activeFile, onFileClick, theme }) => {
-  const [isOpen, setIsOpen] = useState(true);
-
-  if (item.kind === 'directory') {
-    return (
-      <>
-        <div
-          onClick={() => setIsOpen(!isOpen)}
-          style={{
-            padding: '6px 15px',
-            paddingLeft: `${15 + depth * 12}px`,
-            fontSize: '13px',
-            color: theme.colors.text,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            transition: 'all 0.2s',
-            fontWeight: 500,
-            opacity: 0.9
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-        >
-          <span style={{ fontSize: '10px', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>▶</span>
-          <span style={{ fontSize: '14px' }}>📁</span>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {item.name}
-          </span>
-        </div>
-        {isOpen && item.children?.map(child => (
-          <FileTreeItem
-            key={child.name}
-            item={child}
-            depth={depth + 1}
-            activeFile={activeFile}
-            onFileClick={onFileClick}
-            theme={theme}
-          />
-        ))}
-      </>
-    );
-  }
-
-  return (
-    <div
-      onClick={() => onFileClick(item)}
-      style={{
-        padding: '6px 15px',
-        paddingLeft: `${15 + depth * 12 + 16}px`,
-        fontSize: '13px',
-        color: activeFile === item.name ? theme.primaryColor : theme.colors.textSecondary,
-        cursor: 'pointer',
-        background: activeFile === item.name ? (theme.theme === 'dark' ? 'rgba(58,134,255,0.1)' : 'rgba(37,99,235,0.05)') : 'transparent',
-        borderLeft: `3px solid ${activeFile === item.name ? theme.primaryColor : 'transparent'}`,
-        transition: 'all 0.2s',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px'
-      }}
-      onMouseEnter={(e) => {
-        if (activeFile !== item.name) e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)';
-      }}
-      onMouseLeave={(e) => {
-        if (activeFile !== item.name) e.currentTarget.style.background = 'transparent';
-      }}
-    >
-      <span style={{ fontSize: '14px' }}>{item.isStatic ? '📚' : '📄'}</span>
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {item.name}
-      </span>
-    </div>
-  );
-};
-
-interface ToolbarButtonProps {
-  icon: React.ReactNode;
-  title: string;
-  shortcut?: string;
-  onClick: () => void;
-}
-
-const ToolbarButton: React.FC<ToolbarButtonProps> = ({ icon, title, shortcut, onClick }) => {
-  const { themeConfig: theme } = useTheme();
-  const [showTooltip, setShowTooltip] = useState(false);
-
-  return (
-    <div style={{ position: 'relative' }}>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onClick();
-        }}
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
-        style={{
-          width: '32px',
-          height: '32px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'transparent',
-          border: 'none',
-          borderRadius: '4px',
-          color: theme.colors.textSecondary,
-          cursor: 'pointer',
-          fontSize: '13px',
-          fontWeight: 600,
-          transition: 'all 0.2s',
-        }}
-        className="toolbar-button"
-      >
-        {icon}
-      </button>
-      
-      {showTooltip && (
-        <div style={{
-          position: 'absolute',
-          bottom: '-35px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: '#333',
-          color: '#fff',
-          padding: '4px 8px',
-          borderRadius: '4px',
-          fontSize: '11px',
-          whiteSpace: 'nowrap',
-          zIndex: 100,
-          pointerEvents: 'none',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '2px'
-        }}>
-          <span style={{ fontWeight: 600 }}>{title}</span>
-          {shortcut && (
-            <span style={{ fontSize: '9px', opacity: 0.7 }}>{shortcut}</span>
-          )}
-          <div style={{
-            position: 'absolute',
-            top: '-4px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            borderLeft: '4px solid transparent',
-            borderRight: '4px solid transparent',
-            borderBottom: '4px solid #333'
-          }} />
-        </div>
-      )}
-    </div>
-  );
-};
+import { formatInlineMarkdown } from './parser/markdownHelpers';
 
 export const App: React.FC = () => {
   const [markdown, setMarkdown] = useState('');
@@ -213,28 +43,30 @@ export const App: React.FC = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [inputModal, setInputModal] = useState<{
     show: boolean;
-    type: 'link' | 'image' | 'video';
+    type: 'link' | 'image' | 'video' | 'rename' | 'confirm';
     value: string;
     titleValue?: string;
+    message?: string;
     callback?: (val: string, title?: string) => void;
   }>({ show: false, type: 'link', value: '' });
-  const [layoutOrder, setLayoutOrder] = useState<('sidebar' | 'editor' | 'preview')[]>(['sidebar', 'editor', 'preview']);
-  const [draggingSection, setDraggingSection] = useState<string | null>(null);
+  type LayoutSection = 'sidebar' | 'editor' | 'preview';
+  const [layoutOrder, setLayoutOrder] = useState<LayoutSection[]>(['sidebar', 'editor', 'preview']);
+  const [draggingSection, setDraggingSection] = useState<LayoutSection | null>(null);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const { themeConfig: theme } = useTheme();
 
-  const handleDragStart = (section: 'sidebar' | 'editor' | 'preview') => {
+  const handleDragStart = (section: LayoutSection) => {
     setDraggingSection(section);
   };
 
-  const handleDragOver = (e: React.DragEvent, targetSection: 'sidebar' | 'editor' | 'preview') => {
+  const handleDragOver = (e: React.DragEvent, targetSection: LayoutSection) => {
     e.preventDefault();
     if (draggingSection && draggingSection !== targetSection) {
       const newOrder = [...layoutOrder];
-      const dragIdx = newOrder.indexOf(draggingSection as any);
+      const dragIdx = newOrder.indexOf(draggingSection);
       const targetIdx = newOrder.indexOf(targetSection);
       newOrder[dragIdx] = targetSection;
-      newOrder[targetIdx] = draggingSection as any;
+      newOrder[targetIdx] = draggingSection;
       setLayoutOrder(newOrder);
     }
   };
@@ -286,7 +118,7 @@ export const App: React.FC = () => {
           text = await response.text();
         }
       } else if (file.handle) {
-        const fileData = await file.handle.getFile();
+        const fileData = await (file.handle as FileSystemFileHandle).getFile();
         text = await fileData.text();
       } else if (file.content) {
         text = file.content;
@@ -299,6 +131,61 @@ export const App: React.FC = () => {
     } catch (error) {
       console.error('Failed to load file:', error);
     }
+  };
+
+  const deleteFile = (fileName: string) => {
+    setInputModal({
+      show: true,
+      type: 'confirm',
+      value: '',
+      message: `确定要删除 ${fileName} 吗？`,
+      callback: () => {
+        setFileList(prev => {
+          const removeRecursive = (items: FileItem[]): FileItem[] => {
+            return items
+              .filter(item => item.name !== fileName)
+              .map(item => ({
+                ...item,
+                children: item.children ? removeRecursive(item.children) : undefined
+              }));
+          };
+          return removeRecursive(prev);
+        });
+        if (activeFile === fileName) {
+          setActiveFile(null);
+          setMarkdown('');
+        }
+      }
+    });
+  };
+
+  const renameFile = (oldName: string) => {
+    setInputModal({
+      show: true,
+      type: 'rename',
+      value: oldName,
+      callback: (newName) => {
+        if (newName && newName !== oldName) {
+          setFileList(prev => {
+            const renameRecursive = (items: FileItem[]): FileItem[] => {
+              return items.map(item => {
+                if (item.name === oldName) {
+                  return { ...item, name: newName };
+                }
+                if (item.children) {
+                  return { ...item, children: renameRecursive(item.children) };
+                }
+                return item;
+              });
+            };
+            return renameRecursive(prev);
+          });
+          if (activeFile === oldName) {
+            setActiveFile(newName);
+          }
+        }
+      }
+    });
   };
 
   const openFolder = async () => {
@@ -454,7 +341,7 @@ export const App: React.FC = () => {
     });
   };
 
-  const handleEmojiClick = (emojiData: any) => {
+  const handleEmojiClick = (emojiData: { emoji: string }) => {
     applySnippet(`!icon(${emojiData.emoji})`, '');
     setShowEmojiPicker(false);
   };
@@ -595,183 +482,6 @@ export const App: React.FC = () => {
   };
 
   // 解析 Markdown 为幻灯片
-
-  const parseMarkdownToSlides = (md: string): SlideContent[] => {
-    // 归一化换行符
-    const normalizedMd = md.replace(/\r\n/g, '\n');
-    // 支持 --- 作为分页符，支持前后空格，以及在文件开头或结尾的情况
-    const slideBlocks = normalizedMd.split(/(?:\n|^)\s*---\s*(?:\n|$)/);
-    const parsedSlides: SlideContent[] = [];
-
-    slideBlocks.forEach((block, index) => {
-      const lines = block.trim().split(/\r?\n/);
-      const elements: SlideElement[] = [];
-      let clickState = 0;
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-
-        if (line.startsWith('# ')) {
-          const raw = line.slice(2);
-          elements.push({ id: `s${index}-e${i}`, type: 'title', content: formatInlineMarkdown(raw), clickState: 0 });
-        } else if (line.startsWith('## ')) {
-          const raw = line.slice(3);
-          elements.push({ id: `s${index}-e${i}`, type: 'subtitle', content: formatInlineMarkdown(raw), clickState: clickState++ });
-        } else if (line.startsWith('### ')) {
-          const raw = line.slice(4);
-          elements.push({ id: `s${index}-e${i}`, type: 'subtitle', content: formatInlineMarkdown(raw), clickState: clickState++, style: { fontSize: '24px', marginTop: '10px' } });
-        } else if (line.startsWith('- ') || line.startsWith('* ') || /^\d+\.\s/.test(line)) {
-          // 每个列表项分配独立的 clickState 以实现逐条显示
-          const isOrdered = /^\d+\.\s/.test(line);
-          const bulletContent = isOrdered ? line.replace(/^\d+\.\s/, '') : line.slice(2);
-          const listStart = isOrdered ? parseInt(line.match(/^(\d+)\./)![1]) : undefined;
-          
-          elements.push({ 
-            id: `s${index}-e${i}`, 
-            type: 'bullets', 
-            content: [formatInlineMarkdown(bulletContent)], 
-            clickState: clickState++,
-            listType: isOrdered ? 'ol' : 'ul',
-            listStart: listStart
-          });
-        } else if (line.startsWith('```')) {
-          const language = line.slice(3).trim();
-          let code = '';
-          let j = i + 1;
-          while (j < lines.length && !lines[j].startsWith('```')) {
-            code += lines[j] + '\n';
-            j++;
-          }
-          elements.push({ 
-            id: `s${index}-e${i}`, 
-            type: 'code', 
-            content: code.trim(), 
-            clickState: clickState++,
-            language: language || 'text'
-          });
-          i = j;
-        } else if (line.startsWith('> ')) {
-          let quoteContent = line.slice(2);
-          let j = i + 1;
-          // 连续的引用行合并为一个 quote 块
-          while (j < lines.length && lines[j].trim().startsWith('> ')) {
-            quoteContent += '\n' + lines[j].trim().slice(2);
-            j++;
-          }
-          elements.push({ id: `s${index}-e${i}`, type: 'quote', content: formatInlineMarkdown(quoteContent), clickState: clickState++ });
-          i = j - 1;
-        } else if (line.startsWith('|')) {
-          // 检测表格
-          let tableContent = line + '\n';
-          let j = i + 1;
-          while (j < lines.length && (lines[j].trim().startsWith('|') || lines[j].trim().startsWith('+-'))) {
-            tableContent += lines[j] + '\n';
-            j++;
-          }
-          // 只有当至少有两行（表头+分隔符）时才视为表格
-          if (tableContent.split('\n').length >= 3) {
-            elements.push({ id: `s${index}-e${i}`, type: 'table', content: tableContent.trim(), clickState: clickState++ });
-            i = j - 1;
-          } else {
-            elements.push({ id: `s${index}-e${i}`, type: 'markdown', content: formatInlineMarkdown(line), clickState: clickState++ });
-          }
-        } else if (line.startsWith('!icon(')) {
-          const match = line.match(/!icon\(([^)]+)\)/);
-          if (match) elements.push({ id: `s${index}-e${i}`, type: 'icon', content: match[1], clickState: clickState++ });
-        } else if (line.startsWith('!grid')) {
-          elements.push({ id: `s${index}-e${i}`, type: 'grid', content: '', clickState: clickState++ });
-        } else if (line.startsWith('!vector')) {
-          elements.push({ id: `s${index}-e${i}`, type: 'vector', content: '', clickState: clickState++ });
-        } else if (line.startsWith('!image(')) {
-          const match = line.match(/!image\(([^)]+)\)/);
-          if (match) elements.push({ id: `s${index}-e${i}`, type: 'image', content: match[1], clickState: clickState++ });
-        } else if (line.startsWith('!video(')) {
-          const match = line.match(/!video\(([^)]+)\)/);
-          if (match) elements.push({ id: `s${index}-e${i}`, type: 'video', content: match[1], clickState: clickState++ });
-        } else if (line.startsWith('!html(')) {
-          let htmlContent = '';
-          let j = i;
-          let started = false;
-
-          while (j < lines.length) {
-            const rawLine = lines[j];
-            let segment = rawLine;
-
-            if (!started) {
-              const markerIndex = rawLine.indexOf('!html(');
-              if (markerIndex === -1) break;
-              segment = rawLine.slice(markerIndex + '!html('.length);
-              started = true;
-            }
-
-            const trimmed = segment.trimEnd();
-            const hasClosing = trimmed.endsWith(')');
-            const cleaned = hasClosing ? trimmed.replace(/\)\s*$/, '') : segment;
-
-            htmlContent += htmlContent ? `\n${cleaned}` : cleaned;
-
-            if (hasClosing) {
-              break;
-            }
-
-            j++;
-          }
-
-          elements.push({
-            id: `s${index}-e${i}`,
-            type: 'html',
-            content: htmlContent,
-            clickState: clickState++,
-          });
-
-          i = j;
-        } else if (line.trim().startsWith('$$')) {
-          let latexContent = '';
-          let j = i;
-          let started = false;
-          let foundEnd = false;
-
-          while (j < lines.length) {
-            let currentLine = lines[j];
-            
-            if (!started) {
-              const startIdx = currentLine.indexOf('$$');
-              currentLine = currentLine.slice(startIdx + 2);
-              started = true;
-            }
-
-            const endIdx = currentLine.indexOf('$$');
-            if (endIdx !== -1) {
-              latexContent += (latexContent ? '\n' : '') + currentLine.slice(0, endIdx);
-              foundEnd = true;
-              break;
-            } else {
-              latexContent += (latexContent ? '\n' : '') + currentLine;
-            }
-            j++;
-          }
-
-          elements.push({ 
-            id: `s${index}-e${i}`, 
-            type: 'math', 
-            content: { latex: latexContent.trim(), displayMode: true }, 
-            clickState: clickState++ 
-          });
-          
-          if (foundEnd) i = j;
-        } else {
-          elements.push({ id: `s${index}-e${i}`, type: 'markdown', content: formatInlineMarkdown(line), clickState: clickState++ });
-        }
-      }
-
-      if (elements.length > 0) {
-        parsedSlides.push({ id: `slide-${index}`, elements });
-      }
-    });
-
-    return parsedSlides;
-  };
 
   useEffect(() => {
     setSlides(parseMarkdownToSlides(markdown));
@@ -933,6 +643,65 @@ export const App: React.FC = () => {
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <button
+            onClick={() => setShowSidebar(!showSidebar)}
+            style={{
+              padding: '6px 12px',
+              background: showSidebar ? theme.primaryColor : 'transparent',
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: '6px',
+              color: showSidebar ? 'white' : theme.colors.textSecondary,
+              cursor: 'pointer',
+              fontSize: '13px',
+              transition: 'all 0.2s',
+              display: isMobile ? 'none' : 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            title={showSidebar ? "隐藏侧边栏" : "显示侧边栏"}
+          >
+            {showSidebar ? '📂 隐藏目录' : '📁 显示目录'}
+          </button>
+          <button
+            onClick={() => setShowEditor(!showEditor)}
+            style={{
+              padding: '6px 12px',
+              background: showEditor ? theme.primaryColor : 'transparent',
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: '6px',
+              color: showEditor ? 'white' : theme.colors.textSecondary,
+              cursor: 'pointer',
+              fontSize: '13px',
+              transition: 'all 0.2s',
+              display: isMobile ? 'none' : 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            title={showEditor ? "隐藏编辑器" : "显示编辑器"}
+          >
+            {showEditor ? '✍️ 隐藏编辑' : '📝 显示编辑'}
+          </button>
+          <button
+            onClick={() => downloadPDF(slides)}
+            style={{
+              padding: '6px 12px',
+              background: theme.primaryColor,
+              border: 'none',
+              borderRadius: '6px',
+              color: '#fff',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: 600,
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
+            onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
+          >
+            导出 PDF
+          </button>
+          <button
             onClick={handleCopy}
             style={{
               padding: '6px 12px',
@@ -981,22 +750,6 @@ export const App: React.FC = () => {
             onMouseLeave={(e) => e.currentTarget.style.borderColor = theme.colors.border}
           >
             帮助文档
-          </button>
-          <button
-            onClick={() => setShowEditor(!showEditor)}
-            style={{
-              padding: '6px 16px',
-              background: showEditor ? theme.primaryColor : theme === darkTheme ? '#222' : '#f3f4f6',
-              border: 'none',
-              borderRadius: '6px',
-              color: showEditor ? 'white' : theme.colors.text,
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: 600,
-              transition: 'all 0.2s'
-            }}
-          >
-            {showEditor ? '全屏预览' : '分屏编辑'}
           </button>
           <ThemeToggle />
         </div>
@@ -1318,7 +1071,7 @@ export const App: React.FC = () => {
         transition: 'background 0.3s ease'
       }}>
         {layoutOrder.map((section, index) => {
-          if (section === 'sidebar' && showSidebar && !isMobile && showEditor) {
+          if (section === 'sidebar' && showSidebar && !isMobile) {
             return (
               <React.Fragment key="sidebar">
                 <div 
@@ -1380,17 +1133,15 @@ export const App: React.FC = () => {
                       </button>
                     )}
                   </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '10px 0' }}>
-                  {fileList.map(file => (
-                    <FileTreeItem
-                      key={file.name}
-                      item={file}
-                      depth={0}
-                      activeFile={activeFile}
-                      onFileClick={loadFile}
-                      theme={theme}
-                    />
-                  ))}
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                  <FileTree 
+                    files={fileList}
+                    activeFile={activeFile}
+                    onFileClick={loadFile}
+                    onDelete={deleteFile}
+                    onRename={renameFile}
+                    theme={theme}
+                  />
                 </div>
 
                 {/* Vertical Resize Handle for TOC */}
@@ -1545,28 +1296,6 @@ export const App: React.FC = () => {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ fontSize: '12px', opacity: 0.5 }}>⠿</span>
-                      {!isMobile && (
-                        <button
-                          onClick={() => setShowSidebar(!showSidebar)}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: theme.colors.textSecondary,
-                            cursor: 'pointer',
-                            padding: '2px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderRadius: '4px',
-                            transition: 'all 0.2s'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = theme.colors.border}
-                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                          title={showSidebar ? "折叠目录" : "展开目录"}
-                        >
-                          {showSidebar ? '◀' : '▶'}
-                        </button>
-                      )}
                       Markdown 编辑器
                   </div>
                   {activeFile && (
@@ -1577,211 +1306,50 @@ export const App: React.FC = () => {
                 </div>
 
                 {/* Markdown Toolbar */}
-                <div style={{
-                  padding: '8px 15px',
-                  background: theme.theme === 'dark' ? '#111' : '#f9fafb',
-                  borderBottom: `1px solid ${theme.colors.border}`,
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '6px',
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 30,
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-                }}>
-                  <div style={{ display: 'flex', gap: '2px', paddingRight: '8px', borderRight: `1px solid ${theme.colors.border}` }}>
-                    <ToolbarButton icon={<Bold size={16} />} title="加粗" shortcut="Ctrl + B" onClick={() => applySnippet('**', '**')} />
-                    <ToolbarButton icon={<Italic size={16} />} title="斜体" shortcut="Ctrl + I" onClick={() => applySnippet('*', '*')} />
-                    <ToolbarButton icon={<Strikethrough size={16} />} title="删除线" shortcut="Ctrl + Shift + S" onClick={() => applySnippet('~~', '~~')} />
-                    <ToolbarButton icon={<Code size={16} />} title="行内代码" shortcut="Ctrl + E" onClick={() => applySnippet('`', '`')} />
+                <Toolbar 
+                  applySnippet={applySnippet}
+                  handleLinkInsert={handleLinkInsert}
+                  handleImageInsert={handleImageInsert}
+                  handleVideoInsert={handleVideoInsert}
+                  showEmojiPicker={showEmojiPicker}
+                  setShowEmojiPicker={setShowEmojiPicker}
+                  theme={theme}
+                />
+
+                {/* Emoji Picker Overlay */}
+                {showEmojiPicker && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: '0',
+                    zIndex: 1000,
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
+                    borderRadius: '8px',
+                    marginTop: '8px'
+                  }}>
+                    <EmojiPicker 
+                      onEmojiClick={handleEmojiClick}
+                      theme={theme.theme === 'dark' ? EmojiTheme.DARK : EmojiTheme.LIGHT}
+                      autoFocusSearch={true}
+                      searchPlaceholder="搜索表情..."
+                      width={350}
+                      height={400}
+                      lazyLoadEmojis={true}
+                    />
+                    <div 
+                      onClick={() => setShowEmojiPicker(false)}
+                      style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: -1
+                      }}
+                    />
                   </div>
-                  
-                  <div style={{ display: 'flex', gap: '2px', paddingRight: '8px', borderRight: `1px solid ${theme.colors.border}` }}>
-                    <ToolbarButton icon={<Heading1 size={16} />} title="一级标题" shortcut="Ctrl + 1" onClick={() => applySnippet('# ', '')} />
-                    <ToolbarButton icon={<Heading2 size={16} />} title="二级标题" shortcut="Ctrl + 2" onClick={() => applySnippet('## ', '')} />
-                    <ToolbarButton icon={<Heading3 size={16} />} title="三级标题" shortcut="Ctrl + 3" onClick={() => applySnippet('### ', '')} />
-                    <ToolbarButton icon={<SeparatorHorizontal size={16} />} title="分页符" shortcut="Ctrl + Shift + Enter" onClick={() => applySnippet('\n---\n', '')} />
-                  </div>
+                )}
 
-                  <div style={{ display: 'flex', gap: '2px', paddingRight: '8px', borderRight: `1px solid ${theme.colors.border}` }}>
-                    <ToolbarButton icon={<Quote size={16} />} title="引用" shortcut="Ctrl + Shift + Q" onClick={() => applySnippet('> ', '')} />
-                    <ToolbarButton icon={<List size={16} />} title="无序列表" shortcut="Ctrl + L" onClick={() => applySnippet('- ', '')} />
-                    <ToolbarButton icon={<ListOrdered size={16} />} title="有序列表" shortcut="Ctrl + Shift + L" onClick={() => applySnippet('1. ', '')} />
-                    <ToolbarButton icon={<CheckSquare size={16} />} title="任务列表" shortcut="Ctrl + Shift + T" onClick={() => applySnippet('- [ ] ', '')} />
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '2px', paddingRight: '8px', borderRight: `1px solid ${theme.colors.border}` }}>
-                    <ToolbarButton icon={<FileCode size={16} />} title="代码块" shortcut="Ctrl + Shift + K" onClick={() => applySnippet('```\n', '\n```')} />
-                    <ToolbarButton icon={<Table size={16} />} title="表格" shortcut="Ctrl + Alt + T" onClick={() => applySnippet('| 列1 | 列2 |\n| :--- | :--- |\n| 内容1 | 内容2 |', '')} />
-                    <ToolbarButton icon={<Link size={16} />} title="链接" shortcut="Ctrl + K" onClick={handleLinkInsert} />
-                    <ToolbarButton icon={<Image size={16} />} title="图片" shortcut="Ctrl + Shift + I" onClick={handleImageInsert} />
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '2px', paddingRight: '8px', borderRight: `1px solid ${theme.colors.border}` }}>
-                    <ToolbarButton icon={<Sigma size={16} />} title="行内公式" shortcut="Ctrl + M" onClick={() => applySnippet('$', '$')} />
-                    <ToolbarButton icon={<Sigma size={16} strokeWidth={3} />} title="块级公式" shortcut="Ctrl + Shift + M" onClick={() => applySnippet('$$\n', '\n$$')} />
-                    <ToolbarButton icon={<Variable size={16} />} title="向量" shortcut="Ctrl + Alt + V" onClick={() => applySnippet('!vector', '')} />
-                    <ToolbarButton icon={<Grid3X3 size={16} />} title="网格" shortcut="Ctrl + Alt + G" onClick={() => applySnippet('!grid', '')} />
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '2px' }}>
-                    <ToolbarButton icon={<Video size={16} />} title="视频" shortcut="Ctrl + Alt + M" onClick={handleVideoInsert} />
-                    <ToolbarButton icon={<Smile size={16} />} title="图标" shortcut="Ctrl + Shift + E" onClick={() => setShowEmojiPicker(!showEmojiPicker)} />
-                    <ToolbarButton icon={<Globe size={16} />} title="原生HTML" shortcut="Ctrl + Alt + H" onClick={() => applySnippet('!html(', ')')} />
-                  </div>
-
-                  {/* Emoji Picker Overlay */}
-                  {showEmojiPicker && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      right: '0',
-                      zIndex: 1000,
-                      boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
-                      borderRadius: '8px',
-                      marginTop: '8px'
-                    }}>
-                      <EmojiPicker 
-                        onEmojiClick={handleEmojiClick}
-                        theme={theme.theme === 'dark' ? EmojiTheme.DARK : EmojiTheme.LIGHT}
-                        autoFocusSearch={true}
-                        searchPlaceholder="搜索表情..."
-                        width={350}
-                        height={400}
-                        lazyLoadEmojis={true}
-                      />
-                      <div 
-                        onClick={() => setShowEmojiPicker(false)}
-                        style={{
-                          position: 'fixed',
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          zIndex: -1
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {/* Input Modal Overlay */}
-                  {inputModal.show && (
-                    <div style={{
-                      position: 'fixed',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      background: 'rgba(0,0,0,0.5)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      zIndex: 2000,
-                      backdropFilter: 'blur(4px)'
-                    }}>
-                      <div style={{
-                        background: theme.colors.surface,
-                        padding: '24px',
-                        borderRadius: '12px',
-                        width: '400px',
-                        boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
-                        border: `1px solid ${theme.colors.border}`
-                      }}>
-                        <h3 style={{ margin: '0 0 16px 0', color: theme.colors.textSecondary }}>
-                          插入{inputModal.type === 'link' ? '链接' : inputModal.type === 'image' ? '图片' : '视频'}
-                        </h3>
-                        
-                        {inputModal.type === 'link' && (
-                          <div style={{ marginBottom: '15px' }}>
-                            <label style={{ display: 'block', fontSize: '12px', color: theme.colors.textSecondary, marginBottom: '5px', opacity: 0.8 }}>
-                              链接标题
-                            </label>
-                            <input 
-                              type="text"
-                              value={inputModal.titleValue}
-                              onChange={(e) => setInputModal(prev => ({ ...prev, titleValue: e.target.value }))}
-                              style={{
-                                width: '100%',
-                                padding: '10px 12px',
-                                borderRadius: '6px',
-                                border: `1px solid ${theme.colors.border}`,
-                                background: theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : '#fff',
-                                color: theme.colors.textSecondary,
-                                fontSize: '14px',
-                                outline: 'none'
-                              }}
-                              placeholder="例如：点击查看详情"
-                            />
-                          </div>
-                        )}
-
-                        <div style={{ marginBottom: '20px' }}>
-                          <label style={{ display: 'block', fontSize: '12px', color: theme.colors.textSecondary, marginBottom: '5px', opacity: 0.8 }}>
-                            URL 地址
-                          </label>
-                          <input 
-                            autoFocus
-                            type="text"
-                            value={inputModal.value}
-                            onChange={(e) => setInputModal(prev => ({ ...prev, value: e.target.value }))}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                inputModal.callback?.(inputModal.value, inputModal.titleValue);
-                                setInputModal(prev => ({ ...prev, show: false }));
-                              } else if (e.key === 'Escape') {
-                                setInputModal(prev => ({ ...prev, show: false }));
-                              }
-                            }}
-                            style={{
-                              width: '100%',
-                              padding: '10px 12px',
-                              borderRadius: '6px',
-                              border: `1px solid ${theme.colors.border}`,
-                              background: theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : '#fff',
-                              color: theme.colors.textSecondary,
-                              fontSize: '14px',
-                              outline: 'none'
-                            }}
-                            placeholder="在此输入 URL 地址..."
-                          />
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                          <button 
-                            onClick={() => setInputModal(prev => ({ ...prev, show: false }))}
-                            style={{
-                              padding: '8px 16px',
-                              borderRadius: '6px',
-                              border: `1px solid ${theme.colors.border}`,
-                              background: 'transparent',
-                              color: theme.colors.textSecondary,
-                              cursor: 'pointer'
-                            }}
-                          >
-                            取消
-                          </button>
-                          <button 
-                            onClick={() => {
-                              inputModal.callback?.(inputModal.value, inputModal.titleValue);
-                              setInputModal(prev => ({ ...prev, show: false }));
-                            }}
-                            style={{
-                              padding: '8px 16px',
-                              borderRadius: '6px',
-                              border: 'none',
-                              background: theme.primaryColor,
-                              color: '#fff',
-                              cursor: 'pointer',
-                              fontWeight: 600
-                            }}
-                          >
-                            确定
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
 
                 <textarea
                     ref={editorRef}
@@ -1930,6 +1498,150 @@ export const App: React.FC = () => {
           return null;
         })}
       </main>
+
+      {/* Hidden Export Container */}
+      <div id="pdf-export-container" style={{ 
+        position: 'fixed', 
+        left: '-9999px', 
+        top: 0, 
+        width: '1920px', 
+        zIndex: -1000,
+        overflow: 'visible'
+      }}>
+        <SlideTemplate 
+          slides={slides} 
+          exportMode={true}
+        />
+      </div>
+
+      {/* Global Input Modal Overlay */}
+      {inputModal.show && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 3000,
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            background: theme.colors.surface,
+            padding: '24px',
+            borderRadius: '12px',
+            width: '400px',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+            border: `1px solid ${theme.colors.border}`
+          }}>
+            <h3 style={{ margin: '0 0 16px 0', color: theme.colors.textSecondary }}>
+              {inputModal.type === 'link' ? '插入链接' : 
+               inputModal.type === 'image' ? '插入图片' : 
+               inputModal.type === 'video' ? '插入视频' :
+               inputModal.type === 'rename' ? '重命名文件' : '确认操作'}
+            </h3>
+            
+            {inputModal.type === 'confirm' ? (
+              <div style={{ marginBottom: '24px', color: theme.colors.text, fontSize: '14px' }}>
+                {inputModal.message}
+              </div>
+            ) : (
+              <>
+                {(inputModal.type === 'link' || inputModal.type === 'image' || inputModal.type === 'video') && (
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', fontSize: '12px', color: theme.colors.textSecondary, marginBottom: '5px', opacity: 0.8 }}>
+                      {inputModal.type === 'link' ? '链接标题' : '媒体描述'} (可选)
+                    </label>
+                    <input 
+                      type="text"
+                      value={inputModal.titleValue || ''}
+                      onChange={(e) => setInputModal(prev => ({ ...prev, titleValue: e.target.value }))}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '6px',
+                        border: `1px solid ${theme.colors.border}`,
+                        background: theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : '#fff',
+                        color: theme.colors.textSecondary,
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                      placeholder={inputModal.type === 'link' ? "例如：点击查看详情" : "例如：示例图片"}
+                    />
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', color: theme.colors.textSecondary, marginBottom: '5px', opacity: 0.8 }}>
+                    {inputModal.type === 'rename' ? '新文件名' : 'URL 地址'}
+                  </label>
+                  <input 
+                    autoFocus
+                    type="text"
+                    value={inputModal.value}
+                    onChange={(e) => setInputModal(prev => ({ ...prev, value: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        inputModal.callback?.(inputModal.value, inputModal.titleValue);
+                        setInputModal(prev => ({ ...prev, show: false }));
+                      } else if (e.key === 'Escape') {
+                        setInputModal(prev => ({ ...prev, show: false }));
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '6px',
+                      border: `1px solid ${theme.colors.border}`,
+                      background: theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : '#fff',
+                      color: theme.colors.textSecondary,
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                    placeholder={inputModal.type === 'rename' ? "请输入新名称" : "在此输入 URL 地址..."}
+                  />
+                </div>
+              </>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button 
+                onClick={() => setInputModal(prev => ({ ...prev, show: false }))}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  border: `1px solid ${theme.colors.border}`,
+                  background: 'transparent',
+                  color: theme.colors.textSecondary,
+                  cursor: 'pointer'
+                }}
+              >
+                取消
+              </button>
+              <button 
+                onClick={() => {
+                  inputModal.callback?.(inputModal.value, inputModal.titleValue);
+                  setInputModal(prev => ({ ...prev, show: false }));
+                }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: inputModal.type === 'confirm' ? '#ef4444' : theme.primaryColor,
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontWeight: 600
+                }}
+              >
+                确定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

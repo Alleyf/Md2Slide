@@ -14,6 +14,8 @@ interface NavigationControlsProps {
   onReplay?: () => void;
   isAutoPlaying?: boolean;
   onAutoPlayToggle?: () => void;
+  autoPlayInterval: number;
+  onAutoPlayIntervalChange: (interval: number) => void;
 }
 
 export const NavigationControls: React.FC<NavigationControlsProps> = ({
@@ -27,6 +29,8 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
   onReplay,
   isAutoPlaying = false,
   onAutoPlayToggle,
+  autoPlayInterval,
+  onAutoPlayIntervalChange,
 }) => {
   const { themeConfig: theme } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
@@ -118,6 +122,29 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
         >
           {isAutoPlaying ? <Pause size={16} /> : <Play size={16} />}
         </button>
+
+        {isAutoPlaying && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <input 
+              type="range"
+              min="1000"
+              max="10000"
+              step="500"
+              value={autoPlayInterval}
+              onChange={(e) => onAutoPlayIntervalChange(parseInt(e.target.value))}
+              style={{
+                width: '60px',
+                height: '4px',
+                cursor: 'pointer',
+                accentColor: theme.primaryColor
+              }}
+              title={`播放速度: ${autoPlayInterval / 1000}秒`}
+            />
+            <span style={{ fontSize: '10px', color: theme.colors.textSecondary, minWidth: '25px' }}>
+              {autoPlayInterval / 1000}s
+            </span>
+          </div>
+        )}
 
         <button
           onClick={onReplay}

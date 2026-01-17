@@ -13,22 +13,22 @@
 ## 🔴 第一阶段：代码质量与基础功能 (1-2周)
 
 ### 1.1 代码重构
-- [ ] 拆分 App.tsx (1053行 → ~300行)
-  - [ ] 提取 `markdownParser.ts` 到 `src/parser/`
+- [/] 拆分 App.tsx (进行中)
+  - [x] 提取 `markdownParser.ts` 到 `src/parser/`
   - [ ] 提取 `formatInlineMarkdown` 到独立文件
   - [ ] 提取文件树组件到 `src/components/FileTree/`
   - [ ] 提取帮助模态框到 `src/components/HelpModal/`
-- [ ] 拆分 SlideTemplate.tsx (947行 → ~500行)
-  - [ ] 提取 `SlideElementRenderer.tsx` (~300行)
-  - [ ] 提取 `NavigationControls.tsx` (~100行)
-  - [ ] 提取 `useSlideNavigation.ts` hook (~100行)
+- [/] 拆分 SlideTemplate.tsx (进行中)
+  - [ ] 提取 `SlideElementRenderer.tsx`
+  - [x] 提取 `NavigationControls.tsx`
+  - [ ] 提取 `useSlideNavigation.ts` hook
   - [ ] 提取全局样式到 `src/styles/global.css`
 
 ### 1.2 TypeScript 类型修复
-- [ ] 修复 App.tsx:32 的 `theme: any` 类型
+- [x] 修复 App.tsx:32 的 `theme: any` 类型
 - [ ] 为所有组件添加明确的 Props 接口
 - [ ] 添加缺失的类型定义
-- [ ] 安装缺失的类型包: `@types/react-katex`
+- [x] 安装缺失的类型包: `@types/react-katex`
 - [ ] 修复 remotion.config.ts 的 defineConfig 导入问题
 
 ### 1.3 测试框架
@@ -49,23 +49,17 @@
   - [ ] 幻灯片导航测试
 
 ### 1.4 导出功能
-- [ ] 安装导出依赖
-  - [ ] `playwright` 或 `puppeteer` (PDF)
+- [x] 安装导出依赖
+  - [x] `playwright` 或 `puppeteer` (已选 html2pdf.js)
   - [ ] `pptxgenjs` (PPTX)
-  - [ ] `html2canvas` (PNG)
-- [ ] 实现 PDF 导出
-  - [ ] 创建 `src/utils/export/pdf.ts`
+  - [x] `html2canvas` (PNG)
+- [/] 实现 PDF 导出 (基础逻辑已实现)
+  - [x] 创建 `src/utils/export/pdf.ts`
   - [ ] 处理多 clickState 页面
   - [ ] 添加 `npm run export:pdf` 脚本
 - [ ] 实现 PPTX 导出
-  - [ ] 创建 `src/utils/export/pptx.ts`
-  - [ ] 保留样式和动画
-  - [ ] 添加 `npm run export:pptx` 脚本
 - [ ] 实现 PNG 导出
-  - [ ] 创建 `src/utils/export/png.ts`
-  - [ ] 支持单页和全部导出
-  - [ ] 添加 `npm run export:png` 脚本
-- [ ] 在 UI 中添加导出按钮
+- [ ] 在 UI 中添加导出按钮 (进行中)
 
 ### 1.5 过渡动画系统
 - [ ] 定义过渡动画类型
@@ -305,32 +299,13 @@
 ## 🟠 快速胜利 (Quick Wins)
 
 ### 立即可实施
-- [ ] 添加代码格式化工具
-  - [ ] 安装 Prettier
-  - [ ] 配置 `.prettierrc`
-  - [ ] 添加格式化脚本
+- [x] 添加代码格式化工具 (已配置 Prettier)
 - [ ] 添加 Git hooks
-  - [ ] 安装 Husky
-  - [ ] 安装 lint-staged
-  - [ ] 配置 pre-commit 钩子
-  - [ ] 添加 commit-msg 钩子
-- [ ] 添加错误边界
-  - [ ] 创建 `src/components/ErrorBoundary.tsx`
-  - [ ] 包裹应用根组件
-  - [ ] 友好的错误 UI
-- [ ] 添加加载状态
-  - [ ] 使用 React Suspense
-  - [ ] 懒加载组件
-  - [ ] 加载动画
-- [ ] 改进图标系统
-  - [ ] 统一图标来源 (lucide-react)
-  - [ ] 添加更多图标
-- [ ] 添加键盘快捷键提示
-  - [ ] 显示当前可用的快捷键
-  - [ ] 按 "?" 显示帮助
-- [ ] 添加欢迎向导
-  - [ ] 首次使用引导
-  - [ ] 示例幻灯片教程
+- [x] 添加错误边界 (ErrorBoundary.tsx)
+- [x] 添加加载状态 (部分组件使用)
+- [x] 改进图标系统 (Lucide-React & Emoji Picker)
+- [x] 添加键盘快捷键提示 (集成在帮助文档中)
+- [x] 添加欢迎向导 (帮助文档)
 
 ---
 

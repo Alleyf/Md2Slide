@@ -158,6 +158,7 @@ interface SlideTemplateProps {
   onSlideChange?: (index: number) => void;
   autoPlay?: boolean;
   autoPlayInterval?: number;
+  exportMode?: boolean;
 }
 
 export const SlideTemplate: React.FC<SlideTemplateProps> = ({
@@ -166,12 +167,15 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   onSlideChange,
   autoPlay = false,
   autoPlayInterval = 5000,
+  exportMode = false,
 }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [clickState, setClickState] = useState(0);
   const [totalClicks, setTotalClicks] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const [localAutoPlayInterval, setLocalAutoPlayInterval] = useState(autoPlayInterval);
   const autoPlayIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // 同步外部传入的页码
   useEffect(() => {
@@ -180,6 +184,11 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
       setClickState(0);
     }
   }, [activeSlideIndex]);
+
+  // 同步外部传入的播放间隔
+  useEffect(() => {
+    setLocalAutoPlayInterval(autoPlayInterval);
+  }, [autoPlayInterval]);
   const { themeConfig: theme } = useTheme();
 
   // 当幻灯片内容改变时（例如切换文件），重置到第一页
@@ -194,7 +203,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
     if (isAutoPlaying) {
       autoPlayIntervalRef.current = setInterval(() => {
         handleNavigate('next');
-      }, 3000); // 默认 3 秒切换一次
+      }, localAutoPlayInterval);
     } else {
       if (autoPlayIntervalRef.current) {
         clearInterval(autoPlayIntervalRef.current);
@@ -206,7 +215,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         clearInterval(autoPlayIntervalRef.current);
       }
     };
-  }, [isAutoPlaying, currentSlideIndex, clickState, slides.length]);
+  }, [isAutoPlaying, currentSlideIndex, clickState, slides.length, localAutoPlayInterval]);
 
   const calculateClicks = (slide: SlideContent): number => {
     if (!slide || !slide.elements || slide.elements.length === 0) {
@@ -236,6 +245,29 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
     }
   }, [currentSlideIndex, clickState, autoPlay, autoPlayInterval, totalClicks]);
 
+  useEffect(() => {
+    const activeSlide = slideRefs.current[currentSlideIndex];
+    if (activeSlide) {
+      // 找到当前显示的最后一个元素
+      const elements = activeSlide.querySelectorAll('.slide-element');
+      let lastVisibleElement: Element | null = null;
+      
+      elements.forEach((el) => {
+        const clickAttr = el.getAttribute('data-click-state');
+        if (clickAttr !== null && parseInt(clickAttr) <= clickState) {
+          lastVisibleElement = el;
+        }
+      });
+
+      if (lastVisibleElement) {
+        (lastVisibleElement as Element).scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest'
+        });
+      }
+    }
+  }, [currentSlideIndex, clickState]);
+
   const handleNavigate = (direction: 'next' | 'prev') => {
     if (direction === 'next') {
       if (clickState < totalClicks - 1) {
@@ -264,12 +296,24 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
       const isInput = activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement;
       if (isInput) return;
 
-      if ((e.key === ' ' && !e.shiftKey) || e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'Enter' || e.key === 'PageDown') {
+      if ((e.key === ' ' && !e.shiftKey) || e.key === 'ArrowRight' || e.key === 'Enter' || e.key === 'PageDown') {
         e.preventDefault();
         handleNavigate('next');
-      } else if ((e.key === ' ' && e.shiftKey) || e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'Backspace' || e.key === 'PageUp') {
+      } else if ((e.key === ' ' && e.shiftKey) || e.key === 'ArrowLeft' || e.key === 'Backspace' || e.key === 'PageUp') {
         e.preventDefault();
         handleNavigate('prev');
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const activeSlide = slideRefs.current[currentSlideIndex];
+        if (activeSlide) {
+          activeSlide.scrollBy({ top: -50, behavior: 'smooth' });
+        }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const activeSlide = slideRefs.current[currentSlideIndex];
+        if (activeSlide) {
+          activeSlide.scrollBy({ top: 50, behavior: 'smooth' });
+        }
       }
     };
 
@@ -291,11 +335,11 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
       return null;
     }
 
-    const isRevealed = clickState >= (el.clickState || 0);
+    const isRevealed = exportMode || clickState >= (el.clickState || 0);
 
     const baseStyle: React.CSSProperties = {
       opacity: isRevealed ? 1 : 0,
-      transition: 'opacity 0.4s ease-out, transform 0.4s ease-out',
+      transition: exportMode ? 'none' : 'opacity 0.4s ease-out, transform 0.4s ease-out',
       transform: isRevealed ? 'translateY(0)' : 'translateY(10px)',
       ...el.style,
     };
@@ -305,7 +349,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         return (
           <h1
             key={el.id}
-            className="slide-content slide-title"
+            className="slide-content slide-title slide-element"
+            data-click-state={el.clickState}
             style={{
               fontSize: 'clamp(24px, 3.5vw, 42px)',
               fontWeight: 700,
@@ -321,7 +366,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         return (
           <h2
             key={el.id}
-            className="slide-content"
+            className="slide-content slide-element"
+            data-click-state={el.clickState}
             style={{
               fontSize: 'clamp(18px, 2.5vw, 30px)',
               opacity: 0.8,
@@ -338,6 +384,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         return (
           <div
             key={el.id}
+            className="slide-element"
+            data-click-state={el.clickState}
             style={{
               fontSize: 'clamp(16px, 2vw, 20px)',
               lineHeight: 1.8,
@@ -360,6 +408,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         return (
           <ListTag
             key={el.id}
+            className="slide-element"
+            data-click-state={el.clickState}
             start={el.listStart}
             style={{
               listStyle: el.listType === 'ol' ? 'decimal' : 'none',
@@ -405,6 +455,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         return (
           <div
             key={el.id}
+            className="slide-element"
+            data-click-state={el.clickState}
             style={{
               width: '200px',
               height: '200px',
@@ -467,6 +519,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         return (
           <div
             key={el.id}
+            className="slide-element"
+            data-click-state={el.clickState}
             style={{
               width: '200px',
               height: '200px',
@@ -523,6 +577,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         return (
           <div
             key={el.id}
+            className="slide-element"
+            data-click-state={el.clickState}
             style={{
               background: theme.colors.codeBackground,
               padding: '0',
@@ -589,6 +645,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         return (
           <blockquote
             key={el.id}
+            className="slide-element"
+            data-click-state={el.clickState}
             style={{
               fontSize: 'clamp(18px, 2.2vw, 24px)',
               fontStyle: 'italic',
@@ -612,6 +670,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         return (
           <div
             key={el.id}
+            className="slide-element"
+            data-click-state={el.clickState}
             style={{
               overflowX: 'auto',
               marginBottom: '20px',
@@ -681,7 +741,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
 
       case 'image':
         return (
-          <div key={el.id} style={{ ...baseStyle, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <div key={el.id} className="slide-element" data-click-state={el.clickState} style={{ ...baseStyle, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <img
               src={el.content as string}
               alt={el.id}
@@ -698,7 +758,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
       case 'video':
         const bilibiliUrl = getBilibiliEmbedUrl(el.content as string);
         return (
-          <div key={el.id} style={{ ...baseStyle, display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+          <div key={el.id} className="slide-element" data-click-state={el.clickState} style={{ ...baseStyle, display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
             {bilibiliUrl ? (
               <iframe
                 src={bilibiliUrl}
@@ -733,6 +793,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         return (
           <div
             key={el.id}
+            className="slide-element"
+            data-click-state={el.clickState}
             style={{
               fontSize: '64px',
               textAlign: 'center',
@@ -747,6 +809,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         return (
           <div
             key={el.id}
+            className="slide-element"
+            data-click-state={el.clickState}
             style={{
               ...baseStyle,
             }}
@@ -758,13 +822,13 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         const mathContent = el.content as { latex: string; displayMode?: boolean };
         if (mathContent.displayMode) {
           return (
-            <div key={el.id} style={{ ...baseStyle, textAlign: 'center', margin: '20px 0', fontSize: 'clamp(16px, 2vw, 20px)' }}>
+            <div key={el.id} className="slide-element" data-click-state={el.clickState} style={{ ...baseStyle, textAlign: 'center', margin: '20px 0', fontSize: 'clamp(16px, 2vw, 20px)' }}>
               <BlockMath math={mathContent.latex} />
             </div>
           );
         }
         return (
-          <span key={el.id} style={{ ...baseStyle, display: 'inline' }}>
+          <span key={el.id} className="slide-element" data-click-state={el.clickState} style={{ ...baseStyle, display: 'inline' }}>
             <InlineMath math={mathContent.latex} />
           </span>
         );
@@ -773,7 +837,8 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         return (
           <div
             key={el.id}
-            className="slide-content"
+            className="slide-content slide-element"
+            data-click-state={el.clickState}
             style={{
               fontSize: 'clamp(15px, 1.8vw, 18px)',
               lineHeight: 1.8,
@@ -938,12 +1003,14 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
     return (
       <div
         key={slide.id}
+        ref={(el) => (slideRefs.current[index] = el)}
+        className={exportMode ? "pdf-slide-page" : ""}
         style={{
-          position: 'absolute',
+          position: exportMode ? 'relative' : 'absolute',
           top: 0,
           left: 0,
           width: '100%',
-          height: '100%',
+          height: exportMode ? '1080px' : '100%',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'flex-start',
@@ -951,12 +1018,14 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
           padding: 'clamp(16px, 4vw, 40px)',
           paddingTop: 'clamp(12px, 3vw, 30px)',
           paddingBottom: 'clamp(60px, 8vw, 80px)',
-          opacity: isActive ? 1 : 0,
-          pointerEvents: isActive ? 'all' : 'none',
-          transition: 'opacity 0.8s ease-in-out',
+          opacity: exportMode || isActive ? 1 : 0,
+          pointerEvents: exportMode || isActive ? 'all' : 'none',
+          transition: exportMode ? 'none' : 'opacity 0.8s ease-in-out',
           boxSizing: 'border-box',
-          overflowY: 'auto',
+          overflowY: exportMode ? 'hidden' : 'auto',
           overflowX: 'hidden',
+          background: theme.colors.background,
+          pageBreakAfter: 'always',
         }}
       >
         {slide.title && (
@@ -1025,37 +1094,41 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
       {slides.filter(Boolean).map((slide, index) => renderSlide(slide, index))}
 
       {/* 导航控制 */}
-      <NavigationControls
-        currentSlideIndex={currentSlideIndex}
-        clickState={clickState}
-        totalClicks={totalClicks}
-        slidesCount={slides.length}
-        onNext={() => {
-          setIsAutoPlaying(false); // 手动操作时停止自动播放
-          handleNavigate('next');
-        }}
-        onPrev={() => {
-          setIsAutoPlaying(false);
-          handleNavigate('prev');
-        }}
-        onJump={(index) => {
-          setIsAutoPlaying(false);
-          setCurrentSlideIndex(index);
-          setClickState(0);
-          onSlideChange?.(index);
-        }}
-        onReplay={() => {
-          setIsAutoPlaying(false);
-          setCurrentSlideIndex(0);
-          setClickState(0);
-          onSlideChange?.(0);
-        }}
-        isAutoPlaying={isAutoPlaying}
-        onAutoPlayToggle={() => setIsAutoPlaying(!isAutoPlaying)}
-      />
+      {!exportMode && (
+        <NavigationControls
+          currentSlideIndex={currentSlideIndex}
+          clickState={clickState}
+          totalClicks={totalClicks}
+          slidesCount={slides.length}
+          onNext={() => {
+            setIsAutoPlaying(false); // 手动操作时停止自动播放
+            handleNavigate('next');
+          }}
+          onPrev={() => {
+            setIsAutoPlaying(false);
+            handleNavigate('prev');
+          }}
+          onJump={(index) => {
+            setIsAutoPlaying(false);
+            setCurrentSlideIndex(index);
+            setClickState(0);
+            onSlideChange?.(index);
+          }}
+          onReplay={() => {
+            setIsAutoPlaying(false);
+            setCurrentSlideIndex(0);
+            setClickState(0);
+            onSlideChange?.(0);
+          }}
+          isAutoPlaying={isAutoPlaying}
+          onAutoPlayToggle={() => setIsAutoPlaying(!isAutoPlaying)}
+          autoPlayInterval={localAutoPlayInterval}
+          onAutoPlayIntervalChange={(val) => setLocalAutoPlayInterval(val)}
+        />
+      )}
 
       {/* 提示文字 */}
-      {currentSlideIndex === 0 && clickState === 0 && (
+      {!exportMode && currentSlideIndex === 0 && clickState === 0 && (
         <div
           style={{
             position: 'absolute',

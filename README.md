@@ -23,7 +23,7 @@
 [![GitHub issues](https://img.shields.io/github/issues/alleyf/md2slide)](https://github.com/alleyf/md2slide/issues)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/alleyf/md2slide/pulls)
 
-[在线演示](https://md2slide.vercel.app) • [快速开始](#-快速开始) • [使用指南](#-使用指南) • [部署指南](#-部署指南)
+[在线演示](https://md2-slide.vercel.app/) • [快速开始](#-快速开始) • [使用指南](#-使用指南) • [部署指南](#-部署指南)
 
 ![Alt](https://repobeats.axiom.co/api/embed/9ceba9cb70a482471450ba7d435104b8582d4d2a.svg "Repobeats analytics image")
 
