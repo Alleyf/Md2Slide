@@ -264,7 +264,6 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   useEffect(() => {
     const activeSlide = slideRefs.current[currentSlideIndex];
     if (activeSlide) {
-      // 找到当前显示的最后一个元素
       const elements = activeSlide.querySelectorAll('.slide-element');
       let lastVisibleElement: Element | null = null;
       
@@ -275,7 +274,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         }
       });
 
-      if (lastVisibleElement) {
+      if (lastVisibleElement && typeof (lastVisibleElement as Element).scrollIntoView === 'function') {
         (lastVisibleElement as Element).scrollIntoView({
           behavior: 'smooth',
           block: 'nearest'
@@ -1077,6 +1076,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
 
   const renderSlide = (slide: SlideContent, index: number) => {
     const isActive = index === currentSlideIndex;
+    const isLastExportSlide = exportMode && index === slides.length - 1;
 
     // 防御性检查
     if (!slide || !slide.elements) {
@@ -1108,7 +1108,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
           overflowY: exportMode ? 'hidden' : 'auto',
           overflowX: 'hidden',
           background: theme.colors.background,
-          pageBreakAfter: 'always',
+          pageBreakAfter: exportMode ? (isLastExportSlide ? 'auto' : 'always') : 'auto',
           WebkitOverflowScrolling: 'touch',
         }}
       >

@@ -28,6 +28,7 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
         <div
           onClick={() => setIsOpen(!isOpen)}
           onContextMenu={handleContextMenu}
+          data-file-item="true"
           style={{
             padding: '6px 15px',
             paddingLeft: `${15 + depth * 12}px`,
@@ -70,6 +71,7 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
     <div
       onClick={() => onFileClick(item)}
       onContextMenu={handleContextMenu}
+      data-file-item="true"
       style={{
         padding: '6px 15px',
         paddingLeft: `${15 + depth * 12 + 16}px`,
@@ -105,14 +107,27 @@ interface FileTreeProps {
   onDelete: (fileName: string) => void;
   onRename: (fileName: string) => void;
   onExport: (file: FileItem) => void;
+   onExportPPTX?: (file: FileItem) => void;
+   onExportWord?: (file: FileItem) => void;
   onImport: (fileType?: 'markdown' | 'html') => void;
   onOpenFolder: () => void;
   onCreate: (item: FileItem) => void;
   theme: ThemeConfig;
 }
 
-export const FileTree: React.FC<FileTreeProps> = ({ 
-  files, activeFile, onFileClick, onDelete, onRename, onExport, onImport, onOpenFolder, onCreate, theme 
+export const FileTree: React.FC<FileTreeProps> = ({
+  files,
+  activeFile,
+  onFileClick,
+  onDelete,
+  onRename,
+  onExport,
+  onExportPPTX,
+  onExportWord,
+  onImport,
+  onOpenFolder,
+  onCreate,
+  theme,
 }) => {
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: FileItem } | null>(null);
 
@@ -122,8 +137,21 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
   const closeMenu = () => setContextMenu(null);
 
+  const handleTreeContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // 如果右键点击在空白处，使用根目录作为默认项
+    if (!(e.target as HTMLElement).closest('[data-file-item]')) {
+      const dummyItem: FileItem = { name: 'root', kind: 'directory', children: files };
+      setContextMenu({ x: e.clientX, y: e.clientY, item: dummyItem });
+    }
+  };
+
   return (
-    <div style={{ padding: '10px 0' }} onClick={closeMenu}>
+    <div 
+      style={{ padding: '10px 0' }} 
+      onClick={closeMenu}
+      onContextMenu={handleTreeContextMenu}
+    >
       {files.map(file => (
         <FileTreeItem
           key={file.name}
@@ -215,6 +243,50 @@ export const FileTree: React.FC<FileTreeProps> = ({
           >
             <span>📤</span> 导出为 PDF
           </div>
+          {onExportPPTX && (
+            <div
+              onClick={() => {
+                onExportPPTX(contextMenu.item);
+                closeMenu();
+              }}
+              style={{
+                padding: '8px 12px',
+                fontSize: '13px',
+                color: theme.colors.text,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <span>📊</span> 导出为 PPTX
+            </div>
+          )}
+          {onExportWord && (
+            <div
+              onClick={() => {
+                onExportWord(contextMenu.item);
+                closeMenu();
+              }}
+              style={{
+                padding: '8px 12px',
+                fontSize: '13px',
+                color: theme.colors.text,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <span>📄</span> 导出为 Word
+            </div>
+          )}
           <div
             onClick={() => {
               onImport('markdown');

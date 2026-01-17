@@ -11,6 +11,8 @@ import { FileTree } from './components/FileTree';
 import { Toolbar } from './components/Toolbar';
 import { HelpModal } from './components/HelpModal';
 import { downloadPDF } from './utils/export/pdf';
+import { downloadPPTX } from './utils/export/pptx';
+import { downloadWord } from './utils/export/word';
 import { parseMarkdownToSlides, parseTableOfContents, TOCItem } from './parser';
 import { formatInlineMarkdown } from './parser/markdownHelpers';
 import { htmlToMarkdown } from './utils/htmlToMarkdown';
@@ -195,6 +197,26 @@ export const App: React.FC = () => {
       loadFile(item).then(() => {
         // 由于 setMarkdown 是异步的，这里可能需要一点延迟或更复杂的逻辑
         // 但简单起见，提示用户先打开文件再导出
+        alert('请先打开该文件再进行导出');
+      });
+    }
+  };
+
+  const handleExportPPTX = (item: FileItem) => {
+    if (activeFile === item.name) {
+      downloadPPTX(slides);
+    } else {
+      loadFile(item).then(() => {
+        alert('请先打开该文件再进行导出');
+      });
+    }
+  };
+
+  const handleExportWord = (item: FileItem) => {
+    if (activeFile === item.name) {
+      downloadWord(slides);
+    } else {
+      loadFile(item).then(() => {
         alert('请先打开该文件再进行导出');
       });
     }
@@ -1076,6 +1098,8 @@ export const App: React.FC = () => {
                 onDelete={deleteFile}
                 onRename={renameFile}
                 onExport={handleExportPDF}
+                onExportPPTX={handleExportPPTX}
+                onExportWord={handleExportWord}
                 onImport={(fileType) => handleImportFile(fileType)}
                 onOpenFolder={openFolder}
                 onCreate={createFile}
@@ -1697,7 +1721,9 @@ export const App: React.FC = () => {
                     onFileClick={loadFile}
                     onDelete={deleteFile}
                     onRename={renameFile}
-                    onExport={handleExportPDF}
+                  onExport={handleExportPDF}
+                  onExportPPTX={handleExportPPTX}
+                  onExportWord={handleExportWord}
                     onImport={handleImportFile}
                     onOpenFolder={openFolder}
                     onCreate={createFile}

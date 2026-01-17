@@ -3,8 +3,24 @@ export const htmlToMarkdown = (html: string): string => {
     return html;
   }
 
+  // 移除所有style标签和style属性
+  const cleanHtml = html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // 移除<style>标签及其内容
+    .replace(/<[^>]*\sstyle\s*=[^>]*>/gi, (match) => {
+      // 移除标签中的style属性
+      return match.replace(/\s*style\s*=\s*["'][^"']*["']/gi, '');
+    })
+    .replace(/<[^>]*\sclass\s*=[^>]*>/gi, (match) => {
+      // 移除标签中的class属性
+      return match.replace(/\s*class\s*=\s*["'][^"']*["']/gi, '');
+    })
+    .replace(/<[^>]*\sid\s*=[^>]*>/gi, (match) => {
+      // 移除标签中的id属性
+      return match.replace(/\s*id\s*=\s*["'][^"']*["']/gi, '');
+    });
+
   const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
+  const doc = parser.parseFromString(cleanHtml, 'text/html');
 
   // 检查解析是否成功
   if (doc.querySelector('parsererror')) {
@@ -75,24 +91,14 @@ export const htmlToMarkdown = (html: string): string => {
     }
 
     // 处理粗体和斜体
-    if (['strong', 'b', 'bold'].includes(tag)) {
+    if (['strong', 'b'].includes(tag)) {
       const content = serializeChildren(element, depth + 1).trim();
       return content ? `**${content}**` : '';
     }
 
-    if (['em', 'i', 'italic'].includes(tag)) {
+    if (['em', 'i'].includes(tag)) {
       const content = serializeChildren(element, depth + 1).trim();
       return content ? `*${content}*` : '';
-    }
-
-    if (tag === 'u') {
-      const content = serializeChildren(element, depth + 1).trim();
-      return content ? `_${content}_` : '';
-    }
-
-    if (tag === 's' || tag === 'strike' || tag === 'del') {
-      const content = serializeChildren(element, depth + 1).trim();
-      return content ? `~~${content}~~` : '';
     }
 
     // 处理代码相关标签
@@ -113,7 +119,7 @@ export const htmlToMarkdown = (html: string): string => {
       
       if (codeElement) {
         codeText = codeElement.textContent || '';
-        // 获取语言类型
+        // 获取语言类型，只从class属性获取
         const className = codeElement.className || element.className;
         const languageMatch = className.match(/language-(\w+)/) || className.match(/lang-(\w+)/);
         if (languageMatch && languageMatch[1]) {
@@ -141,14 +147,9 @@ ${trimmedCode}
       return `[${text}](${href})`;
     }
 
-    // 处理图片
-    if (tag === 'img') {
-      const src = element.getAttribute('src') || '';
-      const alt = element.getAttribute('alt') || '';
-      const title = element.getAttribute('title') || '';
-      if (!src) return '';
-      const titlePart = title ? ` "${title}"` : '';
-      return `![${alt}](${src}${titlePart})`;
+    // 忽略图片等资源标签，直接返回空字符串
+    if (['img', 'video', 'audio', 'iframe', 'embed', 'object', 'source'].includes(tag)) {
+      return '';
     }
 
     // 处理列表
@@ -223,13 +224,18 @@ ${trimmedCode}
       return tableRows.length > 0 ? `${tableRows.join('\n')}\n\n` : '';
     }
 
-    // 处理div和span等容器标签
-    if (['div', 'span', 'section', 'article', 'aside', 'header', 'footer', 'main', 'nav'].includes(tag)) {
+    // 忽略样式相关的标签
+    if (['style', 'script', 'noscript', 'title', 'meta', 'link', 'head'].includes(tag)) {
+      return '';
+    }
+
+    // 处理div和span等容器标签 - 只返回内容，不添加特殊格式
+    if (['div', 'span', 'section', 'article', 'aside', 'header', 'footer', 'main', 'nav', 'article', 'figure', 'figcaption', 'details', 'summary'].includes(tag)) {
       return serializeChildren(element, depth + 1);
     }
 
-    // 处理行内元素
-    if (['small', 'sub', 'sup', 'mark', 'kbd', 'samp'].includes(tag)) {
+    // 处理其他行内元素
+    if (['small', 'sub', 'sup', 'mark', 'kbd', 'samp', 'cite', 'var', 'time', 'data', 'abbr'].includes(tag)) {
       const content = serializeChildren(element, depth + 1).trim();
       return content;
     }

@@ -19,7 +19,7 @@ export const parseMarkdownToSlides = (md: string, options?: ParserOptions): Slid
   const resolvedOptions: Required<ParserOptions> = {
     useDelimiter: true,
     useHeadingPagination: true,
-    minHeadingLevel: 1, // 只有1级标题才分页
+    minHeadingLevel: 1,
     ...options,
   };
 
@@ -39,37 +39,74 @@ export const parseMarkdownToSlides = (md: string, options?: ParserOptions): Slid
     if (!resolvedOptions.useHeadingPagination) {
       return false;
     }
-    const match = line.match(/^(#{1,6})\s+/);
+    // 支持特殊字符后跟标题的情况，如 ⚡### 或 🇨🇳###
+    const match = line.match(/^(.*?)?(#{1,6})\s+/);
     if (!match) {
       return false;
     }
-    const level = match[1].length;
-    // 只有当标题级别等于最小标题级别时才分页（即只对1级标题分页）
-    return level === resolvedOptions.minHeadingLevel;
+    const level = match[2].length; // match[2] 是 # 号部分
+    return level >= resolvedOptions.minHeadingLevel;
   };
+
+  let inCodeFence = false;
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
     const trimmed = rawLine.trim();
 
+    const isFenceLine = trimmed.startsWith('```');
+    if (isFenceLine) {
+      inCodeFence = !inCodeFence;
+      currentBlockLines.push(rawLine);
+      continue;
+    }
+
+    if (inCodeFence) {
+      currentBlockLines.push(rawLine);
+      continue;
+    }
+
     const isDelimiterLine =
       resolvedOptions.useDelimiter && /^---\s*$/.test(trimmed);
     const isHeadingBreak = isHeadingBreakLine(trimmed);
 
+    // 检查是否在行内代码中，通过检查是否有未配对的反引号
+    const inlineCodePattern = /`([^`]+)`/g;
+    const inlineCodeMatches = [...trimmed.matchAll(inlineCodePattern)];
+    
+    // 检查标题模式但排除在行内代码中的情况
+    // 支持特殊字符后跟标题的情况，如 ⚡### 或 🇨🇳###
+    const headingPattern = /^(.*?)?(#{1,6})\s+(.*)/;
+    const headingMatch = trimmed.match(headingPattern);
+    
     if (isDelimiterLine) {
       flushBlock();
       continue;
     }
 
-    if (isHeadingBreak) {
-      if (
-        currentBlockLines.length > 0 &&
-        currentBlockLines.some((l) => l.trim().length > 0)
-      ) {
-        flushBlock();
+    if (isHeadingBreak && headingMatch) {
+      const fullMatch = headingMatch[0];
+      let isInInlineCode = false;
+      
+      // 检查标题匹配部分是否在行内代码中
+      for (const match of inlineCodeMatches) {
+        if (fullMatch.includes(match[0])) {
+          isInInlineCode = true;
+          break;
+        }
       }
-      currentBlockLines.push(rawLine);
-      continue;
+      
+      // 如果标题部分不在行内代码中，则按原逻辑处理
+      if (!isInInlineCode) {
+        if (
+          currentBlockLines.length > 0 &&
+          currentBlockLines.some((l) => l.trim().length > 0)
+        ) {
+          flushBlock();
+        }
+        currentBlockLines.push(rawLine);
+        continue;
+      }
     }
 
     currentBlockLines.push(rawLine);
@@ -88,31 +125,37 @@ export const parseMarkdownToSlides = (md: string, options?: ParserOptions): Slid
       const line = linesInBlock[i].trim();
       if (!line) continue;
 
-      if (line.startsWith('# ')) {
-        const raw = line.slice(2);
-        elements.push({
-          id: `s${index}-e${i}`,
-          type: 'title',
-          content: formatInlineMarkdown(raw),
-          clickState: 0,
-        });
-      } else if (line.startsWith('## ')) {
-        const raw = line.slice(3);
-        elements.push({
-          id: `s${index}-e${i}`,
-          type: 'subtitle',
-          content: formatInlineMarkdown(raw),
-          clickState: clickState++,
-        });
-      } else if (line.startsWith('### ')) {
-        const raw = line.slice(4);
-        elements.push({
-          id: `s${index}-e${i}`,
-          type: 'subtitle',
-          content: formatInlineMarkdown(raw),
-          clickState: clickState++,
-          style: { fontSize: '24px', marginTop: '10px' },
-        });
+      // 检查是否为标题，支持特殊字符后跟标题的情况
+      const titleMatch = line.match(/^(.*?)?(#{1,6})\s+(.*)/);
+      if (titleMatch) {
+        const prefix = titleMatch[1] || '';
+        const hashes = titleMatch[2];
+        const content = titleMatch[3];
+        const fullContent = prefix + content; // 包含前缀特殊字符
+        
+        if (hashes === '#' && content) {
+          elements.push({
+            id: `s${index}-e${i}`,
+            type: 'title',
+            content: formatInlineMarkdown(fullContent),
+            clickState: 0,
+          });
+        } else if (hashes === '##' && content) {
+          elements.push({
+            id: `s${index}-e${i}`,
+            type: 'subtitle',
+            content: formatInlineMarkdown(fullContent),
+            clickState: clickState++,
+          });
+        } else if (hashes === '###' && content) {
+          elements.push({
+            id: `s${index}-e${i}`,
+            type: 'subtitle',
+            content: formatInlineMarkdown(fullContent),
+            clickState: clickState++,
+            style: { fontSize: '24px', marginTop: '10px' },
+          });
+        }
       } else if (
         line.startsWith('- ') ||
         line.startsWith('* ') ||
@@ -138,7 +181,7 @@ export const parseMarkdownToSlides = (md: string, options?: ParserOptions): Slid
         const language = line.slice(3).trim();
         let code = '';
         let j = i + 1;
-        while (j < linesInBlock.length && !linesInBlock[j].startsWith('```')) {
+        while (j < linesInBlock.length && !linesInBlock[j].trim().startsWith('```')) {
           code += linesInBlock[j] + '\n';
           j++;
         }

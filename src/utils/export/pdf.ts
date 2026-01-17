@@ -34,7 +34,7 @@ export const exportToPDF = async (
         filename: 'presentation.pdf',
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: {
-          scale: 1, // 减小 scale 以防止大文件内存溢出
+          scale: 1,
           useCORS: true,
           logging: false,
           backgroundColor: '#0a0a0a',
@@ -48,9 +48,7 @@ export const exportToPDF = async (
           hotfixes: ['px_scaling']
         },
         pagebreak: {
-          mode: ['css', 'legacy'],
-          after: '.pdf-slide-page',
-          before: '.pdf-slide-element' // 为每个 clickState 元素创建新页
+          mode: ['css']
         }
       })
       .outputPdf('blob');

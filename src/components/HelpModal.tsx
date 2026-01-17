@@ -276,21 +276,47 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                 </div>
               </div>
 
-              <div style={{ padding: '16px', borderRadius: '12px', background: theme.primaryColor + '08', border: `1px dashed ${theme.primaryColor}40` }}>
-                <div style={{ fontWeight: 700, color: theme.colors.text, marginBottom: '10px' }}>🍀 个人感悟</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <span style={{ color: theme.primaryColor }}>•</span>
-                    <span>不是牛码，就在成为牛码的路上。</span>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px', alignItems: 'stretch' }}>
+                <div style={{ padding: '16px', borderRadius: '12px', background: theme.primaryColor + '08', border: `1px dashed ${theme.primaryColor}40` }}>
+                  <div style={{ fontWeight: 700, color: theme.colors.text, marginBottom: '10px' }}>🍀 个人感悟</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <span style={{ color: theme.primaryColor }}>•</span>
+                      <span>不是牛码，就在成为牛码的路上。</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <span style={{ color: theme.primaryColor }}>•</span>
+                      <span>在每个平庸的日子里，找到属于自己的归属感。</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <span style={{ color: theme.primaryColor }}>•</span>
+                      <span>无论做什么事，都要找到支撑自己坚持下去的精神支柱。</span>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <span style={{ color: theme.primaryColor }}>•</span>
-                    <span>在每个平庸的日子里，找到属于自己的归属感。</span>
+                </div>
+                <div style={{ padding: '16px', borderRadius: '12px', background: theme.theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)', border: `1px dashed ${theme.colors.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ fontWeight: 700, color: theme.colors.text }}>☕ 打赏作者</div>
+                  <div style={{ fontSize: '12px', color: theme.colors.textSecondary, textAlign: 'center' }}>
+                    如果这个工具对你有帮助，欢迎扫码请作者喝杯咖啡～
                   </div>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <span style={{ color: theme.primaryColor }}>•</span>
-                    <span>无论做什么事，都要找到支撑自己坚持下去的精神支柱。</span>
+                  <div style={{
+                    width: '140px',
+                    height: '140px',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    border: `1px solid ${theme.colors.border}`,
+                    background: theme.theme === 'dark' ? '#050816' : '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <img
+                      src="/donate-qr.png"
+                      alt="打赏作者二维码"
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                    />
                   </div>
+                  <div style={{ fontSize: '11px', color: theme.colors.textSecondary }}>感谢你的支持与鼓励</div>
                 </div>
               </div>
             </div>
