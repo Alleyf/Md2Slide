@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
-import { ArrowUp, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Layout, HelpCircle, Menu, X } from 'lucide-react';
+import { ArrowUp, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Layout, HelpCircle, Menu, X, Settings } from 'lucide-react';
 import { SlideTemplate, SlideContent, SlideElement } from './components/SlideTemplate';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useTheme } from './context/ThemeContext';
@@ -11,12 +11,22 @@ import { FileTree } from './components/FileTree';
 import { Toolbar } from './components/Toolbar';
 import { HelpModal } from './components/HelpModal';
 import { downloadPDF } from './utils/export/pdf';
-import {
-  parseMarkdownToSlides,
-  parseTableOfContents,
-  TOCItem,
-} from './parser';
+import { parseMarkdownToSlides, parseTableOfContents, TOCItem } from './parser';
 import { formatInlineMarkdown } from './parser/markdownHelpers';
+import { htmlToMarkdown } from './utils/htmlToMarkdown';
+import { getStorageItem, setStorageItem, storageKeys } from './utils/storage';
+
+interface AppSettings {
+  useDelimiterPagination: boolean;
+  useHeadingPagination: boolean;
+  minHeadingLevel: number;
+}
+
+const defaultAppSettings: AppSettings = {
+  useDelimiterPagination: true,
+  useHeadingPagination: true,
+  minHeadingLevel: 1,
+};
 
 export const App: React.FC = () => {
   const [markdown, setMarkdown] = useState('');
@@ -56,6 +66,13 @@ export const App: React.FC = () => {
   const [layoutOrder, setLayoutOrder] = useState<LayoutSection[]>(['sidebar', 'editor', 'preview']);
   const [draggingSection, setDraggingSection] = useState<LayoutSection | null>(null);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [appSettings, setAppSettings] = useState<AppSettings>(() => {
+    if (typeof window === 'undefined') {
+      return defaultAppSettings;
+    }
+    return getStorageItem<AppSettings>(storageKeys.APP_SETTINGS, defaultAppSettings);
+  });
   const { themeConfig: theme } = useTheme();
 
   const handleDragStart = (section: LayoutSection) => {
@@ -200,25 +217,27 @@ export const App: React.FC = () => {
       });
       const file = await handle.getFile();
       const content = await file.text();
-      
-      let processedContent = content;
-      
-      // 如果是HTML文件，将其包装在!html()标记中，以便在幻灯片中正确显示
-      if (fileType === 'html') {
-        processedContent = `!html(
-${content}
-)`;
-      }
-      
-      const newFile: FileItem = {
-        name: file.name,
-        kind: 'file',
-        content: processedContent,
-        handle: handle
-      };
 
-      setFileList(prev => [...prev, newFile]);
-      loadFile(newFile);
+      if (fileType === 'html') {
+        const markdownContent = htmlToMarkdown(content);
+        const finalName = file.name.replace(/\.html?$/i, '.md');
+        const newFile: FileItem = {
+          name: finalName,
+          kind: 'file',
+          content: markdownContent,
+        };
+        setFileList(prev => [...prev, newFile]);
+        loadFile(newFile);
+      } else {
+        const newFile: FileItem = {
+          name: file.name,
+          kind: 'file',
+          content,
+          handle: handle
+        };
+        setFileList(prev => [...prev, newFile]);
+        loadFile(newFile);
+      }
     } catch (err) {
       console.error(`${fileType === 'html' ? 'HTML' : 'Markdown'} Import failed:`, err);
     }
@@ -501,6 +520,10 @@ ${content}
     });
   };
 
+  const handleHtmlImport = () => {
+    handleImportFile('html');
+  };
+
   const handleEmojiClick = (emojiData: { emoji: string }) => {
     applySnippet(`!icon(${emojiData.emoji})`, '');
     setShowEmojiPicker(false);
@@ -672,12 +695,15 @@ ${content}
   // 解析 Markdown 为幻灯片
 
   useEffect(() => {
-    setSlides(parseMarkdownToSlides(markdown));
+    const parsed = parseMarkdownToSlides(markdown, {
+      useDelimiter: appSettings.useDelimiterPagination,
+      useHeadingPagination: appSettings.useHeadingPagination,
+      minHeadingLevel: appSettings.minHeadingLevel,
+    });
+    setSlides(parsed);
     setActivePreviewSlideIndex(0);
-    
-    // 使用统一的 parser 解析目录
     setToc(parseTableOfContents(markdown));
-  }, [markdown]);
+  }, [markdown, appSettings]);
 
   useEffect(() => {
     if (activeFile) {
@@ -693,6 +719,10 @@ ${content}
     }
   }, [markdown, activeFile]);
 
+  useEffect(() => {
+    setStorageItem<AppSettings>(storageKeys.APP_SETTINGS, appSettings);
+  }, [appSettings]);
+
   const scrollToLine = (lineIndex: number) => {
     const textarea = editorRef.current;
     if (!textarea) return;
@@ -706,19 +736,62 @@ ${content}
     textarea.focus();
     textarea.setSelectionRange(offset, offset);
     
-    // 粗略估算滚动位置
-    const lineHeight = 24; // 1.7 line-height * 14px font size is roughly 24px
+    const lineHeight = 24;
     textarea.scrollTop = lineIndex * lineHeight - 100;
 
-    // 同步幻灯片预览
     const mdLines = markdown.split('\n');
-    let slideIndex = 0;
-    for (let i = 0; i < lineIndex; i++) {
-      if (mdLines[i].trim() === '---') {
-        slideIndex++;
+    const slideIndices: number[] = [];
+    let currentSlideIndex = 0;
+    let hasContentInCurrentSlide = false;
+
+    for (let i = 0; i < mdLines.length; i++) {
+      const raw = mdLines[i];
+      const trimmed = raw.trim();
+
+      const isDelimiter =
+        appSettings.useDelimiterPagination && /^---\s*$/.test(trimmed);
+
+      let isHeadingBreak = false;
+      if (appSettings.useHeadingPagination) {
+        const match = trimmed.match(/^(#{1,6})\s+/);
+        if (match) {
+          const level = match[1].length;
+          if (level >= appSettings.minHeadingLevel) {
+            isHeadingBreak = true;
+          }
+        }
       }
+
+      if (isDelimiter) {
+        if (hasContentInCurrentSlide) {
+          currentSlideIndex++;
+        }
+        hasContentInCurrentSlide = false;
+        slideIndices[i] = currentSlideIndex;
+        continue;
+      }
+
+      if (isHeadingBreak) {
+        if (hasContentInCurrentSlide) {
+          currentSlideIndex++;
+        }
+        hasContentInCurrentSlide = true;
+        slideIndices[i] = currentSlideIndex;
+        continue;
+      }
+
+      if (trimmed.length > 0) {
+        hasContentInCurrentSlide = true;
+      }
+
+      slideIndices[i] = currentSlideIndex;
     }
-    setActivePreviewSlideIndex(slideIndex);
+
+    if (lineIndex >= 0 && lineIndex < slideIndices.length) {
+      setActivePreviewSlideIndex(slideIndices[lineIndex]);
+    } else {
+      setActivePreviewSlideIndex(0);
+    }
   };
 
   useEffect(() => {
@@ -900,6 +973,26 @@ ${content}
         </div>
 
         <div style={{ display: 'flex', gap: isMobile ? '12px' : '15px', alignItems: 'center' }}>
+          <button
+            onClick={() => setShowSettings(true)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: theme.colors.textSecondary,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
+              opacity: 0.7,
+              padding: isMobile ? '4px' : '0'
+            }}
+            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
+            title="设置"
+          >
+            <Settings size={isMobile ? 22 : 20} />
+          </button>
           <button
             onClick={() => setShowHelp(true)}
             style={{
@@ -1333,6 +1426,137 @@ ${content}
         </div>
       )}
 
+      {showSettings && (
+        <div
+          onClick={() => setShowSettings(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 50
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '90%',
+              maxWidth: '520px',
+              background: theme.colors.surface,
+              borderRadius: '12px',
+              border: `1px solid ${theme.colors.border}`,
+              boxShadow: theme === darkTheme ? '0 20px 50px rgba(0,0,0,0.6)' : '0 20px 40px rgba(15,23,42,0.18)',
+              padding: '20px 24px',
+              boxSizing: 'border-box',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: theme.colors.text }}>全局设置</div>
+                <div style={{ fontSize: '12px', color: theme.colors.textSecondary, marginTop: '4px' }}>
+                  配置分页规则等常用偏好
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSettings(false)}
+                style={{
+                  border: `1px solid ${theme.colors.border}`,
+                  background: 'transparent',
+                  borderRadius: '999px',
+                  width: 28,
+                  height: 28,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: theme.colors.textSecondary,
+                  fontSize: '14px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                background: theme.theme === 'dark' ? 'rgba(15,23,42,0.6)' : '#f9fafb',
+                border: `1px dashed ${theme.colors.border}`
+              }}
+            >
+              <div style={{ fontSize: '13px', fontWeight: 600, color: theme.colors.text }}>分页设置</div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: theme.colors.textSecondary }}>
+                <input
+                  type="checkbox"
+                  checked={appSettings.useDelimiterPagination}
+                  onChange={(e) =>
+                    setAppSettings((prev) => ({
+                      ...prev,
+                      useDelimiterPagination: e.target.checked,
+                    }))
+                  }
+                />
+                使用 --- 作为手动分页符
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: theme.colors.textSecondary }}>
+                <input
+                  type="checkbox"
+                  checked={appSettings.useHeadingPagination}
+                  onChange={(e) =>
+                    setAppSettings((prev) => ({
+                      ...prev,
+                      useHeadingPagination: e.target.checked,
+                    }))
+                  }
+                />
+                根据标题自动分页
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
+                <span>标题等级阈值</span>
+                <select
+                  value={appSettings.minHeadingLevel}
+                  disabled={!appSettings.useHeadingPagination}
+                  onChange={(e) =>
+                    setAppSettings((prev) => ({
+                      ...prev,
+                      minHeadingLevel: Number(e.target.value),
+                    }))
+                  }
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    border: `1px solid ${theme.colors.border}`,
+                    background: 'transparent',
+                    color: theme.colors.text,
+                    fontSize: '13px'
+                  }}
+                >
+                  <option value={1}>一级及以上 (#)</option>
+                  <option value={2}>二级及以上 (##)</option>
+                  <option value={3}>三级及以上 (###)</option>
+                  <option value={4}>四级及以上 (####)</option>
+                  <option value={5}>五级及以上 (#####)</option>
+                  <option value={6}>六级及以上 (######)</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '12px', color: theme.colors.textSecondary, marginTop: '4px' }}>
+              设置会自动保存到浏览器本地，仅在当前设备生效。
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <main style={{
         display: 'flex',
@@ -1707,6 +1931,7 @@ ${content}
                   handleImageInsert={handleImageInsert}
                   handleVideoInsert={handleVideoInsert}
                   handleAudioInsert={handleAudioInsert}
+                  handleHtmlImport={handleHtmlImport}
                   showEmojiPicker={showEmojiPicker}
                   setShowEmojiPicker={setShowEmojiPicker}
                   theme={theme}

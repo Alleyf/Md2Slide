@@ -5,6 +5,7 @@ export const storageKeys = {
   MARKDOWN: 'md2slide-markdown',
   EDITOR_STATE: 'md2slide-editor-state',
   PREVIEW_NAV_POSITION: 'md2slide-preview-nav-position',
+  APP_SETTINGS: 'md2slide-app-settings',
 } as const;
 
 /**

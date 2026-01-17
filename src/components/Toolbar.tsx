@@ -93,6 +93,7 @@ interface ToolbarProps {
   handleImageInsert: () => void;
   handleVideoInsert: () => void;
   handleAudioInsert: () => void;
+  handleHtmlImport: () => void;
   showEmojiPicker: boolean;
   setShowEmojiPicker: (show: boolean) => void;
   theme: ThemeConfig;
@@ -104,6 +105,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   handleImageInsert,
   handleVideoInsert,
   handleAudioInsert,
+  handleHtmlImport,
   showEmojiPicker,
   setShowEmojiPicker,
   theme
@@ -148,6 +150,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     { icon: <Mic size={16} />, title: "语音", shortcut: "Ctrl + Alt + A", action: handleAudioInsert },
     { icon: <Smile size={16} />, title: "图标", shortcut: "Ctrl + Shift + E", action: () => setShowEmojiPicker(!showEmojiPicker) },
     { icon: <Globe size={16} />, title: "原生HTML", shortcut: "Ctrl + Alt + H", action: () => applySnippet('!html(', ')') },
+    { icon: <FileCode size={16} />, title: "导入HTML文件", shortcut: "Ctrl + Shift + H", action: handleHtmlImport },
   ];
 
   return (
@@ -245,6 +248,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <ToolbarButton icon={<Mic size={16} />} title="语音" shortcut="Ctrl + Alt + A" onClick={handleAudioInsert} />
         <ToolbarButton icon={<Smile size={16} />} title="图标" shortcut="Ctrl + Shift + E" onClick={() => setShowEmojiPicker(!showEmojiPicker)} />
         <ToolbarButton icon={<Globe size={16} />} title="原生HTML" shortcut="Ctrl + Alt + H" onClick={() => applySnippet('!html(', ')')} />
+        <ToolbarButton icon={<FileCode size={16} />} title="导入HTML文件" shortcut="Ctrl + Shift + H" onClick={handleHtmlImport} />
       </div>
         </>
       )}

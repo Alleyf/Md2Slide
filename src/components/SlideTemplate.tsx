@@ -1156,10 +1156,31 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
     );
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    // 防止点击导航控件时触发翻页
+    if ((e.target as HTMLElement).closest('.nav-controls')) {
+      return;
+    }
+    // 单击事件 - 播放下一张
+    setIsAutoPlaying(false);
+    handleNavigate('next');
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    // 防止双击导航控件时触发全屏
+    if ((e.target as HTMLElement).closest('.nav-controls')) {
+      return;
+    }
+    // 双击事件 - 切换全屏
+    onFullscreenToggle?.();
+  };
+
   return (
     <div
       onMouseEnter={() => setShowNavControls(true)}
       onMouseLeave={() => setShowNavControls(false)}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       style={{
         position: 'relative',
         width: '100%',
@@ -1174,6 +1195,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
         display: 'flex',
         flexDirection: 'column',
         transition: 'background 0.3s ease, color 0.3s ease',
+        cursor: 'pointer',
       }}
     >
       {/* 所有幻灯片 */}
