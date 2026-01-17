@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Layout } from 'lucide-react';
 import { SlideTemplate, SlideContent, SlideElement } from './components/SlideTemplate';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useTheme } from './context/ThemeContext';
@@ -341,6 +341,15 @@ export const App: React.FC = () => {
     });
   };
 
+  const handleAudioInsert = () => {
+    setInputModal({
+      show: true,
+      type: 'video', // 使用已有的视频输入框逻辑，因为都是 URL 输入
+      value: 'https://',
+      callback: (url) => applySnippet(`!audio(${url})`, '')
+    });
+  };
+
   const handleEmojiClick = (emojiData: { emoji: string }) => {
     applySnippet(`!icon(${emojiData.emoji})`, '');
     setShowEmojiPicker(false);
@@ -642,44 +651,6 @@ export const App: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button
-            onClick={() => setShowSidebar(!showSidebar)}
-            style={{
-              padding: '6px 12px',
-              background: showSidebar ? theme.primaryColor : 'transparent',
-              border: `1px solid ${theme.colors.border}`,
-              borderRadius: '6px',
-              color: showSidebar ? 'white' : theme.colors.textSecondary,
-              cursor: 'pointer',
-              fontSize: '13px',
-              transition: 'all 0.2s',
-              display: isMobile ? 'none' : 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-            title={showSidebar ? "隐藏侧边栏" : "显示侧边栏"}
-          >
-            {showSidebar ? '📂 隐藏目录' : '📁 显示目录'}
-          </button>
-          <button
-            onClick={() => setShowEditor(!showEditor)}
-            style={{
-              padding: '6px 12px',
-              background: showEditor ? theme.primaryColor : 'transparent',
-              border: `1px solid ${theme.colors.border}`,
-              borderRadius: '6px',
-              color: showEditor ? 'white' : theme.colors.textSecondary,
-              cursor: 'pointer',
-              fontSize: '13px',
-              transition: 'all 0.2s',
-              display: isMobile ? 'none' : 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-            title={showEditor ? "隐藏编辑器" : "显示编辑器"}
-          >
-            {showEditor ? '✍️ 隐藏编辑' : '📝 显示编辑'}
-          </button>
           <button
             onClick={() => downloadPDF(slides)}
             style={{
@@ -1071,7 +1042,43 @@ export const App: React.FC = () => {
         transition: 'background 0.3s ease'
       }}>
         {layoutOrder.map((section, index) => {
-          if (section === 'sidebar' && showSidebar && !isMobile) {
+          if (section === 'sidebar' && !isMobile) {
+            if (!showSidebar) {
+              return (
+                <div 
+                  key="sidebar-collapsed"
+                  onClick={() => setShowSidebar(true)}
+                  style={{
+                    width: '30px',
+                    height: '100%',
+                    background: theme.colors.surface,
+                    borderRight: `1px solid ${theme.colors.border}`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    paddingTop: '15px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    zIndex: 10
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = theme.colors.border}
+                  onMouseLeave={(e) => e.currentTarget.style.background = theme.colors.surface}
+                  title="展开目录"
+                >
+                  <PanelLeftOpen size={16} color={theme.colors.textSecondary} />
+                  <div style={{ 
+                    writingMode: 'vertical-rl', 
+                    marginTop: '20px', 
+                    fontSize: '11px', 
+                    color: theme.colors.textSecondary,
+                    letterSpacing: '2px',
+                    opacity: 0.6
+                  }}>
+                    文件目录
+                  </div>
+                </div>
+              );
+            }
             return (
               <React.Fragment key="sidebar">
                 <div 
@@ -1108,6 +1115,27 @@ export const App: React.FC = () => {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <button
+                        onClick={() => setShowSidebar(false)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: theme.colors.textSecondary,
+                          cursor: 'pointer',
+                          padding: '2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '4px',
+                          marginRight: '4px',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = theme.colors.border}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        title="收起目录"
+                      >
+                        <PanelLeftClose size={14} />
+                      </button>
                       <span style={{ fontSize: '12px', opacity: 0.5 }}>⠿</span>
                       文件目录
                     </div>
@@ -1259,7 +1287,44 @@ export const App: React.FC = () => {
             );
           }
 
-          if (section === 'editor' && showEditor) {
+          if (section === 'editor') {
+            if (!showEditor && !isMobile) {
+              return (
+                <div 
+                  key="editor-collapsed"
+                  onClick={() => setShowEditor(true)}
+                  style={{
+                    width: '30px',
+                    height: '100%',
+                    background: theme.colors.surface,
+                    borderRight: index < layoutOrder.length - 1 ? `1px solid ${theme.colors.border}` : 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    paddingTop: '15px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    zIndex: 10
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = theme.colors.border}
+                  onMouseLeave={(e) => e.currentTarget.style.background = theme.colors.surface}
+                  title="展开编辑器"
+                >
+                  <PanelRightOpen size={16} color={theme.colors.textSecondary} />
+                  <div style={{ 
+                    writingMode: 'vertical-rl', 
+                    marginTop: '20px', 
+                    fontSize: '11px', 
+                    color: theme.colors.textSecondary,
+                    letterSpacing: '2px',
+                    opacity: 0.6
+                  }}>
+                    编辑器
+                  </div>
+                </div>
+              );
+            }
+            if (!showEditor && isMobile) return null;
             return (
               <React.Fragment key="editor">
                 <div 
@@ -1295,6 +1360,26 @@ export const App: React.FC = () => {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <button
+                        onClick={() => setShowEditor(false)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: theme.colors.textSecondary,
+                          cursor: 'pointer',
+                          padding: '2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '4px',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = theme.colors.border}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        title="收起编辑器"
+                      >
+                        <PanelRightClose size={14} />
+                      </button>
                       <span style={{ fontSize: '12px', opacity: 0.5 }}>⠿</span>
                       Markdown 编辑器
                   </div>
@@ -1311,6 +1396,7 @@ export const App: React.FC = () => {
                   handleLinkInsert={handleLinkInsert}
                   handleImageInsert={handleImageInsert}
                   handleVideoInsert={handleVideoInsert}
+                  handleAudioInsert={handleAudioInsert}
                   showEmojiPicker={showEmojiPicker}
                   setShowEmojiPicker={setShowEmojiPicker}
                   theme={theme}
@@ -1501,12 +1587,13 @@ export const App: React.FC = () => {
 
       {/* Hidden Export Container */}
       <div id="pdf-export-container" style={{ 
-        position: 'fixed', 
-        left: '-9999px', 
-        top: 0, 
+        position: 'absolute', 
+        top: 0,
+        left: 0,
         width: '1920px', 
-        zIndex: -1000,
-        overflow: 'visible'
+        zIndex: -2000,
+        visibility: 'hidden',
+        pointerEvents: 'none'
       }}>
         <SlideTemplate 
           slides={slides} 

@@ -100,7 +100,14 @@ const quickSort = (arr) => {
 
 ### 媒体嵌入
 - **图片**：`![描述](链接)`
+
+![Md2Slide](https://github.com/Alleyf/Md2Slide/blob/main/public/logo.jpg)
+
 - **视频**：`!video(链接)`
+
+!audio(https://www.w3schools.com/html/horse.mp3)
+
+- **语音**：`!audio(链接)`
 
 !video(https://www.bilibili.com/video/BV1rG411j7u9/?spm_id_from=888.80997.embed_other.whitelist&bvid=BV1rG411j7u9)
 

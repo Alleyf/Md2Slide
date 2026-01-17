@@ -104,6 +104,9 @@ export const parseMarkdownToSlides = (md: string): SlideContent[] => {
       } else if (line.startsWith('!video(')) {
         const match = line.match(/!video\(([^)]+)\)/);
         if (match) elements.push({ id: `s${index}-e${i}`, type: 'video', content: match[1], clickState: clickState++ });
+      } else if (line.startsWith('!audio(')) {
+        const match = line.match(/!audio\(([^)]+)\)/);
+        if (match) elements.push({ id: `s${index}-e${i}`, type: 'audio', content: match[1], clickState: clickState++ });
       } else if (line.startsWith('!html(')) {
         let htmlContent = '';
         let j = i;

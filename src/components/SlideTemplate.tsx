@@ -141,10 +141,10 @@ export interface SlideContent {
 
 export interface SlideElement {
   id: string;
-  type: 'title' | 'subtitle' | 'text' | 'bullets' | 'vector' | 'grid' | 'code' | 'quote' | 'image' | 'video' | 'icon' | 'html' | 'math' | 'markdown' | 'table';
+  type: 'title' | 'subtitle' | 'text' | 'bullets' | 'vector' | 'grid' | 'code' | 'quote' | 'image' | 'video' | 'icon' | 'html' | 'math' | 'markdown' | 'table' | 'audio';
   content: string | string[] | any;
   clickState: number;
-  animation?: 'fade' | 'scale' | 'grow' | 'transform' | 'highlight';
+  animation?: 'fade' | 'scale' | 'grow' | 'transform' | 'highlight' | 'slide-left' | 'slide-right' | 'slide-up' | 'pop';
   style?: React.CSSProperties;
   children?: SlideElement[];
   listStart?: number;
@@ -329,7 +329,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
     return null;
   };
 
-  const renderElement = (el: SlideElement | undefined, slideIndex: number) => {
+  const renderElement = (el: SlideElement | undefined, _slideIndex: number) => {
     // 防御性检查
     if (!el || !el.type) {
       return null;
@@ -337,10 +337,50 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
 
     const isRevealed = exportMode || clickState >= (el.clickState || 0);
 
+    // 根据元素类型定义不同的动画效果
+    const getAnimationStyles = (type: string): React.CSSProperties => {
+      if (exportMode) return { opacity: 1, transform: 'none' };
+      
+      const hidden: React.CSSProperties = { opacity: 0 };
+      const visible: React.CSSProperties = { opacity: 1, transform: 'translate(0, 0) scale(1)' };
+
+      switch (type) {
+        case 'title':
+          hidden.transform = 'scale(0.8) translateY(-20px)';
+          break;
+        case 'subtitle':
+          hidden.transform = 'translateY(20px)';
+          break;
+        case 'bullets':
+        case 'quote':
+          hidden.transform = 'translateX(-30px)';
+          break;
+        case 'code':
+          hidden.transform = 'translateX(30px)';
+          break;
+        case 'image':
+        case 'video':
+        case 'icon':
+          hidden.transform = 'scale(0.5)';
+          break;
+        case 'math':
+        case 'table':
+        case 'markdown':
+        case 'text':
+          hidden.transform = 'translateY(30px)';
+          break;
+        default:
+          hidden.transform = 'translateY(10px)';
+      }
+
+      return isRevealed ? visible : hidden;
+    };
+
+    const animStyle = getAnimationStyles(el.type);
+
     const baseStyle: React.CSSProperties = {
-      opacity: isRevealed ? 1 : 0,
-      transition: exportMode ? 'none' : 'opacity 0.4s ease-out, transform 0.4s ease-out',
-      transform: isRevealed ? 'translateY(0)' : 'translateY(10px)',
+      ...animStyle,
+      transition: exportMode ? 'none' : 'opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
       ...el.style,
     };
 
@@ -761,7 +801,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
           <div key={el.id} className="slide-element" data-click-state={el.clickState} style={{ ...baseStyle, display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
             {bilibiliUrl ? (
               <iframe
-                src={bilibiliUrl}
+                src={`${bilibiliUrl}&autoplay=0`}
                 scrolling="no"
                 frameBorder="no"
                 allowFullScreen={true}
@@ -778,6 +818,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
               <video
                 src={el.content as string}
                 controls
+                autoPlay={false}
                 style={{
                   maxWidth: '100%',
                   maxHeight: '500px',
@@ -786,6 +827,13 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
                 }}
               />
             )}
+          </div>
+        );
+
+      case 'audio':
+        return (
+          <div key={el.id} className="slide-element" data-click-state={el.clickState} style={{ ...baseStyle, display: 'flex', justifyContent: 'center', margin: '20px 0' }}>
+            <audio src={el.content as string} controls />
           </div>
         );
 

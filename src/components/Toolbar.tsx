@@ -3,7 +3,7 @@ import {
   Bold, Italic, Strikethrough, Code, Heading1, Heading2, Heading3, 
   SeparatorHorizontal, Quote, List, ListOrdered, CheckSquare, 
   FileCode, Table, Link, Image, Sigma, Variable, Grid3X3, 
-  Video, Smile, Globe 
+  Video, Mic, Smile, Globe 
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { ThemeConfig } from '../types/theme';
@@ -92,6 +92,7 @@ interface ToolbarProps {
   handleLinkInsert: () => void;
   handleImageInsert: () => void;
   handleVideoInsert: () => void;
+  handleAudioInsert: () => void;
   showEmojiPicker: boolean;
   setShowEmojiPicker: (show: boolean) => void;
   theme: ThemeConfig;
@@ -102,6 +103,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   handleLinkInsert,
   handleImageInsert,
   handleVideoInsert,
+  handleAudioInsert,
   showEmojiPicker,
   setShowEmojiPicker,
   theme
@@ -154,6 +156,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
       <div style={{ display: 'flex', gap: '2px' }}>
         <ToolbarButton icon={<Video size={16} />} title="视频" shortcut="Ctrl + Alt + M" onClick={handleVideoInsert} />
+        <ToolbarButton icon={<Mic size={16} />} title="语音" shortcut="Ctrl + Alt + A" onClick={handleAudioInsert} />
         <ToolbarButton icon={<Smile size={16} />} title="图标" shortcut="Ctrl + Shift + E" onClick={() => setShowEmojiPicker(!showEmojiPicker)} />
         <ToolbarButton icon={<Globe size={16} />} title="原生HTML" shortcut="Ctrl + Alt + H" onClick={() => applySnippet('!html(', ')')} />
       </div>

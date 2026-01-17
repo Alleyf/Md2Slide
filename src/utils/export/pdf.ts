@@ -18,29 +18,44 @@ export const exportToPDF = async (
     throw new Error('无法找到导出容器');
   }
 
-  // 生成 PDF
-  const pdf = await html2pdf()
-    .from(container)
-    .set({
-      margin: 0,
-      filename: 'presentation.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { 
-        scale: 2, 
-        useCORS: true,
-        logging: false,
-        backgroundColor: null
-      },
-      jsPDF: { 
-        unit: 'px', 
-        format: [1920, 1080], 
-        orientation: 'landscape',
-        hotfixes: ['px_scaling']
-      },
-    })
-    .outputPdf('blob');
+  // 临时显示容器以便捕获
+  const originalVisibility = container.style.visibility;
+  container.style.visibility = 'visible';
 
-  return pdf;
+  try {
+    // 给一点时间让图片和 Katex 渲染完成
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // 生成 PDF
+    const pdf = await html2pdf()
+      .from(container)
+      .set({
+        margin: 0,
+        filename: 'presentation.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 1, // 减小 scale 以防止大文件内存溢出
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#0a0a0a',
+          width: 1920,
+          windowWidth: 1920
+        },
+        jsPDF: { 
+          unit: 'px', 
+          format: [1920, 1080], 
+          orientation: 'landscape',
+          hotfixes: ['px_scaling']
+        },
+        pagebreak: { mode: ['css', 'legacy'], after: '.pdf-slide-page' }
+      })
+      .outputPdf('blob');
+
+    return pdf;
+  } finally {
+    // 恢复容器状态
+    container.style.visibility = originalVisibility;
+  }
 };
 
 /**
