@@ -12,6 +12,9 @@
 
 <img src="public/logo.jpg" width="30%" height="30%" alt="coverage">
 
+<p align="center">
+  <img src="docs/demo.gif" width="600" alt="功能演示"/>
+</p>
 
 
 ### 🎨 3Blue1Brown 风格幻灯片生成器
