@@ -20,7 +20,6 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [showControls, setShowControls] = useState(false);
   
   // 拖动相关状态
   const [isDragging, setIsDragging] = useState(false);
@@ -32,14 +31,14 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
     { id: '1', title: '风止了', path: '/music/风止了.mp3' },
   ]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-  const [showPlaylist, setShowPlaylist] = useState(false);
+  const [showPlaylistModal, setShowPlaylistModal] = useState(false);
 
   // 音乐节奏相关的状态
   const [visualizerData, setVisualizerData] = useState<number[]>([]);
   
   // 初始化位置
   useEffect(() => {
-    setPosition({ x: 20, y: window.innerHeight - 60 });
+    setPosition({ x: window.innerWidth - 60, y: window.innerHeight - 60 }); // 右下角初始位置
     
     // 尝试获取music目录下的音乐文件
     fetchMusicFiles();
@@ -186,25 +185,11 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
   // 处理窗口大小变化时的吸附
   useEffect(() => {
     const handleResize = () => {
-      // 检查当前位置是否靠近边缘，如果是，则重新吸附
-      let newX = position.x;
-      let newY = position.y;
+      // 确保小球不会超出窗口边界
+      let newX = Math.max(10, Math.min(window.innerWidth - 50, position.x));
+      let newY = Math.max(10, Math.min(window.innerHeight - 50, position.y));
       
-      if (position.x <= window.innerWidth * 0.1) {
-        newX = 10; // 左边
-      } else if (position.x >= window.innerWidth - 40) {
-        newX = window.innerWidth - 40; // 右边
-      }
-      
-      if (position.y <= window.innerHeight * 0.1) {
-        newY = 10; // 顶部
-      } else if (position.y >= window.innerHeight - 40) {
-        newY = window.innerHeight - 40; // 底部
-      }
-      
-      if (newX !== position.x || newY !== position.y) {
-        setPosition({ x: newX, y: newY });
-      }
+      setPosition({ x: newX, y: newY });
     };
     
     window.addEventListener('resize', handleResize);
@@ -331,45 +316,85 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
     return `rgb(${r}, ${g}, ${b})`;
   };
 
-  // 是否处于收起状态（没有鼠标悬停且没有播放）
-  const isCollapsed = !showControls;
-
-  // 计算位置样式
+  // 计算位置样式 - 简化的悬浮小球
   const playerStyle = {
     position: 'fixed' as const,
     left: `${position.x}px`,
     top: `${position.y}px`,
     zIndex: 1000,
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: isCollapsed ? '8px' : showPlaylist ? '12px' : '10px 15px',
-    borderRadius: '24px',
-    background: isCollapsed 
-      ? `radial-gradient(circle, ${theme.primaryColor} 0%, ${theme.colors.surface} 70%)`
-      : `linear-gradient(135deg, ${theme.colors.surface}, ${theme.colors.background})`,
-    boxShadow: isCollapsed
-      ? `0 2px 10px rgba(0, 0, 0, 0.2), 0 0 15px rgba(${parseInt(theme.primaryColor.slice(1, 3), 16)}, ${parseInt(theme.primaryColor.slice(3, 5), 16)}, ${parseInt(theme.primaryColor.slice(5, 7), 16)}, 0.3)`
-      : `0 4px 20px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.1)`,
+    width: '40px',
+    height: '40px',
+    borderRadius: '50%',
+    background: `radial-gradient(circle, ${getRhythmicColor()} 0%, ${theme.colors.surface} 70%)`,
+    boxShadow: `0 2px 10px rgba(0, 0, 0, 0.2), 0 0 15px rgba(${parseInt(getRhythmicColor().slice(1, 3), 16)}, ${parseInt(getRhythmicColor().slice(3, 5), 16)}, ${parseInt(getRhythmicColor().slice(5, 7), 16)}, 0.3)`
+      + `, 0 0 20px rgba(${parseInt(getRhythmicColor().slice(1, 3), 16)}, ${parseInt(getRhythmicColor().slice(3, 5), 16)}, ${parseInt(getRhythmicColor().slice(5, 7), 16)}, 0.1)`,
     border: `1px solid ${theme.colors.border}`,
     backdropFilter: 'blur(10px)',
-    transform: 'translate(0, 0)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: isDragging ? 'grabbing' : 'pointer',
     transition: 'all 0.3s ease',
-    opacity: 0.8,
-    cursor: isDragging ? 'grabbing' : 'default',
-    width: isCollapsed ? '40px' : showPlaylist ? '300px' : 'auto',
-    minHeight: isCollapsed ? '40px' : '50px',
-    justifyContent: showPlaylist ? 'normal' : 'center',
-    overflow: 'hidden'
+    transform: 'translate(0, 0)',
+  };
+
+  // 播放列表模态窗样式
+  const modalStyle = {
+    position: 'fixed' as const,
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '400px',
+    maxWidth: '90vw',
+    maxHeight: '80vh',
+    background: `linear-gradient(135deg, ${theme.colors.surface}AA, ${theme.colors.background}BB)`,
+    border: `1px solid ${theme.colors.border}80`,
+    borderRadius: '20px',
+    padding: '20px',
+    zIndex: 10000,
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2), inset 0 0 20px rgba(255, 255, 255, 0.1)',
+    backdropFilter: 'blur(20px)',
+    fontFamily: 'inherit',
+  };
+
+  // 遮罩层样式
+  const overlayStyle = {
+    position: 'fixed' as const,
+    top: 0,
+    left: 0,
+    width: '100vw',
+    height: '100vh',
+    background: 'rgba(0, 0, 0, 0.5)',
+    backdropFilter: 'blur(5px)',
+    zIndex: 9999,
   };
 
   return (
-    <div 
-      style={playerStyle}
-      onMouseDown={(e) => handleMouseDown(e, false)} // 整个播放器区域都可以拖动
-      onMouseEnter={() => setShowControls(true)}
-      onMouseLeave={() => setShowControls(false)}
-    >
+    <>
+      <div 
+        style={playerStyle}
+        onMouseDown={(e) => handleMouseDown(e, true)} // 整个小球都可以拖动
+        onClick={() => setShowPlaylistModal(true)} // 点击打开模态窗
+      >
+        <div style={{
+          width: '24px',
+          height: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#fff',
+          transform: isPlaying ? 'rotate(0deg)' : 'rotate(-30deg)',
+          transition: 'transform 0.3s ease',
+          filter: isPlaying ? 'drop-shadow(0 0 4px rgba(255, 255, 255, 0.7))' : 'none'
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M11 5L11 19C11 20.3807 12.5 21 13 19.5L13 6C13 4.61929 12 4 11 5Z" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+            <path d="M6 5L6 19C6 20.3807 7.5 21 8 19.5L8 6C8 4.61929 7 4 6 5Z" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+            <circle cx="12" cy="12" r="10" stroke="#fff" strokeWidth="2"/>
+          </svg>
+        </div>
+      </div>
+      
       <audio
         ref={audioRef}
         src={currentTrack.path}
@@ -385,246 +410,172 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
           }
         }}
       />
-        
-      {/* 拖动句柄 - 只在展开状态下显示，但在收起状态下仍可拖动整个图标 */}
-      <div 
-        style={{
-          width: isCollapsed ? '4px' : '4px',
-          height: isCollapsed ? '20px' : '20px',
-          backgroundColor: isCollapsed ? 'transparent' : theme.colors.textSecondary, // 收起时透明但仍可拖动
-          borderRadius: '2px',
-          cursor: 'move',
-          alignSelf: 'center',
-          margin: '0 4px',
-          opacity: isCollapsed ? 0 : 1, // 收起时完全透明但仍占用空间
-          transition: 'opacity 0.3s ease'
-        }}
-        onMouseDown={(e) => {
-          e.stopPropagation(); // 防止事件冒泡
-          handleMouseDown(e, true);
-        }}
-      />
       
-      {/* 展开状态下的控制按钮 */}
-      {!isCollapsed && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          opacity: showControls ? 1 : 0,
-          transition: 'opacity 0.3s ease',
-          visibility: showControls ? 'visible' : 'hidden',
-          height: showControls ? 'auto' : '0',
-          overflow: 'hidden',
-          flex: 1
-        }}>
-          {/* 播放列表按钮 */}
-          <button
-            onClick={() => setShowPlaylist(!showPlaylist)}
-            style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '50%',
-              border: 'none',
-              background: theme.colors.border,
-              color: theme.colors.text,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              fontSize: '12px',
-              transition: 'all 0.2s ease'
-            }}
-            title="播放列表"
-          >
-            🎵
-          </button>
-          
-          {/* 播放列表 */}
-          {showPlaylist && (
+      {/* 液态柔滑玻璃风格的模态窗 */}
+      {showPlaylistModal && (
+        <>
+          <div 
+            style={overlayStyle}
+            onClick={() => setShowPlaylistModal(false)} // 点击遮罩关闭模态窗
+          />
+          <div style={modalStyle}>
             <div style={{
-              position: 'fixed',
-              bottom: `${position.y - 5}px`,
-              left: `${position.x - 305}px`,
-              width: '300px',
-              maxHeight: '300px',
-              background: theme.colors.surface,
-              border: `1px solid ${theme.colors.border}`,
-              borderRadius: '12px',
-              padding: '10px',
-              overflowY: 'auto',
-              zIndex: 10000, // 提高层级确保显示在最上层
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-              fontFamily: 'inherit',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px',
+              paddingBottom: '10px',
+              borderBottom: `1px solid ${theme.colors.border}80`
             }}>
-              <div style={{ 
-                marginBottom: '8px', 
-                fontWeight: 'bold', 
+              <h2 style={{
+                margin: 0,
                 color: theme.colors.text,
-                textAlign: 'center',
-                borderBottom: `1px solid ${theme.colors.border}`,
-                paddingBottom: '5px'
-              }}>
-                播放列表
-              </div>
-              {/* 必须渲染音乐文件名作为可预览文本 */}
-              {playlist.map((track, index) => (
-                <div
-                  key={track.id}
-                  onClick={() => {
-                    playTrack(index);
-                    setShowPlaylist(false); // 点击后隐藏播放列表
-                  }}
-                  style={{
-                    padding: '12px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    backgroundColor: currentTrackIndex === index ? theme.primaryColor : theme.colors.background,
-                    color: currentTrackIndex === index ? '#fff' : theme.colors.text,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    margin: '4px 0',
-                    border: currentTrackIndex === index ? `1px solid ${theme.primaryColor}` : `1px solid ${theme.colors.border}`,
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (currentTrackIndex !== index) {
-                      e.currentTarget.style.backgroundColor = theme.colors.border;
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (currentTrackIndex !== index) {
-                      e.currentTarget.style.backgroundColor = theme.colors.background;
-                    }
-                  }}
-                >
-                  <span style={{ fontSize: '16px' }}>{currentTrackIndex === index ? '▶️' : '🎵'}</span>
-                  <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</span>
-                  {currentTrackIndex === index && (
-                    <span style={{ fontSize: '12px', opacity: 0.8 }}>正在播放</span>
-                  )}
-                </div>
-              ))}
+                fontSize: '1.2em'
+              }}>播放列表</h2>
+              <button 
+                onClick={() => setShowPlaylistModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: theme.colors.text,
+                  fontSize: '1.5em',
+                  cursor: 'pointer',
+                  padding: '5px',
+                  borderRadius: '50%',
+                  width: '30px',
+                  height: '30px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ×
+              </button>
             </div>
-          )}
-          
-          {/* 上一首按钮 */}
-          <button
-            onClick={playPrev}
-            style={{
-              width: '30px',
-              height: '30px',
-              borderRadius: '50%',
-              border: 'none',
-              background: theme.colors.border,
-              color: theme.colors.text,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            title="上一首"
-          >
-            ⏮
-          </button>
-          
-          {/* 播放/暂停按钮 */}
-          <button
-            onClick={togglePlayPause}
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '50%',
-              border: 'none',
-              background: theme.primaryColor,
-              color: 'white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              boxShadow: `0 2px 8px rgba(0, 0, 0, 0.2)`,
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              if (!isDragging) {
-                e.currentTarget.style.transform = 'scale(1.1)';
-                e.currentTarget.style.boxShadow = `0 4px 12px rgba(0, 0, 0, 0.3)`;
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.boxShadow = `0 2px 8px rgba(0, 0, 0, 0.2)`;
-            }}
-            title={isPlaying ? "暂停" : "播放"}
-          >
-            {isPlaying ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="6" y="4" width="4" height="16" rx="1" fill="white"/>
-                <rect x="14" y="4" width="4" height="16" rx="1" fill="white"/>
-              </svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M8 5V19L19 12L8 5Z" fill="white"/>
-              </svg>
-            )}
-          </button>
-          
-          {/* 下一首按钮 */}
-          <button
-            onClick={playNext}
-            style={{
-              width: '30px',
-              height: '30px',
-              borderRadius: '50%',
-              border: 'none',
-              background: theme.colors.border,
-              color: theme.colors.text,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            title="下一首"
-          >
-            ⏭
-          </button>
-          
-          {/* 进度条和音量控制区域 */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            minWidth: '100px'
-          }}>
-            {/* 当前播放曲目信息 */}
+            
+            {/* 当前播放信息 */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '5px',
-              marginBottom: '4px'
+              gap: '15px',
+              padding: '10px',
+              marginBottom: '15px',
+              borderRadius: '12px',
+              background: `${theme.colors.background}80`,
+              border: `1px solid ${theme.colors.border}80`
             }}>
-              <span style={{ 
-                fontSize: '12px', 
-                color: theme.colors.textSecondary,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '8px',
+                background: theme.primaryColor,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                fontSize: '1.2em'
               }}>
-                {currentTrack.title}
-              </span>
+                🎵
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 'bold', color: theme.colors.text }}>
+                  {currentTrack.title}
+                </div>
+                <div style={{ fontSize: '0.8em', color: theme.colors.textSecondary }}>
+                  正在播放
+                </div>
+              </div>
+            </div>
+            
+            {/* 播放控制 */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '15px',
+              marginBottom: '20px'
+            }}>
+              <button
+                onClick={playPrev}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: theme.colors.border,
+                  color: theme.colors.text,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '1.2em',
+                  transition: 'all 0.2s ease'
+                }}
+                title="上一首"
+              >
+                ⏮
+              </button>
+              
+              <button
+                onClick={togglePlayPause}
+                style={{
+                  width: '50px',
+                  height: '50px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: theme.primaryColor,
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  boxShadow: `0 4px 10px rgba(0, 0, 0, 0.2)`,
+                  transition: 'all 0.2s ease'
+                }}
+                title={isPlaying ? "暂停" : "播放"}
+              >
+                {isPlaying ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="6" y="4" width="4" height="16" rx="1" fill="white"/>
+                    <rect x="14" y="4" width="4" height="16" rx="1" fill="white"/>
+                  </svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 5V19L19 12L8 5Z" fill="white"/>
+                  </svg>
+                )}
+              </button>
+              
+              <button
+                onClick={playNext}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: theme.colors.border,
+                  color: theme.colors.text,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '1.2em',
+                  transition: 'all 0.2s ease'
+                }}
+                title="下一首"
+              >
+                ⏭
+              </button>
             </div>
             
             {/* 进度条 */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '5px',
-              marginBottom: '4px'
+              gap: '10px',
+              marginBottom: '15px'
             }}>
-              <span style={{ fontSize: '10px', color: theme.colors.textSecondary }}>
+              <span style={{ fontSize: '0.8em', color: theme.colors.textSecondary }}>
                 {formatTime(currentTime)}
               </span>
               <input
@@ -635,8 +586,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
                 onChange={handleSeek}
                 style={{
                   flex: 1,
-                  height: '4px',
-                  borderRadius: '2px',
+                  height: '6px',
+                  borderRadius: '3px',
                   background: theme.colors.border,
                   outline: 'none',
                   border: 'none',
@@ -645,7 +596,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
                   cursor: 'pointer'
                 }}
               />
-              <span style={{ fontSize: '10px', color: theme.colors.textSecondary }}>
+              <span style={{ fontSize: '0.8em', color: theme.colors.textSecondary }}>
                 {formatTime(duration)}
               </span>
             </div>
@@ -654,9 +605,10 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '5px'
+              gap: '10px',
+              marginBottom: '20px'
             }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ color: theme.colors.textSecondary }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ color: theme.colors.textSecondary }}>
                 <path d="M3 10V14C3 14 7 12 7 12C7 12 11 14 11 10C11 6 7 4 7 4C7 4 3 6 3 10Z" stroke={theme.colors.textSecondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M15 8C16.6569 8 18 9.34315 18 11C18 12.6569 16.6569 14 15 14C14.793 14 14.5931 13.971 14.4031 13.9155C13.3509 15.1746 11.8254 16 10 16C7.79086 16 6 14.2091 6 12C6 9.79086 7.79086 8 10 8C11.3562 8 12.5202 8.66432 13.2533 9.65429C13.6247 8.8529 14.263 8.21064 15 8Z" stroke={theme.colors.textSecondary} strokeWidth="2"/>
               </svg>
@@ -669,8 +621,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
                 onChange={handleVolumeChange}
                 style={{
                   flex: 1,
-                  height: '4px',
-                  borderRadius: '2px',
+                  height: '6px',
+                  borderRadius: '3px',
                   background: theme.colors.border,
                   outline: 'none',
                   border: 'none',
@@ -679,34 +631,73 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
                   cursor: 'pointer'
                 }}
               />
+              <span style={{ fontSize: '0.8em', color: theme.colors.textSecondary }}>
+                {Math.round(volume * 100)}%
+              </span>
+            </div>
+            
+            {/* 播放列表 */}
+            <div style={{
+              maxHeight: '200px',
+              overflowY: 'auto',
+              border: `1px solid ${theme.colors.border}80`,
+              borderRadius: '12px',
+              padding: '10px',
+              background: `${theme.colors.background}40`
+            }}>
+              <div style={{ 
+                marginBottom: '10px', 
+                fontWeight: 'bold', 
+                color: theme.colors.text,
+                fontSize: '0.9em'
+              }}>
+                曲目列表
+              </div>
+              {/* 必须渲染音乐文件名作为可预览文本 */}
+              {playlist.map((track, index) => (
+                <div
+                  key={track.id}
+                  onClick={() => {
+                    playTrack(index);
+                  }}
+                  style={{
+                    padding: '10px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    backgroundColor: currentTrackIndex === index ? `${theme.primaryColor}80` : 'transparent',
+                    color: currentTrackIndex === index ? '#fff' : theme.colors.text,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    margin: '4px 0',
+                    border: currentTrackIndex === index ? `1px solid ${theme.primaryColor}80` : `1px solid transparent`,
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (currentTrackIndex !== index) {
+                      e.currentTarget.style.backgroundColor = `${theme.colors.border}40`;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (currentTrackIndex !== index) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
+                >
+                  <span style={{ fontSize: '1.1em' }}>{currentTrackIndex === index ? '▶️' : '🎵'}</span>
+                  <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</span>
+                  {currentTrackIndex === index && (
+                    <span style={{ fontSize: '0.8em', opacity: 0.8 }}>当前</span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        </>
       )}
       
-      {/* 收起状态下的音乐图标 */}
-      {!showPlaylist && (
-        <div style={{
-          width: isCollapsed ? '24px' : '24px',
-          height: isCollapsed ? '24px' : '24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: getRhythmicColor(), // 根据音乐节奏变化颜色
-          transform: isPlaying ? 'rotate(0deg)' : 'rotate(-30deg)',
-          transition: 'transform 0.3s ease',
-          filter: isPlaying ? 'drop-shadow(0 0 8px rgba(58, 134, 255, 0.7))' : 'none' // 播放时添加发光效果
-        }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M11 5L11 19C11 20.3807 12.5 21 13 19.5L13 6C13 4.61929 12 4 11 5Z" stroke={getRhythmicColor()} strokeWidth="2" strokeLinecap="round"/>
-            <path d="M6 5L6 19C6 20.3807 7.5 21 8 19.5L8 6C8 4.61929 7 4 6 5Z" stroke={getRhythmicColor()} strokeWidth="2" strokeLinecap="round"/>
-            <circle cx="12" cy="12" r="10" stroke={getRhythmicColor()} strokeWidth="2"/>
-          </svg>
-        </div>
-      )}
-        
       <MusicVisualizer audioRef={audioRef} isActive={isPlaying} />
-    </div>
+    </>
   );
 }
 
