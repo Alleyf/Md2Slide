@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { pluginManager } from '../services/pluginManager';
 import { BasePlugin } from '../services/plugins/BasePlugin';
-import { Puzzle, Search, X, Info, CheckCircle, PlayCircle, StopCircle, User, Zap, Star, Download } from 'lucide-react';
+import { Puzzle, Search, X, Info, CheckCircle, PlayCircle, StopCircle, User, Zap, Star, Download, Image as ImageIcon, Loader2, ArrowLeft, Upload } from 'lucide-react';
+import { aiService } from '../services/ai';
+import { useTheme } from '../context/ThemeContext';
+import { downloadImage, processCoverImage } from '../utils/imageUtils';
 
 interface PluginMarketplaceProps {
   isOpen: boolean;
@@ -9,12 +12,91 @@ interface PluginMarketplaceProps {
 }
 
 export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, onClose }) => {
+  const { themeConfig: theme } = useTheme();
   const [availablePlugins, setAvailablePlugins] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedPlugin, setSelectedPlugin] = useState<any | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [generatingCoverId, setGeneratingCoverId] = useState<string | null>(null);
   const [, setRefreshCount] = useState(0);
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'trending' | 'installed' | 'new'>('all');
+
+  const handleGenerateCover = async (plugin: any) => {
+    setGeneratingCoverId(plugin.id);
+    try {
+      const prompt = `为插件"${plugin.name}"生成一个现代感、科技感的图标或封面图。插件功能描述：${plugin.description}。要求：简洁、扁平化设计，适合作为软件插件封面。`;
+      const response = await aiService.request({
+        prompt,
+        type: 'image'
+      });
+      
+      // 提取图片URL
+      const match = response.content.match(/!\[.*\]\((.*)\)/);
+      if (match && match[1]) {
+        // 下载图片并生成本地路径
+        const timestamp = Date.now();
+        const extension = 'png';
+        const filename = `plugin-cover-${timestamp}.${extension}`;
+        
+        await downloadImage(match[1], filename);
+        const localImagePath = `/image/${filename}`;
+        
+        setAvailablePlugins(prev => prev.map(p => 
+          p.id === plugin.id ? { ...p, previewImage: localImagePath } : p
+        ));
+        // 如果当前正在查看详情，也更新详情中的图片
+        if (selectedPlugin && selectedPlugin.id === plugin.id) {
+          setSelectedPlugin((prev: any) => prev ? { ...prev, previewImage: localImagePath } : null);
+        }
+        
+        alert(`封面已生成并下载！\n\n请将下载的图片移动到 public/image 目录下，\n然后刷新页面即可看到本地封面。`);
+      }
+    } catch (error) {
+      console.error('Failed to generate cover:', error);
+      alert('生成封面失败，请检查 AI 配置');
+    } finally {
+      setGeneratingCoverId(null);
+    }
+  };
+
+  const handleUploadCover = async (plugin: any, file: File) => {
+    setGeneratingCoverId(plugin.id);
+    try {
+      // 处理上传的图片，自动裁切并保存
+      const processedImagePath = await processCoverImage(file, 400, 300);
+      
+      setAvailablePlugins(prev => prev.map(p => 
+        p.id === plugin.id ? { ...p, previewImage: processedImagePath } : p
+      ));
+      
+      // 如果当前正在查看详情，也更新详情中的图片
+      if (selectedPlugin && selectedPlugin.id === plugin.id) {
+        setSelectedPlugin((prev: any) => prev ? { ...prev, previewImage: processedImagePath } : null);
+      }
+      
+      alert(`封面上传成功！图片已自动裁切并保存到: ${processedImagePath}`);
+    } catch (error) {
+      console.error('Failed to upload cover:', error);
+      alert('上传封面失败，请检查图片格式和大小');
+    } finally {
+      setGeneratingCoverId(null);
+    }
+  };
+
+  const handleCoverUpload = (plugin: any) => {
+    // 创建一个隐藏的文件输入元素
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e: any) => {
+      const file = e.target.files[0];
+      if (file) {
+        handleUploadCover(plugin, file);
+      }
+    };
+    input.click();
+  };
 
   // 图标映射
   const iconMap: Record<string, React.ReactNode> = {
@@ -164,7 +246,7 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
           width: '90%',
           maxWidth: '1000px',
           maxHeight: '85vh',
-          backgroundColor: 'white',
+          backgroundColor: theme.colors.surface,
           borderRadius: '16px',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
           zIndex: 3001,
@@ -178,23 +260,23 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
           className="plugin-marketplace-header"
           style={{
             padding: '20px 24px',
-            borderBottom: '1px solid #f3f4f6',
+            borderBottom: `1px solid ${theme.colors.border}`,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            background: '#f9fafb'
+            background: theme.colors.background
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Puzzle size={24} color="#4f46e5" />
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: '#111827' }}>插件市场</h2>
+            <Puzzle size={24} color={theme.primaryColor} />
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: theme.colors.text }}>插件市场</h2>
           </div>
           <button
             onClick={onClose}
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#6b7280',
+              color: theme.colors.textSecondary,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -203,16 +285,16 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
               borderRadius: '8px',
               transition: 'all 0.2s'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${theme.colors.border}`}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             <X size={20} />
           </button>
         </div>
 
-        <div className="plugin-marketplace-search" style={{ padding: '16px 24px', borderBottom: '1px solid #f3f4f6', background: 'white' }}>
+        <div className="plugin-marketplace-search" style={{ padding: '16px 24px', borderBottom: `1px solid ${theme.colors.border}`, background: theme.colors.surface }}>
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Search size={18} color="#9ca3af" style={{ position: 'absolute', left: '12px' }} />
+            <Search size={18} color={theme.colors.textSecondary} style={{ position: 'absolute', left: '12px' }} />
             <input
               type="text"
               placeholder="搜索插件、功能或标签..."
@@ -221,21 +303,22 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
               style={{
                 width: '100%',
                 padding: '12px 12px 12px 40px',
-                border: '1px solid #e5e7eb',
+                border: `1px solid ${theme.colors.border}`,
                 borderRadius: '10px',
                 fontSize: '15px',
                 outline: 'none',
                 transition: 'all 0.2s',
-                backgroundColor: '#f9fafb'
+                backgroundColor: theme.colors.background,
+                color: theme.colors.text
               }}
               onFocus={(e) => {
-                e.target.style.borderColor = '#4f46e5';
-                e.target.style.backgroundColor = 'white';
-                e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.1)';
+                e.target.style.borderColor = theme.primaryColor;
+                e.target.style.backgroundColor = theme.colors.surface;
+                e.target.style.boxShadow = `0 0 0 3px ${theme.primaryColor}20`;
               }}
               onBlur={(e) => {
-                e.target.style.borderColor = '#e5e7eb';
-                e.target.style.backgroundColor = '#f9fafb';
+                e.target.style.borderColor = theme.colors.border;
+                e.target.style.backgroundColor = theme.colors.background;
                 e.target.style.boxShadow = 'none';
               }}
             />
@@ -248,12 +331,12 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
             className="plugin-marketplace-sidebar"
             style={{
               width: '200px',
-              borderRight: '1px solid #f3f4f6',
+              borderRight: `1px solid ${theme.colors.border}`,
               padding: '20px 0',
-              backgroundColor: '#f9fafb'
+              backgroundColor: theme.colors.background
             }}
           >
-            <div style={{ padding: '0 24px 12px', fontSize: '12px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <div style={{ padding: '0 24px 12px', fontSize: '12px', fontWeight: 700, color: theme.colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               插件分类
             </div>
             {[
@@ -264,16 +347,17 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
             ].map(item => (
               <div
                 key={item.id}
+                onClick={() => setSelectedCategory(item.id as any)}
                 style={{
                   padding: '10px 24px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '10px',
                   fontSize: '14px',
-                  color: item.id === 'all' ? '#4f46e5' : '#4b5563',
-                  backgroundColor: item.id === 'all' ? '#f0f9ff' : 'transparent',
+                  color: item.id === selectedCategory ? theme.primaryColor : theme.colors.text,
+                  backgroundColor: item.id === selectedCategory ? `${theme.primaryColor}10` : 'transparent',
                   cursor: 'pointer',
-                  borderRight: item.id === 'all' ? '2px solid #4f46e5' : 'none'
+                  borderRight: item.id === selectedCategory ? `2px solid ${theme.primaryColor}` : 'none'
                 }}
               >
                 {item.icon}
@@ -292,7 +376,7 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
                       width: '48px', 
                       height: '48px', 
                       borderRadius: '12px', 
-                      backgroundColor: '#f3f4f6', 
+                      backgroundColor: theme.colors.background, 
                       display: 'flex', 
                       alignItems: 'center', 
                       justifyContent: 'center'
@@ -300,23 +384,23 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
                       {selectedPlugin.icon}
                     </div>
                     <div>
-                      <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: '#111827' }}>
+                      <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: theme.colors.text }}>
                         {selectedPlugin.name}
                       </h3>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
-                        <span style={{ fontSize: '13px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontSize: '13px', color: theme.colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <User size={14} /> {selectedPlugin.author}
                         </span>
-                        <span style={{ fontSize: '13px', color: '#6b7280' }}>v{selectedPlugin.version}</span>
+                        <span style={{ fontSize: '13px', color: theme.colors.textSecondary }}>v{selectedPlugin.version}</span>
                       </div>
                     </div>
                   </div>
                   <button
                     onClick={handleCloseDetails}
                     style={{
-                      background: '#f3f4f6',
-                      border: 'none',
-                      color: '#4b5563',
+                      background: theme.colors.background,
+                      border: `1px solid ${theme.colors.border}`,
+                      color: theme.colors.text,
                       padding: '8px 16px',
                       borderRadius: '8px',
                       fontSize: '14px',
@@ -327,10 +411,10 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
                       gap: '8px',
                       transition: 'all 0.2s'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e5e7eb'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme.colors.border}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = theme.colors.background}
                   >
-                    <X size={16} />
+                    <ArrowLeft size={16} />
                     返回列表
                   </button>
                 </div>
@@ -340,44 +424,124 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
                     <div style={{
                       width: '100%',
                       height: '200px',
-                      background: '#f3f4f6',
+                      background: theme.colors.background,
                       borderRadius: '12px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       marginBottom: '20px',
-                      border: '1px solid #e5e7eb'
+                      border: `1px solid ${theme.colors.border}`,
+                      overflow: 'hidden',
+                      position: 'relative'
                     }}>
-                      {selectedPlugin.icon}
-                      <span style={{ marginLeft: '10px', color: '#9ca3af' }}>插件预览图占位符</span>
+                      {selectedPlugin.previewImage && !selectedPlugin.previewImage.startsWith('http') ? (
+                        <img 
+                          src={selectedPlugin.previewImage} 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.parentElement?.querySelector('.fallback-icon')?.removeAttribute('style');
+                          }}
+                        />
+                      ) : null}
+                      <div 
+                        className="fallback-icon"
+                        style={{ 
+                          display: selectedPlugin.previewImage && !selectedPlugin.previewImage.startsWith('http') ? 'none' : 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        {selectedPlugin.icon}
+                        <span style={{ marginLeft: '10px', color: theme.colors.textSecondary }}>插件预览图</span>
+                      </div>
+                      
+                      <button
+                        onClick={() => handleGenerateCover(selectedPlugin)}
+                        disabled={generatingCoverId === selectedPlugin.id}
+                        style={{
+                          position: 'absolute',
+                          bottom: '12px',
+                          right: '12px',
+                          background: 'rgba(0,0,0,0.6)',
+                          backdropFilter: 'blur(4px)',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '8px 12px',
+                          color: 'white',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          zIndex: 10
+                        }}
+                      >
+                        {generatingCoverId === selectedPlugin.id ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <ImageIcon size={16} />
+                        )}
+                        AI 重新生成封面
+                      </button>
+                      <button
+                        onClick={() => handleCoverUpload(selectedPlugin)}
+                        disabled={generatingCoverId === selectedPlugin.id}
+                        style={{
+                          position: 'absolute',
+                          bottom: '12px',
+                          right: '120px',
+                          background: 'rgba(0,0,0,0.6)',
+                          backdropFilter: 'blur(4px)',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '8px 12px',
+                          color: 'white',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          zIndex: 10
+                        }}
+                      >
+                        <Upload size={16} />
+                        上传封面
+                      </button>
                     </div>
-                    <p style={{ margin: '0 0 12px 0', fontSize: '16px', lineHeight: '1.6', color: '#374151' }}>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '16px', lineHeight: '1.6', color: theme.colors.text }}>
                       {selectedPlugin.description}
                     </p>
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '20px' }}>
-                      {selectedPlugin.tags.map((tag: string) => (
+                      {selectedPlugin.tags?.map((tag: string) => (
                         <span
                           key={tag}
                           style={{
                             padding: '4px 10px',
-                            backgroundColor: '#f3f4f6',
-                            color: '#4b5563',
+                            backgroundColor: theme.colors.background,
+                            color: theme.colors.textSecondary,
                             borderRadius: '20px',
                             fontSize: '12px',
-                            fontWeight: 500
+                            fontWeight: 500,
+                            border: `1px solid ${theme.colors.border}`
                           }}
                         >
                           #{tag}
                         </span>
-                      ))}
+                      )) || []}
                     </div>
                     <div style={{ display: 'flex', gap: '12px' }}>
                       <button
                         onClick={() => isPluginEnabled(selectedPlugin.id) ? handleDisablePlugin(selectedPlugin.id) : handleEnablePlugin(selectedPlugin.id)}
                         style={{
                           padding: '10px 20px',
-                          backgroundColor: isPluginEnabled(selectedPlugin.id) ? '#fee2e2' : '#f0f9ff',
-                          color: isPluginEnabled(selectedPlugin.id) ? '#ef4444' : '#0284c7',
+                          backgroundColor: isPluginEnabled(selectedPlugin.id) ? '#fee2e2' : `${theme.primaryColor}10`,
+                          color: isPluginEnabled(selectedPlugin.id) ? '#ef4444' : theme.primaryColor,
                           border: 'none',
                           borderRadius: '8px',
                           fontSize: '15px',
@@ -395,14 +559,14 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
                   </div>
                   
                   <div style={{ flex: '1' }}>
-                    <h4 style={{ margin: '0 0 12px 0' }}>功能亮点</h4>
+                    <h4 style={{ margin: '0 0 12px 0', color: theme.colors.text }}>功能亮点</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {selectedPlugin.features.map((feature: string) => (
-                        <div key={feature} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #f3f4f6' }}>
+                      {selectedPlugin.features?.map((feature: string) => (
+                        <div key={feature} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', backgroundColor: theme.colors.background, borderRadius: '8px', border: `1px solid ${theme.colors.border}` }}>
                           <CheckCircle size={16} color="#10b981" />
-                          <span style={{ fontSize: '14px', color: '#4b5563' }}>{feature}</span>
+                          <span style={{ fontSize: '14px', color: theme.colors.text }}>{feature}</span>
                         </div>
-                      ))}
+                      )) || []}
                     </div>
                   </div>
                 </div>
@@ -410,7 +574,11 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
             ) : (
               <div className="plugin-list">
                 {loading ? (
-                  <div style={{ textAlign: 'center', padding: '40px' }}>加载中...</div>
+                  <div style={{ textAlign: 'center', padding: '40px', color: theme.colors.text }}>加载中...</div>
+                ) : selectedCategory === 'installed' ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: theme.colors.text }}>
+                    <p>已启用的插件功能暂未实现，请稍后再试</p>
+                  </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                     {filteredPlugins.map(plugin => (
@@ -418,25 +586,44 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
                         key={plugin.id}
                         className="plugin-card"
                         style={{
-                          border: '1px solid #f3f4f6',
+                          border: `1px solid ${theme.colors.border}`,
                           borderRadius: '12px',
                           padding: '20px',
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.surface,
                           transition: 'all 0.2s',
                           display: 'flex',
                           flexDirection: 'column'
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                          <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: theme.colors.background, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                          {plugin.previewImage && !plugin.previewImage.startsWith('http') ? (
+                            <img 
+                              src={plugin.previewImage} 
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.parentElement?.querySelector('.fallback-icon')?.removeAttribute('style');
+                              }}
+                            />
+                          ) : null}
+                          <div 
+                            className="fallback-icon"
+                            style={{ 
+                              display: plugin.previewImage && !plugin.previewImage.startsWith('http') ? 'none' : 'flex',
+                              alignItems: 'center', 
+                              justifyContent: 'center' 
+                            }}
+                          >
                             {plugin.icon}
                           </div>
+                        </div>
                           <div style={{ flex: 1 }}>
-                            <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>{plugin.name}</h4>
-                            <span style={{ fontSize: '12px', color: '#9ca3af' }}>by {plugin.author}</span>
+                            <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: theme.colors.text }}>{plugin.name}</h4>
+                            <span style={{ fontSize: '12px', color: theme.colors.textSecondary }}>by {plugin.author}</span>
                           </div>
                         </div>
-                        <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#6b7280', flex: 1 }}>
+                        <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: theme.colors.textSecondary, flex: 1 }}>
                           {plugin.description}
                         </p>
                         <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
@@ -445,9 +632,9 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
                             style={{
                               flex: 1,
                               padding: '8px',
-                              backgroundColor: '#f3f4f6',
-                              color: '#4b5563',
-                              border: 'none',
+                              backgroundColor: theme.colors.background,
+                              color: theme.colors.text,
+                              border: `1px solid ${theme.colors.border}`,
                               borderRadius: '6px',
                               cursor: 'pointer',
                               fontSize: '13px',
@@ -466,8 +653,8 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
                             style={{
                               flex: 1,
                               padding: '8px',
-                              backgroundColor: isPluginEnabled(plugin.id) ? '#fee2e2' : '#f0f9ff',
-                              color: isPluginEnabled(plugin.id) ? '#ef4444' : '#0284c7',
+                              backgroundColor: isPluginEnabled(plugin.id) ? '#fee2e2' : `${theme.primaryColor}10`,
+                              color: isPluginEnabled(plugin.id) ? '#ef4444' : theme.primaryColor,
                               border: 'none',
                               borderRadius: '6px',
                               cursor: 'pointer',

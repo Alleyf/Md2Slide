@@ -92,6 +92,16 @@ class TemplateMarketplaceService {
     return false;
   }
 
+  updateTemplate(template: Template) {
+    const index = this.templates.findIndex(t => t.id === template.id);
+    if (index !== -1) {
+      this.templates[index] = { ...template };
+      if (template.isCustom) {
+        this.saveCustomTemplates();
+      }
+    }
+  }
+
   private saveCustomTemplates() {
     // 仅保存自定义模板
     const customOnly = this.templates.filter(t => t.isCustom);

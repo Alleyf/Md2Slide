@@ -48,7 +48,7 @@ const ThemePreviewImage: React.FC<{ theme: ThemeMetadata; height?: string; cover
     );
   }
 
-  // 模拟ID 获取配色方案
+  // 模拟�?ID 获取配色方案
   const getColors = (id: string) => {
     switch(id) {
       case 'minimal': return { primary: '#2563eb', secondary: '#64748b', background: '#ffffff', text: '#1e293b' };
@@ -82,7 +82,7 @@ const ThemePreviewImage: React.FC<{ theme: ThemeMetadata; height?: string; cover
         {/* 标题 */}
         <rect x="20" y="20" width="100" height="12" rx="2" fill={colors.primary} />
         
-        {/* 内容 */}
+        {/* 内容�?*/}
         <rect x="20" y="45" width="160" height="4" rx="1" fill={colors.text} opacity="0.3" />
         <rect x="20" y="55" width="140" height="4" rx="1" fill={colors.text} opacity="0.3" />
         <rect x="20" y="65" width="150" height="4" rx="1" fill={colors.text} opacity="0.3" />
@@ -120,9 +120,9 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
     if (!aiPrompt.trim()) return;
     setIsAiGenerating(true);
     try {
-      const prompt = `根据以下描述生成一个幻灯片主题配置。描述：${aiPrompt}�?
-要求�?
-1. 返回一�?JSON 对象，结构必须符�?ThemePackage 接口�?
+      const prompt = `根据以下描述生成一个幻灯片主题配置。描述：${aiPrompt}�?
+要求�?
+1. 返回一�?JSON 对象，结构必须符�?ThemePackage 接口�?
    {
      "metadata": {
        "id": "自动生成唯一ID",
@@ -137,35 +137,35 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
      "theme": {
        "colors": {
          "primary": "主色十六进制",
-         "secondary": "辅助色十六进�?,
-         "background": "背景色十六进�?,
+         "secondary": "辅助色十六进�?,
+         "background": "背景色十六进�?,
          "text": "文字颜色十六进制",
-         "accent": "强调色十六进�?,
+         "accent": "强调色十六进�?,
          "border": "边框颜色十六进制",
          "surface": "卡片表面颜色十六进制"
        },
        "fonts": {
-         "main": "主字体名�?,
+         "main": "主字体名�?,
          "heading": "标题字体名称"
        }
      },
      "files": {
-       "css": "可选的 CSS 覆盖代码字符�?
+       "css": "可选的 CSS 覆盖代码字符�?
      }
    }
-2. 仅返�?JSON 对象本身，不要有任何其他文字。`;
+2. 仅返�?JSON 对象本身，不要有任何其他文字。`;
 
       const response = await aiService.request({ prompt });
       const jsonStr = response.content.match(/\{[\s\S]*\}/)?.[0];
       if (!jsonStr) throw new Error('AI 返回格式错误');
       
       const generatedPackage: ThemePackage = JSON.parse(jsonStr);
-      // 确保 ID 唯一且带�?ai 前缀
+      // 确保 ID 唯一且带�?ai 前缀
       generatedPackage.metadata.id = `ai-theme-${Date.now()}`;
       
       await themeMarketplaceService.addCustomTheme(generatedPackage);
       
-      // 刷新所有相关列�?
+      // 刷新所有相关列�?
       const allThemes = await themeMarketplaceService.getAllThemes();
       const trending = await themeMarketplaceService.getTrendingThemes();
       const installed = await themeMarketplaceService.getInstalledThemes();
@@ -175,10 +175,10 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
       setInstalledThemes([...installed]);
       
       setAiPrompt('');
-      alert('AI 主题生成并保存成功！已自动添加到"已安装"列表中');
+      alert('�?AI 主题生成并保存成功！已自动添加到“已安装”列表中�?);
     } catch (error) {
       console.error('AI theme generation failed:', error);
-      alert('生成失败，请检查AI 配置或稍后重试');
+      alert('生成失败，请检�?AI 配置或稍后重�?);
     } finally {
       setIsAiGenerating(false);
     }
@@ -187,7 +187,7 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
   const handleGenerateCover = async (themeMetadata: ThemeMetadata) => {
     setGeneratingCoverId(themeMetadata.id);
     try {
-      const prompt = `为名为"${themeMetadata.name}"的演示文稿主题生成一张现代、优雅的预览封面。主题描述：${themeMetadata.description}。要求：设计感强，配色和谐，适合作为PPT/幻灯片的主题封面预览。`;
+      const prompt = `为名�?${themeMetadata.name}"的演示文稿主题生成一张现代、优雅的预览封面。主题描述：${themeMetadata.description}。要求：设计感强，配色和谐，适合作为PPT/幻灯片的主题封面预览。`;
       const response = await aiService.request({
         prompt,
         type: 'image'
@@ -195,7 +195,7 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
       
       const match = response.content.match(/!\[.*\]\((.*)\)/);
       if (match && match[1]) {
-        // 下载图片并生成本地路径
+        // 下载图片并生成本地路�?
         const timestamp = Date.now();
         const extension = 'png';
         const filename = `theme-cover-${timestamp}.${extension}`;
@@ -205,7 +205,7 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
         
         setThemeCovers(prev => ({ ...prev, [themeMetadata.id]: localImagePath }));
         
-        // 同时更新主题元数据中的预览图片
+        // 同时更新主题元数据中的预览图�?
         const updatedTheme = await themeMarketplaceService.getThemeDetails(themeMetadata.id);
         if (updatedTheme) {
           updatedTheme.metadata.previewImage = localImagePath;
@@ -220,7 +220,7 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
       }
     } catch (error) {
       console.error('Failed to generate cover:', error);
-      alert('生成封面失败，请检查AI 配置');
+      alert('生成封面失败，请检�?AI 配置');
     } finally {
       setGeneratingCoverId(null);
     }
@@ -229,12 +229,12 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
   const handleUploadCover = async (themeMetadata: ThemeMetadata, file: File) => {
     setGeneratingCoverId(themeMetadata.id);
     try {
-      // 处理上传的图片，自动裁切并保存
+      // 处理上传的图片，自动裁切并保�?
       const processedImagePath = await processCoverImage(file, 400, 300);
       
       setThemeCovers(prev => ({ ...prev, [themeMetadata.id]: processedImagePath }));
       
-      // 同时更新主题元数据中的预览图片
+      // 同时更新主题元数据中的预览图�?
       const updatedTheme = await themeMarketplaceService.getThemeDetails(themeMetadata.id);
       if (updatedTheme) {
         updatedTheme.metadata.previewImage = processedImagePath;
@@ -318,7 +318,7 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
       alert(`主题 "${themeId}" 安装成功！`);
     } catch (error) {
       console.error('Installation failed:', error);
-      alert('安装失败，请稍后重试');
+      alert('安装失败，请稍后重试�?);
     } finally {
       setLoading(false);
     }
@@ -326,7 +326,7 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
 
   const handleApplyTheme = async (themeId: string) => {
     if (!isThemeInstalled(themeId)) {
-      alert('请先安装该主题再应用');
+      alert('请先安装该主题再应用�?);
       return;
     }
     setLoading(true);
@@ -336,7 +336,7 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
       alert(`主题 "${themeId}" 应用成功！`);
     } catch (error) {
       console.error('Apply failed:', error);
-      alert('应用失败，请稍后重试');
+      alert('应用失败，请稍后重试�?);
     } finally {
       setLoading(false);
     }
@@ -444,7 +444,7 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
             <Search size={18} color={theme.colors.textSecondary} style={{ position: 'absolute', left: '12px' }} />
             <input
               type="text"
-              placeholder="搜索主题风格、名称或作者.."
+              placeholder="搜索主题风格、名称或作�?.."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               style={{
@@ -470,72 +470,72 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
               }}
             />
           </div>
-        </div>
+      </div>
 
-        {/* AI Generation Input */}
+      {/* AI Generation Input */}
+      <div style={{
+        padding: '16px 24px',
+        borderBottom: `1px solid ${theme.colors.border}`,
+        display: 'flex',
+        gap: '12px',
+        alignItems: 'center',
+        background: theme.theme === 'dark' ? 'rgba(59, 130, 246, 0.05)' : 'rgba(59, 130, 246, 0.02)'
+      }}>
         <div style={{
-          padding: '16px 24px',
-          borderBottom: `1px solid ${theme.colors.border}`,
+          width: '32px',
+          height: '32px',
+          borderRadius: '8px',
+          background: `linear-gradient(135deg, ${theme.primaryColor}, #60a5fa)`,
           display: 'flex',
-          gap: '12px',
           alignItems: 'center',
-          background: theme.theme === 'dark' ? 'rgba(59, 130, 246, 0.05)' : 'rgba(59, 130, 246, 0.02)'
+          justifyContent: 'center',
+          color: 'white'
         }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            background: `linear-gradient(135deg, ${theme.primaryColor}, #60a5fa)`,
+          <Sparkles size={18} />
+        </div>
+        <input 
+          type="text"
+          placeholder="描述您想要的主题风格（例如：复古极简、赛博朋克深�?..�?
+          value={aiPrompt}
+          onChange={(e) => setAiPrompt(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleAIGenerateTheme()}
+          style={{
+            flex: 1,
+            padding: '10px 16px',
+            borderRadius: '10px',
+            border: `1px solid ${theme.colors.border}`,
+            background: theme.colors.background,
+            color: theme.colors.text,
+            fontSize: '14px',
+            outline: 'none'
+          }}
+        />
+        <button
+          onClick={handleAIGenerateTheme}
+          disabled={isAiGenerating || !aiPrompt.trim()}
+          style={{
+            padding: '10px 20px',
+            borderRadius: '10px',
+            border: 'none',
+            background: theme.primaryColor,
+            color: 'white',
+            fontSize: '14px',
+            fontWeight: 700,
+            cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white'
-          }}>
-            <Sparkles size={18} />
-          </div>
-          <input 
-            type="text"
-            placeholder="描述您想要的主题风格（例如：复古极简、赛博朋克深色..）"
-            value={aiPrompt}
-            onChange={(e) => setAiPrompt(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAIGenerateTheme()}
-            style={{
-              flex: 1,
-              padding: '10px 16px',
-              borderRadius: '10px',
-              border: `1px solid ${theme.colors.border}`,
-              background: theme.colors.background,
-              color: theme.colors.text,
-              fontSize: '14px',
-              outline: 'none'
-            }}
-          />
-          <button
-            onClick={handleAIGenerateTheme}
-            disabled={isAiGenerating || !aiPrompt.trim()}
-            style={{
-              padding: '10px 20px',
-              borderRadius: '10px',
-              border: 'none',
-              background: theme.primaryColor,
-              color: 'white',
-              fontSize: '14px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'all 0.2s',
-              opacity: (isAiGenerating || !aiPrompt.trim()) ? 0.6 : 1
-            }}
-          >
-            {isAiGenerating ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
-            AI 生成
-          </button>
-        </div>
+            gap: '8px',
+            transition: 'all 0.2s',
+            opacity: (isAiGenerating || !aiPrompt.trim()) ? 0.6 : 1
+          }}
+        >
+          {isAiGenerating ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
+          AI 生成
+        </button>
+      </div>
 
-        <div style={{ display: 'flex', flex: '1', overflow: 'hidden' }}>
-          {/* 侧边栏 */}
+      <div style={{ display: 'flex', flex: '1', overflow: 'hidden' }}>
+          {/* 侧边�?*/}
           <div
             className="theme-marketplace-sidebar"
             style={{
@@ -551,7 +551,7 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
             {[
               { id: 'all', name: '全部主题', icon: <Layout size={16} /> },
               { id: 'trending', name: '热门推荐', icon: <TrendingUp size={16} /> },
-              { id: 'installed', name: '已安装', icon: <Check size={16} /> },
+              { id: 'installed', name: '已安�?, icon: <Check size={16} /> },
               { id: 'favorites', name: '我的收藏', icon: <Star size={16} /> }
             ].map(item => (
               <div
@@ -573,104 +573,98 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
                 {item.name}
               </div>
             ))}
-          </div>
-
-          {/* 主内容区域 */}
-          <div style={{ flex: '1', overflowY: 'auto', padding: '24px' }}>
-            <section>
-              <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', color: theme.colors.text }}>
-                {searchQuery ? `搜索结果: "${searchQuery}"` : 
-                 selectedCategory === 'trending' ? '热门主题' : 
-                 selectedCategory === 'installed' ? '已安装主题' : 
-                 selectedCategory === 'favorites' ? '收藏的主题' : '所有主题'}
-              </h3>
-              {loading && themes.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: theme.colors.text }}>加载中...</div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
-                  {(selectedCategory === 'installed' ? installedThemes : themes).map(t => (
-                    <div
-                      key={t.id}
-                      className="theme-card"
-                      style={{
-                        border: `1px solid ${theme.colors.border}`,
-                        borderRadius: '8px',
-                        padding: '12px',
-                        textAlign: 'center',
-                        backgroundColor: theme.colors.surface
-                      }}
-                    >
-                      <ThemePreviewImage theme={t} coverUrl={themeCovers[t.id]} currentTheme={theme} />
-                      <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', color: theme.colors.text }}>{t.name}</h4>
-                      <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: theme.colors.textSecondary }}>
-                        {t.description.substring(0, 50)}...
-                      </p>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                        <button
-                          onClick={() => handleViewDetails(t.id)}
+                <section>
+                  <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', color: theme.colors.text }}>
+                    {searchQuery ? `搜索结果: "${searchQuery}"` : '所有主�?}
+                  </h3>
+                  {loading && themes.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px', color: theme.colors.text }}>加载�?..</div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
+                      {themes.map(t => (
+                        <div
+                          key={t.id}
+                          className="theme-card"
                           style={{
-                            padding: '6px 12px',
-                            backgroundColor: theme.colors.background,
-                            color: theme.colors.text,
                             border: `1px solid ${theme.colors.border}`,
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: 500,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
+                            borderRadius: '8px',
+                            padding: '12px',
+                            textAlign: 'center',
+                            backgroundColor: theme.colors.surface
                           }}
                         >
-                          <Info size={14} />
-                          详情
-                        </button>
-                        <button
-                          onClick={() => isThemeInstalled(t.id) ? handleApplyTheme(t.id) : handleInstallTheme(t.id)}
-                          style={{
-                            padding: '6px 12px',
-                            backgroundColor: isThemeInstalled(t.id) ? `${theme.primaryColor}20` : theme.primaryColor,
-                            color: isThemeInstalled(t.id) ? theme.primaryColor : 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: 500,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                          }}
-                        >
-                          {isThemeInstalled(t.id) ? <Check size={14} /> : <Download size={14} />}
-                          {isThemeInstalled(t.id) ? '应用' : '安装'}
-                        </button>
-                      </div>
+                          <ThemePreviewImage theme={t} coverUrl={themeCovers[t.id]} currentTheme={theme} />
+                          <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', color: theme.colors.text }}>{t.name}</h4>
+                          <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: theme.colors.textSecondary }}>
+                            {t.description.substring(0, 50)}...
+                          </p>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            <button
+                              onClick={() => handleViewDetails(t.id)}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: theme.colors.background,
+                                color: theme.colors.text,
+                                border: `1px solid ${theme.colors.border}`,
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                fontWeight: 500,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}
+                            >
+                              <Info size={14} />
+                              详情
+                            </button>
+                            <button
+                              onClick={() => isThemeInstalled(t.id) ? handleApplyTheme(t.id) : handleInstallTheme(t.id)}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: isThemeInstalled(t.id) ? `${theme.primaryColor}20` : theme.primaryColor,
+                                color: isThemeInstalled(t.id) ? theme.primaryColor : 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                fontWeight: 500,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}
+                            >
+                              {isThemeInstalled(t.id) ? <Check size={14} /> : <Download size={14} />}
+                              {isThemeInstalled(t.id) ? '应用' : '安装'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </section>
+                  )}
+                </section>
+              </div>
+            )}
           </div>
         </div>
-
-        <style>
-          {`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-            .theme-marketplace-modal {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            }
-            .theme-card:hover {
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-              transform: translateY(-2px);
-              transition: all 0.2s ease;
-            }
-          `}
-        </style>
       </div>
 
+      <style>
+        {`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          .theme-marketplace-modal {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+          }
+          .theme-card:hover {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+            transition: all 0.2s ease;
+          }
+        `}
+      </style>
     </>
   );
 };

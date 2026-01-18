@@ -1,6 +1,27 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
-import { ArrowUp, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Layout, HelpCircle, Menu, X, Settings, Puzzle, Sparkles, Wand2, Info, GripVertical, Monitor } from 'lucide-react';
+import { 
+  ArrowUp, 
+  PanelLeftClose, 
+  PanelLeftOpen, 
+  PanelRightClose, 
+  PanelRightOpen, 
+  Layout, 
+  HelpCircle, 
+  Menu, 
+  X, 
+  Settings, 
+  Puzzle, 
+  Sparkles, 
+  Wand2, 
+  Info, 
+  GripVertical, 
+  Monitor,
+  ChevronDown,
+  Eye,
+  FileText,
+  Layers
+} from 'lucide-react';
 import { SlideTemplate } from './components/SlideTemplate';
 import { SlideContent, SlideElement } from './types/slide';
 import { ThemeToggle } from './components/ThemeToggle';
@@ -122,7 +143,19 @@ export const App: React.FC = () => {
   const [showTemplateMarketplace, setShowTemplateMarketplace] = useState(false);
   const [showPluginMarketplace, setShowPluginMarketplace] = useState(false);
   const [showAISidebar, setShowAISidebar] = useState(false);
+  const [showViewMenu, setShowViewMenu] = useState(false);
   
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showViewMenu) {
+        setShowViewMenu(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showViewMenu]);
+
   const flexibleSection = useMemo(() => {
     // 优先让预览板块自适应，如果显示的话
     if (showPreview) return 'preview';
@@ -1739,7 +1772,18 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div style={{ background: theme.colors.background, minHeight: '100vh', color: theme.colors.text, fontFamily: theme.fontFamily, transition: 'background 0.3s ease, color 0.3s ease', position: 'relative' }}>
+    <div style={{ 
+      background: theme.colors.background, 
+      height: '100vh', 
+      width: '100vw',
+      overflow: 'hidden',
+      color: theme.colors.text, 
+      fontFamily: theme.fontFamily, 
+      transition: 'background 0.3s ease, color 0.3s ease', 
+      position: 'relative',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
       <style>{`
         .toolbar-button:hover {
           background: ${theme.theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'} !important;
@@ -1891,70 +1935,141 @@ export const App: React.FC = () => {
 
         <div style={{ display: 'flex', gap: isMobile ? '12px' : '15px', alignItems: 'center' }}>
           {!isMobile && (
-            <div style={{ display: 'flex', gap: '8px', marginRight: '10px', background: theme.colors.border, padding: '2px', borderRadius: '8px' }}>
+            <div style={{ position: 'relative' }}>
               <button
-                onClick={() => setShowSidebar(!showSidebar)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowViewMenu(!showViewMenu);
+                }}
                 style={{
-                  background: showSidebar ? theme.primaryColor : 'transparent',
-                  border: 'none',
-                  color: showSidebar ? '#fff' : theme.colors.textSecondary,
+                  background: showViewMenu ? theme.colors.border : 'transparent',
+                  border: `1px solid ${theme.colors.border}`,
+                  color: theme.colors.text,
                   cursor: 'pointer',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '8px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '11px',
+                  gap: '8px',
+                  fontSize: '13px',
                   fontWeight: 600,
-                  transition: 'all 0.2s'
+                  transition: 'all 0.2s',
+                  boxShadow: showViewMenu ? 'none' : '0 1px 2px rgba(0,0,0,0.05)'
                 }}
-                title={showSidebar ? "隐藏目录" : "显示目录"}
               >
-                <PanelLeftClose size={14} />
-                目录
+                <Layers size={16} />
+                视图选项
+                <ChevronDown size={14} style={{ transform: showViewMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
               </button>
-              <button
-                onClick={() => setShowEditor(!showEditor)}
-                style={{
-                  background: showEditor ? theme.primaryColor : 'transparent',
-                  border: 'none',
-                  color: showEditor ? '#fff' : theme.colors.textSecondary,
-                  cursor: 'pointer',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
+
+              {showViewMenu && (
+                <div style={{
+                  position: 'absolute',
+                  top: '110%',
+                  right: 0,
+                  width: '200px',
+                  background: theme.colors.surface,
+                  border: `1px solid ${theme.colors.border}`,
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                  padding: '8px',
+                  zIndex: 1000,
+                  animation: 'fadeIn 0.2s ease-out',
                   display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  transition: 'all 0.2s'
-                }}
-                title={showEditor ? "隐藏编辑器" : "显示编辑器"}
-              >
-                <PanelLeftClose size={14} style={{ transform: 'rotate(180deg)' }} />
-                编辑
-              </button>
-              <button
-                onClick={() => setShowPreview(!showPreview)}
-                style={{
-                  background: showPreview ? theme.primaryColor : 'transparent',
-                  border: 'none',
-                  color: showPreview ? '#fff' : theme.colors.textSecondary,
-                  cursor: 'pointer',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  transition: 'all 0.2s'
-                }}
-                title={showPreview ? "隐藏预览" : "显示预览"}
-              >
-                <Monitor size={14} />
-                预览
-              </button>
+                  flexDirection: 'column',
+                  gap: '4px'
+                }}>
+                  <button
+                    onClick={() => setShowSidebar(!showSidebar)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: showSidebar ? `${theme.primaryColor}15` : 'transparent',
+                      color: showSidebar ? theme.primaryColor : theme.colors.text,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <PanelLeftClose size={16} />
+                    文件目录
+                    <div style={{ marginLeft: 'auto', width: '8px', height: '8px', borderRadius: '50%', background: showSidebar ? theme.primaryColor : 'transparent' }} />
+                  </button>
+                  <button
+                    onClick={() => setShowEditor(!showEditor)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: showEditor ? `${theme.primaryColor}15` : 'transparent',
+                      color: showEditor ? theme.primaryColor : theme.colors.text,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <FileText size={16} />
+                    内容编辑
+                    <div style={{ marginLeft: 'auto', width: '8px', height: '8px', borderRadius: '50%', background: showEditor ? theme.primaryColor : 'transparent' }} />
+                  </button>
+                  <button
+                    onClick={() => setShowPreview(!showPreview)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: showPreview ? `${theme.primaryColor}15` : 'transparent',
+                      color: showPreview ? theme.primaryColor : theme.colors.text,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <Eye size={16} />
+                    实时预览
+                    <div style={{ marginLeft: 'auto', width: '8px', height: '8px', borderRadius: '50%', background: showPreview ? theme.primaryColor : 'transparent' }} />
+                  </button>
+                  <div style={{ height: '1px', background: theme.colors.border, margin: '4px 0' }} />
+                  <button
+                    onClick={toggleAISidebar}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: showAISidebar ? `${theme.primaryColor}15` : 'transparent',
+                      color: showAISidebar ? theme.primaryColor : theme.colors.text,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <Sparkles size={16} />
+                    AI 智能助手
+                    <div style={{ marginLeft: 'auto', width: '8px', height: '8px', borderRadius: '50%', background: showAISidebar ? theme.primaryColor : 'transparent' }} />
+                  </button>
+                </div>
+              )}
             </div>
           )}
           <button
@@ -1996,26 +2111,6 @@ export const App: React.FC = () => {
             title="主题市场"
           >
             <Layout size={isMobile ? 22 : 20} />
-          </button>
-          <button
-            onClick={toggleAISidebar}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: showAISidebar ? theme.primaryColor : theme.colors.textSecondary,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s',
-              opacity: showAISidebar ? 1 : 0.7,
-              padding: isMobile ? '4px' : '0'
-            }}
-            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={(e) => !isMobile && !showAISidebar && (e.currentTarget.style.opacity = '0.7')}
-            title="AI 助手"
-          >
-            <Sparkles size={isMobile ? 22 : 20} />
           </button>
           <button
             onClick={() => setShowSettings(true)}

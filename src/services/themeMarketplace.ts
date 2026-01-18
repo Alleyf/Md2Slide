@@ -139,7 +139,17 @@ export class ThemeMarketplaceService {
   }
 
   /**
-   * 卸载主题
+   * 添加自定义生成的主题
+   */
+  async addCustomTheme(themePackage: ThemePackage): Promise<void> {
+    this.installedThemes.set(themePackage.metadata.id, themePackage);
+    this.saveToStorage();
+    // 触发更新事件
+    window.dispatchEvent(new CustomEvent('theme-installed', { detail: themePackage.metadata.id }));
+  }
+
+  /**
+   * 搜索主题
    */
   async uninstallTheme(themeId: string): Promise<boolean> {
     if (this.installedThemes.has(themeId)) {

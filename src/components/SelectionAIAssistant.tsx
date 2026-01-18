@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Wand2, Type, Image as ImageIcon, MessageSquare, X, Maximize2 } from 'lucide-react';
+import { Sparkles, Wand2, Type, Image as ImageIcon, Download, MessageSquare, X, Maximize2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { aiService, DEFAULT_AI_CONFIG } from '../services/ai';
 import { getStorageItem, storageKeys } from '../utils/storage';
 import { AIServiceConfig } from '../types/ai';
+import { downloadImage, extractImageUrls } from '../utils/imageUtils';
 
 interface SelectionAIAssistantProps {
   selection: string;
@@ -73,6 +74,23 @@ export const SelectionAIAssistant: React.FC<SelectionAIAssistantProps> = ({
       setResult(`### ❌ AI 处理失败\n\n**原因**：${errorMsg}\n\n请检查 AI 配置（API Key、提供商、网络等）或稍后再试。`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadImage = async () => {
+    if (!result) return;
+    
+    const imageUrls = extractImageUrls(result);
+    if (imageUrls.length === 0) {
+      alert('未找到可下载的图片');
+      return;
+    }
+
+    try {
+      await downloadImage(imageUrls[0]);
+      alert('图片已下载到浏览器下载文件夹。\n\n请手动将图片移动到项目的 public/image 目录下，\n然后使用相对路径 /image/文件名 引用图片。');
+    } catch (error) {
+      alert(`下载失败: ${(error as Error).message}`);
     }
   };
 
@@ -170,11 +188,44 @@ export const SelectionAIAssistant: React.FC<SelectionAIAssistantProps> = ({
                     remarkPlugins={[remarkGfm]}
                     components={{
                       img: ({ node, ...props }) => (
-                        <img 
-                          {...props} 
-                          style={{ maxWidth: '100%', height: 'auto', display: 'block' }} 
-                          title="右键图片另存为可下载"
-                        />
+                        <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
+                          <img 
+                            {...props} 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setPreviewImage(props.src || null);
+                            }}
+                            style={{ 
+                              maxWidth: '100%', 
+                              maxHeight: '200px',
+                              height: 'auto', 
+                              display: 'block', 
+                              cursor: 'zoom-in',
+                              borderRadius: '6px',
+                              objectFit: 'contain'
+                            }} 
+                            title="点击放大预览，右键另存下载"
+                          />
+                          <div 
+                            onClick={() => setPreviewImage(props.src || null)}
+                            style={{
+                              position: 'absolute',
+                              top: '4px',
+                              right: '4px',
+                              background: 'rgba(0,0,0,0.5)',
+                              color: 'white',
+                              padding: '2px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              opacity: 0.8
+                            }}
+                          >
+                            <Maximize2 size={12} />
+                          </div>
+                        </div>
                       )
                     }}
                   >
@@ -183,6 +234,30 @@ export const SelectionAIAssistant: React.FC<SelectionAIAssistantProps> = ({
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
+                {extractImageUrls(result).length > 0 && (
+                  <button
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDownloadImage();
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: `${theme.accentColor}20`,
+                      color: theme.accentColor,
+                      border: 'none',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <Download size={14} />
+                    下载
+                  </button>
+                )}
                 <button
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -232,6 +307,71 @@ export const SelectionAIAssistant: React.FC<SelectionAIAssistantProps> = ({
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+
+      {/* 图片预览 Modal */}
+      {previewImage && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '40px',
+            cursor: 'zoom-out'
+          }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setPreviewImage(null);
+          }}
+        >
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setPreviewImage(null);
+            }}
+            style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: 'none',
+              color: 'white',
+              borderRadius: '50%',
+              width: '40px',
+              height: '40px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10001
+            }}
+          >
+            <X size={24} />
+          </button>
+          <img 
+            src={previewImage} 
+            alt="Preview" 
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              objectFit: 'contain',
+              borderRadius: '4px',
+              cursor: 'default',
+              boxShadow: '0 0 30px rgba(0,0,0,0.5)'
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 };
