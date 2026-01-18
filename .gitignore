@@ -5,3 +5,6 @@ dist
 todolist.md
 AGENTS.md
 MARKDOWN_GUIDE.md
+
+.env
+public/template

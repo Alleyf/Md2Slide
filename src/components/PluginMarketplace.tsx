@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { pluginManager } from '../services/pluginManager';
 import { BasePlugin } from '../services/plugins/BasePlugin';
-import { Puzzle, Search, X, Info, CheckCircle, PlayCircle, StopCircle, User, Zap, Star } from 'lucide-react';
+import { Puzzle, Search, X, Info, CheckCircle, PlayCircle, StopCircle, User, Zap, Star, Download } from 'lucide-react';
 
 interface PluginMarketplaceProps {
   isOpen: boolean;
@@ -16,6 +16,14 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
   const [showDetails, setShowDetails] = useState(false);
   const [, setRefreshCount] = useState(0);
 
+  // 图标映射
+  const iconMap: Record<string, React.ReactNode> = {
+    'Zap': <Zap size={24} color="#f59e0b" />,
+    'PlayCircle': <PlayCircle size={24} color="#f97316" />,
+    'Download': <Download size={24} color="#10b981" />,
+    'Collaboration': <Zap size={24} color="#8b5cf6" />
+  };
+
   useEffect(() => {
     // 订阅插件管理器状态变化
     const unsubscribe = pluginManager.subscribe(() => {
@@ -27,8 +35,8 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
   useEffect(() => {
     const fetchPlugins = async () => {
       setLoading(true);
-      // 模拟从服务器获取可用插件
-      const allPlugins = [
+      // 模拟从服务器获取可用插件，并合并本地已注册插件
+      const mockPlugins = [
         {
           id: 'diagram-maker',
           name: '图表制作器',
@@ -37,7 +45,7 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
           version: '1.0.0',
           tags: ['diagram', 'visualization', 'flowchart'],
           previewImage: '/plugins/previews/diagram-maker.jpg',
-          icon: <Zap size={24} color="#f59e0b" />,
+          icon: iconMap['Zap'],
           features: ['流程图', '架构图', 'UML图']
         },
         {
@@ -48,7 +56,7 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
           version: '1.0.0',
           tags: ['collaboration', 'real-time', 'sharing'],
           previewImage: '/plugins/previews/collaboration.jpg',
-          icon: <Zap size={24} color="#8b5cf6" />,
+          icon: iconMap['Collaboration'],
           features: ['实时同步', '评论系统', '权限管理']
         },
         {
@@ -59,12 +67,23 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
           version: '1.0.0',
           tags: ['code', 'runner', 'interactive'],
           previewImage: '/plugins/previews/code-runner.jpg',
-          icon: <PlayCircle size={24} color="#f97316" />,
+          icon: iconMap['PlayCircle'],
           features: ['JS 实时运行', 'HTML 预览', '控制台输出重定向']
+        },
+        {
+          id: 'download-plugin',
+          name: '文件下载助手',
+          description: '支持通过右键菜单下载单个文件或整个目录的压缩包',
+          author: 'Md2Slide',
+          version: '1.0.0',
+          tags: ['utility', 'file-management', 'download'],
+          previewImage: '/plugins/previews/download.jpg',
+          icon: iconMap['Download'],
+          features: ['单文件下载', '目录压缩下载', '右键菜单集成']
         }
       ];
       
-      setAvailablePlugins(allPlugins);
+      setAvailablePlugins(mockPlugins);
       setLoading(false);
     };
 

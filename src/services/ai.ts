@@ -59,39 +59,58 @@ export class AIService {
    * 发送请求到AI模型
    */
   async request(options: AIRequestOptions): Promise<AIResponse> {
+    console.log(`AI Request [${this.config.provider}]:`, options.prompt.substring(0, 50) + '...');
+    
     // 根据配置的提供商调用相应的API
-    switch (this.config.provider) {
-      case 'openai':
-        return this.callOpenAIAPI(options);
-      case 'anthropic':
-        return this.callAnthropicAPI(options);
-      case 'ollama':
-        return this.callOllamaAPI(options);
-      case 'local':
-        return this.callLocalAPI(options);
-      default:
-        throw new Error(`不支持的AI提供商: ${this.config.provider}`);
+    try {
+      switch (this.config.provider) {
+        case 'openai':
+          return await this.callOpenAIAPI(options);
+        case 'anthropic':
+          return await this.callAnthropicAPI(options);
+        case 'ollama':
+          return await this.callOllamaAPI(options);
+        case 'local':
+        case 'custom':
+          return await this.callLocalAPI(options);
+        default:
+          throw new Error(`不支持的AI提供商: ${this.config.provider}`);
+      }
+    } catch (error) {
+      console.error('AI Service Request Error:', error);
+      throw error;
     }
   }
 
   private getFullURL(baseURL: string | undefined, defaultBase: string, endpoint: string): string {
-    const base = baseURL || defaultBase;
-    // 如果 baseURL 已经包含了 endpoint，则直接返回
-    if (base.endsWith(endpoint)) return base;
-    // 移除末尾的斜杠并拼接
-    return `${base.replace(/\/+$/, '')}${endpoint}`;
+    let base = (baseURL || defaultBase).trim();
+    // 移除末尾的所有斜杠
+    base = base.replace(/\/+$/, '');
+    
+    // 如果 base 已经包含了 endpoint (忽略大小写和末尾斜杠)，则直接使用 base
+    const lowerBase = base.toLowerCase();
+    const lowerEndpoint = endpoint.toLowerCase();
+    
+    if (lowerBase.endsWith(lowerEndpoint)) {
+      return base;
+    }
+    
+    // 否则拼接 endpoint
+    return `${base}${endpoint}`;
   }
 
   /**
    * 调用OpenAI API
    */
   private async callOpenAIAPI(options: AIRequestOptions): Promise<AIResponse> {
-    const apiKey = this.config.apiKey;
+    const apiKey = this.config.apiKey?.trim();
     if (!apiKey) {
       throw new Error('OpenAI API密钥未配置');
     }
 
     const url = this.getFullURL(this.config.baseURL, 'https://api.openai.com/v1', ENDPOINTS.OPENAI);
+    console.log('Fetching OpenAI URL:', url);
+    
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -124,12 +143,14 @@ export class AIService {
    * 调用Anthropic API
    */
   private async callAnthropicAPI(options: AIRequestOptions): Promise<AIResponse> {
-    const apiKey = this.config.apiKey;
+    const apiKey = this.config.apiKey?.trim();
     if (!apiKey) {
       throw new Error('Anthropic API密钥未配置');
     }
 
     const url = this.getFullURL(this.config.baseURL, 'https://api.anthropic.com/v1', ENDPOINTS.ANTHROPIC);
+    console.log('Fetching Anthropic URL:', url);
+    
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -168,6 +189,8 @@ export class AIService {
    */
   private async callOllamaAPI(options: AIRequestOptions): Promise<AIResponse> {
     const url = this.getFullURL(this.config.baseURL, 'http://localhost:11434', ENDPOINTS.OLLAMA);
+    console.log('Fetching Ollama URL:', url);
+    
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -265,12 +288,15 @@ export class AIService {
    */
   updateConfig(newConfig: Partial<AIServiceConfig>): void {
     this.config = { ...this.config, ...newConfig };
+    if (newConfig.model) {
+      this.capabilities = this.detectCapabilities(newConfig.model);
+    }
   }
 }
 
 // 默认配置从环境变量读取
 export const DEFAULT_AI_CONFIG: AIServiceConfig = {
-  provider: (import.meta.env.VITE_AI_PROVIDER as any) || 'openai',
+  provider: (import.meta.env.VITE_AI_PROVIDER as 'openai' | 'anthropic' | 'ollama' | 'local' | 'custom') || 'openai',
   model: import.meta.env.VITE_AI_MODEL || 'gpt-3.5-turbo',
   apiKey: import.meta.env.VITE_AI_API_KEY || '',
   baseURL: import.meta.env.VITE_AI_BASE_URL || 'https://api.openai.com/v1'

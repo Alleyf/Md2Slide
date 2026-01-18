@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, Wand2, Type, Image as ImageIcon, MessageSquare, X } from 'lucide-react';
-import { aiService } from '../services/ai';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { aiService, DEFAULT_AI_CONFIG } from '../services/ai';
+import { getStorageItem, storageKeys } from '../utils/storage';
+import { AIServiceConfig } from '../types/ai';
 
 interface SelectionAIAssistantProps {
   selection: string;
@@ -32,16 +36,39 @@ export const SelectionAIAssistant: React.FC<SelectionAIAssistantProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onClose]);
 
-  const handleAction = async (action: string, promptPrefix: string) => {
+  // 监听存储变化（确保彩蛋触发或设置变更后，划词助手也能同步最新配置）
+  useEffect(() => {
+    const handleConfigSync = () => {
+      const latestConfig = getStorageItem<AIServiceConfig>(storageKeys.AI_CONFIG, DEFAULT_AI_CONFIG);
+      aiService.updateConfig(latestConfig);
+    };
+
+    window.addEventListener('storage', handleConfigSync);
+    window.addEventListener('ai-config-updated', handleConfigSync);
+    
+    // 初始加载时也确保同步一次
+    handleConfigSync();
+    
+    return () => {
+      window.removeEventListener('storage', handleConfigSync);
+      window.removeEventListener('ai-config-updated', handleConfigSync);
+    };
+  }, []);
+
+  const handleAction = async (e: React.MouseEvent, action: string, promptPrefix: string) => {
+    e.preventDefault();
+    e.stopPropagation();
     setLoading(true);
     setShowResult(true);
+    setResult(''); // 清空之前的结果
     try {
       const response = await aiService.request({
         prompt: `${promptPrefix}\n\n内容：${selection}`
       });
       setResult(response.content);
     } catch (error) {
-      setResult('AI 处理失败，请检查配置或稍后再试。');
+      const errorMsg = (error as Error).message || '未知错误';
+      setResult(`### ❌ AI 处理失败\n\n**原因**：${errorMsg}\n\n请检查 AI 配置（API Key、提供商、网络等）或稍后再试。`);
     } finally {
       setLoading(false);
     }
@@ -57,10 +84,12 @@ export const SelectionAIAssistant: React.FC<SelectionAIAssistantProps> = ({
   return (
     <div
       ref={menuRef}
+      className="selection-ai-assistant"
+      onMouseDown={(e) => e.stopPropagation()}
       style={{
         position: 'fixed',
-        top: position.y + 10,
-        left: position.x,
+        top: position.y + 15, // 稍微多一点偏移
+        left: position.x + 5, // 稍微向右偏移
         zIndex: 10000,
         backgroundColor: theme.colors.surface,
         borderRadius: '8px',
@@ -70,7 +99,11 @@ export const SelectionAIAssistant: React.FC<SelectionAIAssistantProps> = ({
         flexDirection: 'column',
         minWidth: '120px',
         overflow: 'hidden',
-        animation: 'fadeIn 0.2s ease-out'
+        animation: 'fadeIn 0.2s ease-out',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        MozUserSelect: 'none',
+        msUserSelect: 'none'
       }}
     >
       {!showResult ? (
@@ -78,7 +111,7 @@ export const SelectionAIAssistant: React.FC<SelectionAIAssistantProps> = ({
           {actions.map(action => (
             <button
               key={action.id}
-              onClick={() => handleAction(action.id, action.prompt)}
+              onMouseDown={(e) => handleAction(e, action.id, action.prompt)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -106,7 +139,14 @@ export const SelectionAIAssistant: React.FC<SelectionAIAssistantProps> = ({
             <span style={{ fontSize: '12px', fontWeight: 600, color: theme.primaryColor, display: 'flex', alignItems: 'center', gap: '4px' }}>
               <Sparkles size={12} /> AI 结果
             </span>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: theme.colors.textSecondary }}>
+            <button 
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+              }} 
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: theme.colors.textSecondary }}
+            >
               <X size={14} />
             </button>
           </div>
@@ -118,17 +158,24 @@ export const SelectionAIAssistant: React.FC<SelectionAIAssistantProps> = ({
               <div style={{ 
                 fontSize: '13px', 
                 color: theme.colors.text, 
-                maxHeight: '200px', 
+                maxHeight: '300px', 
                 overflowY: 'auto', 
                 marginBottom: '12px',
-                whiteSpace: 'pre-wrap',
-                lineHeight: '1.5'
+                lineHeight: '1.6'
               }}>
-                {result}
+                <div className="markdown-body">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {result}
+                  </ReactMarkdown>
+                </div>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
-                  onClick={() => onApply(result)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onApply(result);
+                  }}
                   style={{
                     flex: 1,
                     padding: '6px',
@@ -143,7 +190,9 @@ export const SelectionAIAssistant: React.FC<SelectionAIAssistantProps> = ({
                   应用替换
                 </button>
                 <button
-                  onClick={() => {
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     navigator.clipboard.writeText(result);
                     onClose();
                   }}

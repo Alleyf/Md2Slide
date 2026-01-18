@@ -1,3 +1,17 @@
+import { FileItem } from '../../types/file';
+
+export interface ContextMenuAction {
+  id: string;
+  label: string | ((item: FileItem) => string);
+  icon?: string;
+  onClick: (item: FileItem) => void | Promise<void>;
+}
+
+export interface PluginAPI {
+  registerContextMenuAction: (action: ContextMenuAction) => void;
+  // 可以根据需要添加更多 API
+}
+
 export interface PluginManifest {
   id: string;
   name: string;
@@ -25,7 +39,7 @@ export abstract class BasePlugin {
   /**
    * 初始化插件
    */
-  abstract initialize(): void;
+  abstract initialize(api: PluginAPI): void;
 
   /**
    * 销毁插件

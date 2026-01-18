@@ -39,6 +39,12 @@ export const setStorageItem = <T>(key: string, value: T): boolean => {
 
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
+    
+    // 触发自定义事件，以便同一页面内的组件能感知变化
+    if (key === storageKeys.AI_CONFIG) {
+      window.dispatchEvent(new CustomEvent('ai-config-updated'));
+    }
+    
     return true;
   } catch (error) {
     console.error(`Error writing to localStorage key "${key}":`, error);

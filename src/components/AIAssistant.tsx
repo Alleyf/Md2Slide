@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { aiService, DEFAULT_AI_CONFIG } from '../services/ai';
 import { AIResponse, AIServiceConfig } from '../types/ai';
 import { getStorageItem, setStorageItem, storageKeys } from '../utils/storage';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Sparkles, Wand2, List, FileText, Settings, X, Send, Check, Languages, Volume2, Zap, Info, Save } from 'lucide-react';
 
 interface AIAssistantProps {
@@ -32,6 +34,24 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
     return getStorageItem<AIServiceConfig>(storageKeys.AI_CONFIG, DEFAULT_AI_CONFIG);
   });
 
+  // 监听存储变化（用于彩蛋触发后的自动同步）
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const latestConfig = getStorageItem<AIServiceConfig>(storageKeys.AI_CONFIG, DEFAULT_AI_CONFIG);
+      setConfig(latestConfig);
+      aiService.updateConfig(latestConfig);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    // 同时也监听自定义事件，因为 setStorageItem 可能不会触发当前窗口的 storage 事件
+    window.addEventListener('ai-config-updated', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('ai-config-updated', handleStorageChange);
+    };
+  }, []);
+
   const capabilities = aiService.getCapabilities();
 
   // 初始化时更新服务配置
@@ -51,6 +71,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
 
   const handleAIRequest = async (prompt: string) => {
     setLoading(true);
+    setResponse(null); // 清除旧响应
     try {
       // 确保服务使用最新配置
       aiService.updateConfig(config);
@@ -58,8 +79,9 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
       setResponse(result);
     } catch (error) {
       console.error('AI request failed:', error);
+      const errorMsg = (error as Error).message || '未知错误';
       setResponse({
-        content: 'AI服务暂时不可用，请稍后再试。',
+        content: `### ❌ AI 服务请求失败\n\n**原因**：${errorMsg}\n\n请检查配置或稍后再试。`,
         usage: undefined,
         model: undefined
       });
@@ -585,14 +607,17 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
                 backgroundColor: '#f9fafb',
                 border: '1px solid #e5e7eb',
                 borderRadius: '8px',
-                maxHeight: isSidebar ? '300px' : '200px',
+                maxHeight: isSidebar ? '300px' : '400px',
                 overflowY: 'auto',
                 fontSize: '13px',
-                lineHeight: '1.5',
-                whiteSpace: 'pre-wrap'
+                lineHeight: '1.6'
               }}
             >
-              {response.content}
+              <div className="markdown-body">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {response.content}
+                </ReactMarkdown>
+              </div>
             </div>
             <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
               <button

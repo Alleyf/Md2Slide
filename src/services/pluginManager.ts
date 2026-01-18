@@ -1,7 +1,8 @@
-import { BasePlugin } from './plugins/BasePlugin';
+import { BasePlugin, ContextMenuAction, PluginAPI } from './plugins/BasePlugin';
 import { CodeRunnerPlugin } from './plugins/CodeRunnerPlugin';
 import { DiagramMakerPlugin } from './plugins/DiagramMakerPlugin';
 import { CollaborationPlugin } from './plugins/CollaborationPlugin';
+import { DownloadPlugin } from './plugins/DownloadPlugin';
 import { getStorageItem, setStorageItem, storageKeys } from '../utils/storage';
 
 interface PluginResult {
@@ -17,9 +18,21 @@ export class PluginManager {
   private plugins: Map<string, BasePlugin> = new Map();
   private enabledPlugins: Set<string> = new Set();
   private listeners: Set<() => void> = new Set();
+  private contextMenuActions: Map<string, ContextMenuAction[]> = new Map();
 
   constructor() {
     this.loadState();
+  }
+
+  private createPluginAPI(pluginId: string): PluginAPI {
+    return {
+      registerContextMenuAction: (action: ContextMenuAction) => {
+        const actions = this.contextMenuActions.get(pluginId) || [];
+        actions.push(action);
+        this.contextMenuActions.set(pluginId, actions);
+        this.notify();
+      }
+    };
   }
 
   private loadState() {
@@ -50,8 +63,7 @@ export class PluginManager {
    * 注册插件
    */
   registerPlugin(plugin: BasePlugin): boolean {
-    // 兼容实例 manifest 和 静态 manifest
-    const id = plugin.manifest?.id || (plugin.constructor as typeof BasePlugin).manifest?.id;
+    const id = plugin.manifest?.id;
     
     if (!id) {
       console.error('Plugin must have an id in manifest');
@@ -68,7 +80,7 @@ export class PluginManager {
     // 如果插件已在启用列表中，则初始化它
     if (this.enabledPlugins.has(id)) {
       try {
-        plugin.initialize();
+        plugin.initialize(this.createPluginAPI(id));
       } catch (error) {
         console.error(`Failed to auto-initialize plugin ${id}:`, error);
       }
@@ -92,7 +104,7 @@ export class PluginManager {
     }
 
     try {
-      plugin.initialize();
+      plugin.initialize(this.createPluginAPI(pluginId));
       this.enabledPlugins.add(pluginId);
       this.saveState();
       this.notify();
@@ -119,6 +131,7 @@ export class PluginManager {
     try {
       plugin.destroy();
       this.enabledPlugins.delete(pluginId);
+      this.contextMenuActions.delete(pluginId);
       this.saveState();
       this.notify();
       return { success: true };
@@ -126,6 +139,20 @@ export class PluginManager {
       console.error(`Failed to disable plugin ${pluginId}:`, error);
       return { success: false, error: `Failed to destroy plugin: ${(error as Error).message}` };
     }
+  }
+
+  /**
+   * 获取所有注册的右键菜单项
+   */
+  getContextMenuActions(): ContextMenuAction[] {
+    const allActions: ContextMenuAction[] = [];
+    this.enabledPlugins.forEach(id => {
+      const actions = this.contextMenuActions.get(id);
+      if (actions) {
+        allActions.push(...actions);
+      }
+    });
+    return allActions;
   }
 
   /**
@@ -188,3 +215,4 @@ export const pluginManager = new PluginManager();
 pluginManager.registerPlugin(new CodeRunnerPlugin());
 pluginManager.registerPlugin(new DiagramMakerPlugin());
 pluginManager.registerPlugin(new CollaborationPlugin());
+pluginManager.registerPlugin(new DownloadPlugin());

@@ -1,5 +1,5 @@
 export interface AIServiceConfig {
-  provider: 'openai' | 'anthropic' | 'ollama' | 'local';
+  provider: 'openai' | 'anthropic' | 'ollama' | 'local' | 'custom';
   apiKey?: string;
   baseURL?: string;
   model?: string;
@@ -35,4 +35,6 @@ export interface AIAssistantCapabilities {
   generateSlides: boolean;
   generateImages: boolean;
   translate: boolean;
+  reasoning: boolean;
+  toolUse: boolean;
 }

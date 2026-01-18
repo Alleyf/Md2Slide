@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { ThemeConfig } from '../types/theme';
 import { FileItem } from '../types/file';
 
+import { pluginManager } from '../services/pluginManager';
+
 interface FileTreeItemProps {
   item: FileItem;
   depth: number;
@@ -10,16 +12,46 @@ interface FileTreeItemProps {
   onDelete: (fileName: string) => void;
   theme: ThemeConfig;
   onContextMenu: (e: React.MouseEvent, item: FileItem) => void;
+  onMove?: (sourcePath: string, targetPath: string) => void;
 }
 
 const FileTreeItem: React.FC<FileTreeItemProps> = ({ 
-  item, depth, activeFile, onFileClick, onDelete, theme, onContextMenu 
+  item, depth, activeFile, onFileClick, onDelete, theme, onContextMenu, onMove
 }) => {
   const [isOpen, setIsOpen] = useState(true);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     onContextMenu(e, item);
+  };
+
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('text/plain', item.path);
+    e.stopPropagation();
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (item.kind === 'directory') {
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    
+    const sourcePath = e.dataTransfer.getData('text/plain');
+    if (sourcePath && sourcePath !== item.path && onMove) {
+      onMove(sourcePath, item.path);
+    }
   };
 
   if (item.kind === 'directory') {
@@ -28,6 +60,11 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
         <div
           onClick={() => setIsOpen(!isOpen)}
           onContextMenu={handleContextMenu}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          draggable
           data-file-item="true"
           style={{
             padding: '6px 15px',
@@ -40,10 +77,15 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
             gap: '6px',
             transition: 'all 0.2s',
             fontWeight: 500,
-            opacity: 0.9
+            opacity: 0.9,
+            backgroundColor: isDragOver ? (theme.theme === 'dark' ? 'rgba(58,134,255,0.2)' : 'rgba(37,99,235,0.1)') : 'transparent'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          onMouseEnter={(e) => {
+            if (!isDragOver) e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)';
+          }}
+          onMouseLeave={(e) => {
+            if (!isDragOver) e.currentTarget.style.background = 'transparent';
+          }}
         >
           <span style={{ fontSize: '10px', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>▶</span>
           <span style={{ fontSize: '14px' }}>📁</span>
@@ -53,7 +95,7 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
         </div>
         {isOpen && item.children?.map(child => (
           <FileTreeItem
-            key={child.name}
+            key={child.path || child.name}
             item={child}
             depth={depth + 1}
             activeFile={activeFile}
@@ -61,6 +103,7 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
             onDelete={onDelete}
             theme={theme}
             onContextMenu={onContextMenu}
+            onMove={onMove}
           />
         ))}
       </>
@@ -71,25 +114,27 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
     <div
       onClick={() => onFileClick(item)}
       onContextMenu={handleContextMenu}
+      onDragStart={handleDragStart}
+      draggable
       data-file-item="true"
       style={{
         padding: '6px 15px',
         paddingLeft: `${15 + depth * 12 + 16}px`,
         fontSize: '13px',
-        color: activeFile === item.name ? theme.primaryColor : theme.colors.textSecondary,
+        color: activeFile === item.path ? theme.primaryColor : theme.colors.textSecondary,
         cursor: 'pointer',
-        background: activeFile === item.name ? (theme.theme === 'dark' ? 'rgba(58,134,255,0.1)' : 'rgba(37,99,235,0.05)') : 'transparent',
-        borderLeft: `3px solid ${activeFile === item.name ? theme.primaryColor : 'transparent'}`,
+        background: activeFile === item.path ? (theme.theme === 'dark' ? 'rgba(58,134,255,0.1)' : 'rgba(37,99,235,0.05)') : 'transparent',
+        borderLeft: `3px solid ${activeFile === item.path ? theme.primaryColor : 'transparent'}`,
         transition: 'all 0.2s',
         display: 'flex',
         alignItems: 'center',
         gap: '8px'
       }}
       onMouseEnter={(e) => {
-        if (activeFile !== item.name) e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)';
+        if (activeFile !== item.path) e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)';
       }}
       onMouseLeave={(e) => {
-        if (activeFile !== item.name) e.currentTarget.style.background = 'transparent';
+        if (activeFile !== item.path) e.currentTarget.style.background = 'transparent';
       }}
     >
       <span style={{ fontSize: '14px' }}>{item.isStatic ? '📚' : '📄'}</span>
@@ -106,6 +151,7 @@ interface FileTreeProps {
   onFileClick: (file: FileItem) => void;
   onDelete: (fileName: string) => void;
   onRename: (fileName: string) => void;
+  onMove?: (sourcePath: string, targetPath: string) => void;
   onExport: (file: FileItem) => void;
    onExportPPTX?: (file: FileItem) => void;
    onExportWord?: (file: FileItem) => void;
@@ -121,6 +167,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   onFileClick,
   onDelete,
   onRename,
+  onMove,
   onExport,
   onExportPPTX,
   onExportWord,
@@ -137,11 +184,13 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
   const closeMenu = () => setContextMenu(null);
 
+  const pluginActions = pluginManager.getContextMenuActions();
+
   const handleTreeContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     // 如果右键点击在空白处，使用根目录作为默认项
     if (!(e.target as HTMLElement).closest('[data-file-item]')) {
-      const dummyItem: FileItem = { name: 'root', kind: 'directory', children: files };
+      const dummyItem: FileItem = { name: 'root', path: 'root', kind: 'directory', children: files };
       setContextMenu({ x: e.clientX, y: e.clientY, item: dummyItem });
     }
   };
@@ -154,7 +203,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
     >
       {files.map(file => (
         <FileTreeItem
-          key={file.name}
+          key={file.path || file.name}
           item={file}
           depth={0}
           activeFile={activeFile}
@@ -162,6 +211,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           onDelete={onDelete}
           theme={theme}
           onContextMenu={handleContextMenu}
+          onMove={onMove}
         />
       ))}
 
@@ -349,7 +399,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           </div>
           <div
             onClick={() => {
-              onRename(contextMenu.item.name);
+              onRename(contextMenu.item.path);
               closeMenu();
             }}
             style={{
@@ -369,7 +419,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           </div>
           <div
             onClick={() => {
-              onDelete(contextMenu.item.name);
+              onDelete(contextMenu.item.path);
               closeMenu();
             }}
             style={{
@@ -387,6 +437,35 @@ export const FileTree: React.FC<FileTreeProps> = ({
           >
             <span>🗑️</span> 删除文件
           </div>
+
+          {pluginActions.length > 0 && (
+            <>
+              <div style={{ height: '1px', background: theme.colors.border, margin: '4px 0' }} />
+              {pluginActions.map(action => (
+                <div
+                  key={action.id}
+                  onClick={() => {
+                    action.onClick(contextMenu.item);
+                    closeMenu();
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    fontSize: '13px',
+                    color: theme.colors.text,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  <span>🔧</span> {typeof action.label === 'function' ? action.label(contextMenu.item) : action.label}
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
       

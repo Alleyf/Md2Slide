@@ -1,18 +1,16 @@
-import { BasePlugin, PluginManifest } from './BasePlugin';
+import { BasePlugin, PluginManifest, PluginAPI } from './BasePlugin';
 
 export class DiagramMakerPlugin extends BasePlugin {
-  static get manifest(): PluginManifest {
-    return {
-      id: 'diagram-maker',
-      name: '图表制作器',
-      description: '创建流程图、架构图和其他图表，支持 Mermaid 语法',
-      author: 'Md2Slide Team',
-      version: '1.0.0',
-      tags: ['diagram', 'visualization', 'flowchart', 'mermaid'],
-    };
-  }
+  static manifest: PluginManifest = {
+    id: 'diagram-maker',
+    name: '图表制作器',
+    description: '创建流程图、架构图和其他图表，支持 Mermaid 语法',
+    author: 'Md2Slide Team',
+    version: '1.0.0',
+    tags: ['diagram', 'visualization', 'flowchart', 'mermaid'],
+  };
 
-  initialize(): void {
+  initialize(api: PluginAPI): void {
     console.log('DiagramMakerPlugin initialized');
     // 这里可以集成 mermaid.js
   }

@@ -1,25 +1,23 @@
-import { BasePlugin, PluginManifest } from './BasePlugin';
+import { BasePlugin, PluginManifest, PluginAPI } from './BasePlugin';
 
 /**
  * 代码实时运行插件
  * 允许在幻灯片中直接运行代码块
  */
 export class CodeRunnerPlugin extends BasePlugin {
-  static get manifest(): PluginManifest {
-    return {
-      id: 'code-runner-plugin',
-      name: '代码实时运行',
-      description: '允许在幻灯片预览中直接运行 JavaScript、HTML 代码块',
-      version: '1.0.0',
-      author: 'Md2Slide Team',
-      tags: ['code', 'runner', 'interactive'],
-      previewImage: '/plugins/previews/code-runner.jpg',
-      icon: 'PlayCircle',
-      features: ['JS 实时运行', 'HTML 预览', '控制台输出重定向']
-    };
-  }
+  static manifest: PluginManifest = {
+    id: 'code-runner-plugin',
+    name: '代码实时运行',
+    description: '允许在幻灯片预览中直接运行 JavaScript、HTML 代码块',
+    version: '1.0.0',
+    author: 'Md2Slide Team',
+    tags: ['code', 'runner', 'interactive'],
+    previewImage: '/plugins/previews/code-runner.jpg',
+    icon: 'PlayCircle',
+    features: ['JS 实时运行', 'HTML 预览', '控制台输出重定向']
+  };
 
-  initialize(): void {
+  initialize(api: PluginAPI): void {
     console.log('CodeRunnerPlugin initialized');
     // 在实际应用中，这里会注册全局的运行函数或者劫持预览区域的渲染
   }

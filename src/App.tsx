@@ -21,7 +21,10 @@ import { htmlToMarkdown } from './utils/htmlToMarkdown';
 import { getStorageItem, setStorageItem, storageKeys } from './utils/storage';
 import { AIAssistant } from './components/AIAssistant';
 import { SelectionAIAssistant } from './components/SelectionAIAssistant';
+import { aiService, DEFAULT_AI_CONFIG } from './services/ai';
 import { ThemeMarketplace } from './components/ThemeMarketplace';
+import { TemplateMarketplace } from './components/TemplateMarketplace';
+import { Template } from './services/templateMarketplaceService';
 import { themeMarketplaceService } from './services/themeMarketplace';
 import { PluginMarketplace } from './components/PluginMarketplace';
 import { pluginManager } from './services/pluginManager';
@@ -34,6 +37,7 @@ interface AppSettings {
   enableAutoAnimate: boolean;
   autoAnimateDuration: number;
   autoAnimateEasing: string;
+  htmlPreviewBackground?: string;
 }
 
 const defaultAppSettings: AppSettings = {
@@ -43,6 +47,7 @@ const defaultAppSettings: AppSettings = {
   enableAutoAnimate: false,
   autoAnimateDuration: 600,
   autoAnimateEasing: 'ease-in-out',
+  htmlPreviewBackground: '', // 默认跟随主题
 };
 
 export const App: React.FC = () => {
@@ -56,13 +61,13 @@ export const App: React.FC = () => {
   const [showTOC, setShowTOC] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeFile, setActiveFile] = useState<string | null>('tutorial.md');
+  const [activeFile, setActiveFile] = useState<string | null>('docs/tutorial.md');
   const [toc, setToc] = useState<TOCItem[]>([]);
   const [activePreviewSlideIndex, setActivePreviewSlideIndex] = useState(0);
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const [fileList, setFileList] = useState<FileItem[]>([
-    { name: 'tutorial.md', kind: 'file', isStatic: true },
-    { name: 'tutorial.html', kind: 'file', isStatic: true }
+    { name: 'tutorial.md', path: 'docs/tutorial.md', kind: 'file', isStatic: true },
+    { name: 'tutorial.html', path: 'docs/tutorial.html', kind: 'file', isStatic: true }
   ]);
   const [logoClicks, setLogoClicks] = useState(0);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
@@ -83,6 +88,7 @@ export const App: React.FC = () => {
     position: { x: number; y: number };
   } | null>(null);
   const [showThemeMarketplace, setShowThemeMarketplace] = useState(false);
+  const [showTemplateMarketplace, setShowTemplateMarketplace] = useState(false);
   const [showPluginMarketplace, setShowPluginMarketplace] = useState(false);
   const [showAISidebar, setShowAISidebar] = useState(false);
   const [inputModal, setInputModal] = useState<{
@@ -90,8 +96,9 @@ export const App: React.FC = () => {
     type: 'link' | 'image' | 'video' | 'audio' | 'rename' | 'confirm' | 'create';
     value: string;
     titleValue?: string;
+    fileType?: 'markdown' | 'html';
     message?: string;
-    callback?: (val: string, title?: string) => void;
+    callback?: (val: string, title?: string, fileType?: 'markdown' | 'html') => void;
   }>({ show: false, type: 'link', value: '' });
   type LayoutSection = 'sidebar' | 'editor' | 'preview' | 'ai';
   const [layoutOrder, setLayoutOrder] = useState<LayoutSection[]>(['sidebar', 'editor', 'preview']);
@@ -181,6 +188,11 @@ export const App: React.FC = () => {
     if (newClicks >= 3) {
       setShowEasterEgg(true);
       setLogoClicks(0);
+      
+      // 彩蛋触发：自动切换为内置 AI 配置并保存
+      setStorageItem(storageKeys.AI_CONFIG, DEFAULT_AI_CONFIG);
+      aiService.updateConfig(DEFAULT_AI_CONFIG);
+      
       setTimeout(() => setShowEasterEgg(false), 5000);
     }
     // 3秒后重置点击次数
@@ -188,14 +200,34 @@ export const App: React.FC = () => {
     return () => clearTimeout(timer);
   };
 
+  const handleTemplateApply = (template: Template) => {
+    // 创建一个新文件来存放模板内容
+    const ext = template.type === 'html' ? '.html' : '.md';
+    const baseName = template.name.replace(/\.(md|html)$/, '');
+    const fileName = `${baseName}_${Date.now()}${ext}`;
+    
+    const newFile: FileItem = {
+      name: fileName,
+      kind: 'file',
+      content: template.content,
+      isStatic: false
+    };
+
+    setFileList(prev => [...prev, newFile]);
+    setActiveFile(fileName);
+    setContent(template.content);
+    setEditorMode(template.type === 'md' ? 'markdown' : template.type);
+    setShowTemplateMarketplace(false);
+  };
+
   const handleModeSwitch = (mode: 'markdown' | 'html') => {
     if (mode === editorMode) return;
     
     // 如果当前内容是默认的 md 教程且要切换到 html，或者反之，则加载对应的默认教程
-    if (mode === 'html' && (activeFile === 'tutorial.md' || content.includes('Markdown 教程'))) {
-      loadFile({ name: 'tutorial.html', kind: 'file', isStatic: true });
-    } else if (mode === 'markdown' && (activeFile === 'tutorial.html' || content.includes('HTML 模式指南'))) {
-      loadFile({ name: 'tutorial.md', kind: 'file', isStatic: true });
+    if (mode === 'html' && (activeFile === 'docs/tutorial.md' || content.includes('Markdown 教程'))) {
+      loadFile({ name: 'docs/tutorial.html', kind: 'file', isStatic: true });
+    } else if (mode === 'markdown' && (activeFile === 'docs/tutorial.html' || content.includes('HTML 模式指南'))) {
+      loadFile({ name: 'docs/tutorial.md', kind: 'file', isStatic: true });
     }
     
     setEditorMode(mode);
@@ -212,18 +244,80 @@ export const App: React.FC = () => {
     }
   };
 
+  const moveFile = (sourcePath: string, targetPath: string) => {
+    if (sourcePath === targetPath) return;
+
+    setFileList(prev => {
+      let movedItem: FileItem | null = null;
+
+      // 1. 查找并移除源项
+      const removeRecursive = (items: FileItem[]): FileItem[] => {
+        return items.filter(item => {
+          const currentPath = item.path || item.name;
+          if (currentPath === sourcePath) {
+            movedItem = { ...item };
+            return false;
+          }
+          if (item.children) {
+            const newChildren = removeRecursive(item.children);
+            if (newChildren !== item.children) {
+              item.children = newChildren;
+              return true;
+            }
+          }
+          return true;
+        });
+      };
+
+      const newListWithoutSource = removeRecursive([...prev]);
+
+      if (!movedItem) return prev;
+
+      // 2. 将项插入目标目录
+      const insertRecursive = (items: FileItem[]): FileItem[] => {
+        return items.map(item => {
+          const currentPath = item.path || item.name;
+          if (currentPath === targetPath && item.kind === 'directory') {
+            // 更新被移动项的路径
+            const updatePathRecursive = (file: FileItem, parentPath: string): FileItem => {
+              const newPath = `${parentPath}/${file.name}`;
+              return {
+                ...file,
+                path: newPath,
+                children: file.children?.map(child => updatePathRecursive(child, newPath))
+              };
+            };
+            
+            const newItem = updatePathRecursive(movedItem!, targetPath);
+            return {
+              ...item,
+              children: [...(item.children || []), newItem]
+            };
+          }
+          if (item.children) {
+            return { ...item, children: insertRecursive(item.children) };
+          }
+          return item;
+        });
+      };
+
+      return insertRecursive(newListWithoutSource);
+    });
+  };
+
   const loadFile = async (file: FileItem) => {
     try {
       let text = '';
+      const filePath = file.path || file.name;
 
       // 优先从 localStorage 读取保存的内容
-      const storageKey = `md2slide_file_${file.name}`;
+      const storageKey = `md2slide_file_${filePath}`;
       const savedContent = localStorage.getItem(storageKey);
 
       if (savedContent !== null) {
         text = savedContent;
       } else if (file.isStatic) {
-        const response = await fetch(`/${file.name}`);
+        const response = await fetch(`/${filePath}`);
         if (response.ok) {
           text = await response.text();
         }
@@ -236,10 +330,10 @@ export const App: React.FC = () => {
 
       if (text) {
         setContent(text);
-        setActiveFile(file.name);
+        setActiveFile(filePath);
         
         // 自动切换模式
-        if (file.name.toLowerCase().endsWith('.html') || file.name.toLowerCase().endsWith('.htm')) {
+        if (filePath.toLowerCase().endsWith('.html') || filePath.toLowerCase().endsWith('.htm')) {
           setEditorMode('html');
         } else {
           setEditorMode('markdown');
@@ -250,17 +344,17 @@ export const App: React.FC = () => {
     }
   };
 
-  const deleteFile = (fileName: string) => {
+  const deleteFile = (filePath: string) => {
     setInputModal({
       show: true,
       type: 'confirm',
       value: '',
-      message: `确定要删除 ${fileName} 吗？`,
+      message: `确定要删除 ${filePath} 吗？`,
       callback: () => {
         setFileList(prev => {
           const removeRecursive = (items: FileItem[]): FileItem[] => {
             return items
-              .filter(item => item.name !== fileName)
+              .filter(item => (item.path || item.name) !== filePath)
               .map(item => ({
                 ...item,
                 children: item.children ? removeRecursive(item.children) : undefined
@@ -268,7 +362,7 @@ export const App: React.FC = () => {
           };
           return removeRecursive(prev);
         });
-        if (activeFile === fileName) {
+        if (activeFile === filePath) {
           setActiveFile(null);
           setContent('');
         }
@@ -330,12 +424,13 @@ export const App: React.FC = () => {
 
       const newFile: FileItem = {
         name: file.name,
+        path: file.name,
         kind: 'file',
         content: fileContent,
         handle: handle
       };
       setFileList(prev => {
-        const existingIndex = prev.findIndex(f => f.name === file.name);
+        const existingIndex = prev.findIndex(f => (f.path || f.name) === file.name);
         if (existingIndex !== -1) {
           const newList = [...prev];
           newList[existingIndex] = newFile;
@@ -349,18 +444,26 @@ export const App: React.FC = () => {
     }
   };
 
-  const renameFile = (oldName: string) => {
+  const renameFile = (oldPath: string) => {
+    // 获取当前文件名作为初始值
+    const fileName = oldPath.split('/').pop() || '';
+    
     setInputModal({
       show: true,
       type: 'rename',
-      value: oldName,
+      value: fileName,
       callback: (newName) => {
-        if (newName && newName !== oldName) {
+        if (newName && newName.trim()) {
+          const newPath = oldPath.includes('/') 
+            ? oldPath.substring(0, oldPath.lastIndexOf('/') + 1) + newName
+            : newName;
+
           setFileList(prev => {
             const renameRecursive = (items: FileItem[]): FileItem[] => {
               return items.map(item => {
-                if (item.name === oldName) {
-                  return { ...item, name: newName };
+                const currentPath = item.path || item.name;
+                if (currentPath === oldPath) {
+                  return { ...item, name: newName, path: newPath };
                 }
                 if (item.children) {
                   return { ...item, children: renameRecursive(item.children) };
@@ -370,8 +473,17 @@ export const App: React.FC = () => {
             };
             return renameRecursive(prev);
           });
-          if (activeFile === oldName) {
-            setActiveFile(newName);
+          
+          if (activeFile === oldPath) {
+            setActiveFile(newPath);
+            // 同步迁移 localStorage
+            const oldKey = `md2slide_file_${oldPath}`;
+            const newKey = `md2slide_file_${newPath}`;
+            const savedContent = localStorage.getItem(oldKey);
+            if (savedContent) {
+              localStorage.setItem(newKey, savedContent);
+              localStorage.removeItem(oldKey);
+            }
           }
         }
       }
@@ -383,15 +495,24 @@ export const App: React.FC = () => {
       show: true,
       type: 'create',
       value: '',
-      callback: (fileName) => {
+      fileType: 'markdown',
+      callback: (fileName, _, fileType) => {
         if (fileName && fileName.trim()) {
-          // 确保文件名以 .md 结尾
-          const finalFileName = fileName.endsWith('.md') ? fileName : `${fileName}.md`;
+          const ext = fileType === 'html' ? '.html' : '.md';
+          const nameWithExt = fileName.endsWith(ext) ? fileName : `${fileName}${ext}`;
+          
+          // 处理带有路径的文件名，例如 "docs/new.md"
+          const parts = nameWithExt.split('/');
+          const actualFileName = parts.pop() || '';
+          const parentPath = parentItem.path === 'root' ? '' : (parentItem.path || '');
+          const relativeDir = parts.join('/');
+          
+          const fullPath = [parentPath, relativeDir, actualFileName].filter(Boolean).join('/');
           
           // 检查文件名是否已存在
           const exists = (items: FileItem[]): boolean => {
             for (const item of items) {
-              if (item.name === finalFileName && item.kind === 'file') {
+              if (item.path === fullPath && item.kind === 'file') {
                 return true;
               }
               if (item.children) {
@@ -402,51 +523,56 @@ export const App: React.FC = () => {
           };
           
           if (exists(fileList)) {
-            alert(`文件 ${finalFileName} 已存在，请选择其他文件名`);
+            alert(`文件 ${fullPath} 已存在，请选择其他文件名`);
             return;
           }
 
-          // 创建新文件
+          // 创建新文件项
           const newFile: FileItem = {
-            name: finalFileName,
+            name: actualFileName,
+            path: fullPath,
             kind: 'file',
-            content: '', // 初始化为空内容
+            content: '',
             isStatic: false
           };
 
-          // 如果父项是目录，则在该目录下创建文件；否则在根目录创建
-          if (parentItem.kind === 'directory') {
-            // 在指定目录下创建新文件
-            const createInDir = (items: FileItem[]): FileItem[] => {
-              return items.map(item => {
-                if (item.name === parentItem.name && item.kind === 'directory') {
-                  return {
-                    ...item,
-                    children: [...(item.children || []), newFile]
-                  };
-                }
-                if (item.children) {
-                  return { ...item, children: createInDir(item.children) };
-                }
-                return item;
-              });
-            };
-            setFileList(prev => createInDir(prev));
-          } else {
-            // 在根目录创建文件（如果父项不是目录，可能是当前活动文件）
-            setFileList(prev => [...prev, newFile]);
+          // 如果有中间目录，需要递归创建
+          const createItemInTree = (items: FileItem[], targetParentPath: string, itemToAdd: FileItem): FileItem[] => {
+            // 如果是根目录
+            if (!targetParentPath || targetParentPath === 'root') {
+              return [...items, itemToAdd];
+            }
+
+            return items.map(item => {
+              if (item.path === targetParentPath && item.kind === 'directory') {
+                return {
+                  ...item,
+                  children: [...(item.children || []), itemToAdd]
+                };
+              }
+              if (item.children) {
+                return { ...item, children: createItemInTree(item.children, targetParentPath, itemToAdd) };
+              }
+              return item;
+            });
+          };
+
+          // 如果用户输入了路径，如 "subdir/file.md"
+          if (parts.length > 0) {
+            // 简单起见，这里我们只支持在现有目录下创建，或者只支持一级目录
+            // 更完善的做法是递归创建所有中间目录
+            alert('目前仅支持在现有目录下创建文件，请不要在文件名中包含斜杠');
+            return;
           }
+
+          setFileList(prev => {
+            const targetPath = parentItem.kind === 'directory' ? parentItem.path : 'root';
+            return createItemInTree(prev, targetPath, newFile);
+          });
           
-          // 自动打开新文件并设置初始内容
           setContent('');
-          setActiveFile(finalFileName);
-          
-          // 默认根据后缀设置模式
-          if (finalFileName.toLowerCase().endsWith('.html') || finalFileName.toLowerCase().endsWith('.htm')) {
-            setEditorMode('html');
-          } else {
-            setEditorMode('markdown');
-          }
+          setActiveFile(fullPath);
+          setEditorMode(fileType || 'markdown');
         }
       }
     });
@@ -457,16 +583,28 @@ export const App: React.FC = () => {
       // @ts-ignore - File System Access API
       const directoryHandle = await window.showDirectoryPicker();
       
-      async function buildTree(handle: FileSystemDirectoryHandle): Promise<FileItem[]> {
+      async function buildTree(handle: FileSystemDirectoryHandle, currentPath: string): Promise<FileItem[]> {
         const items: FileItem[] = [];
         // @ts-ignore
         for await (const entry of handle.values()) {
-          if (entry.kind === 'file' && entry.name.endsWith('.md')) {
-            items.push({ name: entry.name, kind: 'file', handle: entry as FileSystemFileHandle });
+          const entryPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+          if (entry.kind === 'file' && (entry.name.endsWith('.md') || entry.name.endsWith('.html'))) {
+            items.push({ 
+              name: entry.name, 
+              path: entryPath,
+              kind: 'file', 
+              handle: entry as FileSystemFileHandle 
+            });
           } else if (entry.kind === 'directory') {
-            const children = await buildTree(entry as FileSystemDirectoryHandle);
+            const children = await buildTree(entry as FileSystemDirectoryHandle, entryPath);
             if (children.length > 0) {
-              items.push({ name: entry.name, kind: 'directory', handle: entry as FileSystemDirectoryHandle, children });
+              items.push({ 
+                name: entry.name, 
+                path: entryPath,
+                kind: 'directory', 
+                handle: entry as FileSystemDirectoryHandle, 
+                children 
+              });
             }
           }
         }
@@ -476,12 +614,18 @@ export const App: React.FC = () => {
         });
       }
 
-      const tree = await buildTree(directoryHandle);
+      const tree = await buildTree(directoryHandle, directoryHandle.name);
       
       if (tree.length > 0) {
         // 当打开新文件夹时，完全替换 fileList，只显示选中的文件夹内容
         setFileList([
-          { name: directoryHandle.name, kind: 'directory', handle: directoryHandle, children: tree }
+          { 
+            name: directoryHandle.name, 
+            path: directoryHandle.name,
+            kind: 'directory', 
+            handle: directoryHandle, 
+            children: tree 
+          }
         ]);
         
         // 尝试加载第一个发现的文件
@@ -506,7 +650,7 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
-    loadFile({ name: 'tutorial.md', kind: 'file', isStatic: true });
+    loadFile({ name: 'tutorial.md', path: 'docs/tutorial.md', kind: 'file', isStatic: true });
   }, []);
 
   const applySnippet = (beforeStr: string, afterStr: string = '') => {
@@ -583,6 +727,23 @@ export const App: React.FC = () => {
       const storageKey = `md2slide_file_${activeFile}`;
       localStorage.setItem(storageKey, content);
 
+      // 同时更新 fileList 中的内容，确保下载等功能能获取到最新内容
+      setFileList(prev => {
+        const updateRecursive = (items: FileItem[]): FileItem[] => {
+          return items.map(item => {
+            const currentPath = item.path || item.name;
+            if (currentPath === activeFile && item.kind === 'file') {
+              return { ...item, content: content };
+            }
+            if (item.children) {
+              return { ...item, children: updateRecursive(item.children) };
+            }
+            return item;
+          });
+        };
+        return updateRecursive(prev);
+      });
+
       // 显示保存成功提示
       setShowSaveNotification(true);
       setTimeout(() => setShowSaveNotification(false), 2000);
@@ -633,38 +794,49 @@ export const App: React.FC = () => {
     });
   };
 
+  // 使用 ref 来存储防抖计时器
+  const selectionTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const handleTextSelection = (e: React.MouseEvent | React.KeyboardEvent) => {
     const textarea = editorRef.current;
     if (!textarea) return;
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selection = textarea.value.substring(start, end).trim();
-
-    if (selection && selection.length > 0) {
-      let x = 0;
-      let y = 0;
-
-      if ('clientX' in e) {
-        x = (e as React.MouseEvent).clientX;
-        y = (e as React.MouseEvent).clientY;
-      } else {
-        const rect = textarea.getBoundingClientRect();
-        x = rect.left + rect.width / 2;
-        y = rect.top + rect.height / 2;
-      }
-
-      setSelectionInfo({
-        text: selection,
-        position: { x, y }
-      });
-    } else {
-      setTimeout(() => {
-        if (editorRef.current && editorRef.current.selectionStart === editorRef.current.selectionEnd) {
-          setSelectionInfo(null);
-        }
-      }, 200);
+    if (selectionTimerRef.current) {
+      clearTimeout(selectionTimerRef.current);
     }
+
+    selectionTimerRef.current = setTimeout(() => {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const selection = textarea.value.substring(start, end).trim();
+
+      if (selection && selection.length > 0) {
+        let x = 0;
+        let y = 0;
+
+        if (e && 'clientX' in e) {
+          x = (e as React.MouseEvent).clientX;
+          y = (e as React.MouseEvent).clientY;
+        } else {
+          const rect = textarea.getBoundingClientRect();
+          x = rect.left + rect.width / 2;
+          y = rect.top + rect.height / 2;
+        }
+
+        setSelectionInfo({
+          text: selection,
+          position: { x, y }
+        });
+      } else {
+        // 只有在选区真正为空且没有进行 AI 助手操作时才清除
+        const currentTextarea = editorRef.current;
+        if (currentTextarea && currentTextarea.selectionStart === currentTextarea.selectionEnd) {
+          if (!document.activeElement?.closest('.selection-ai-assistant')) {
+            setSelectionInfo(null);
+          }
+        }
+      }
+    }, 150); // 稍微防抖
   };
 
   const handleSelectionApply = (newText: string) => {
@@ -884,13 +1056,27 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (activeFile) {
       setFileList(prev => {
-        const index = prev.findIndex(f => f.name === activeFile);
-        if (index !== -1 && prev[index].content !== undefined && prev[index].content !== content) {
-          const newList = [...prev];
-          newList[index] = { ...newList[index], content: content };
-          return newList;
-        }
-        return prev;
+        const updateRecursive = (items: FileItem[]): FileItem[] => {
+          return items.map(item => {
+            const currentPath = item.path || item.name;
+            if (currentPath === activeFile && item.kind === 'file') {
+              // 只有内容确实变化时才更新
+              if (item.content !== content) {
+                return { ...item, content: content };
+              }
+              return item;
+            }
+            if (item.children) {
+              const newChildren = updateRecursive(item.children);
+              if (newChildren !== item.children) {
+                return { ...item, children: newChildren };
+              }
+            }
+            return item;
+          });
+        };
+        const newList = updateRecursive(prev);
+        return newList === prev ? prev : newList;
       });
     }
   }, [content, activeFile]);
@@ -1361,6 +1547,7 @@ export const App: React.FC = () => {
                 }}
                 onDelete={deleteFile}
                 onRename={renameFile}
+                onMove={moveFile}
                 onExport={handleExportPDF}
                 onExportPPTX={handleExportPPTX}
                 onExportWord={handleExportWord}
@@ -1838,6 +2025,60 @@ export const App: React.FC = () => {
               </div>
             </div>
 
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                background: theme.theme === 'dark' ? 'rgba(15,23,42,0.6)' : '#f9fafb',
+                border: `1px dashed ${theme.colors.border}`
+              }}
+            >
+              <div style={{ fontSize: '13px', fontWeight: 600, color: theme.colors.text }}>预览设置</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
+                <span>HTML 预览背景</span>
+                <input
+                  type="color"
+                  value={appSettings.htmlPreviewBackground || theme.colors.background}
+                  onChange={(e) =>
+                    setAppSettings((prev) => ({
+                      ...prev,
+                      htmlPreviewBackground: e.target.value,
+                    }))
+                  }
+                  style={{
+                    padding: '0',
+                    width: '32px',
+                    height: '24px',
+                    borderRadius: '4px',
+                    border: `1px solid ${theme.colors.border}`,
+                    background: 'transparent',
+                    cursor: 'pointer'
+                  }}
+                  title="选择 HTML 预览背景色，留空则跟随主题"
+                />
+                <button
+                  onClick={() => setAppSettings(prev => ({ ...prev, htmlPreviewBackground: '' }))}
+                  style={{
+                    padding: '2px 8px',
+                    fontSize: '11px',
+                    borderRadius: '4px',
+                    border: `1px solid ${theme.colors.border}`,
+                    background: 'transparent',
+                    color: theme.colors.textSecondary,
+                    cursor: 'pointer'
+                  }}
+                >
+                  恢复默认
+                </button>
+              </div>
+              <div style={{ fontSize: '11px', color: theme.colors.textSecondary, opacity: 0.7 }}>
+                提示：HTML 预览模式下，可以使用 <code>.contrast-text</code> 类确保文字清晰。
+              </div>
+            </div>
+
             <div style={{ fontSize: '12px', color: theme.colors.textSecondary, marginTop: '4px' }}>
               设置会自动保存到浏览器本地，仅在当前设备生效。
             </div>
@@ -1986,7 +2227,8 @@ export const App: React.FC = () => {
                     onFileClick={loadFile}
                     onDelete={deleteFile}
                     onRename={renameFile}
-                  onExport={handleExportPDF}
+                    onMove={moveFile}
+                    onExport={handleExportPDF}
                   onExportPPTX={handleExportPPTX}
                   onExportWord={handleExportWord}
                     onImport={handleImportFile}
@@ -2242,6 +2484,34 @@ export const App: React.FC = () => {
                         HTML
                       </button>
                     </div>
+                    <button
+                      onClick={() => setShowTemplateMarketplace(true)}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '10px',
+                        border: `1px solid ${theme.colors.border}`,
+                        borderRadius: '6px',
+                        background: theme.colors.surface,
+                        color: theme.colors.text,
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = theme.primaryColor;
+                        e.currentTarget.style.color = theme.primaryColor;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = theme.colors.border;
+                        e.currentTarget.style.color = theme.colors.text;
+                      }}
+                    >
+                      <Layout size={12} />
+                      模板市场
+                    </button>
                     {activeFile && (
                     <span style={{ fontSize: '10px', opacity: 0.6, textTransform: 'none' }}>
                       正在编辑: {activeFile}
@@ -2495,10 +2765,11 @@ export const App: React.FC = () => {
                                     padding: 40px;
                                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                                     color: ${theme.colors.text};
-                                    background-color: ${theme.colors.background};
+                                    background-color: ${appSettings.htmlPreviewBackground || theme.colors.background};
                                     line-height: 1.6;
                                     font-size: 16px;
                                     word-break: break-word;
+                                    transition: background-color 0.3s, color 0.3s;
                                   }
                                   h1, h2, h3 {
                                     margin-top: 1.5em;
@@ -2513,6 +2784,11 @@ export const App: React.FC = () => {
                                   li { margin-bottom: 0.5em; }
                                   img { max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
                                   code { background: ${theme.colors.border}; padding: 0.2em 0.4em; border-radius: 4px; font-family: monospace; }
+                                  
+                                  /* 确保文字在高亮主题下清晰可见 */
+                                  .contrast-text {
+                                    color: ${theme.theme === 'dark' ? '#fff' : '#000'} !important;
+                                  }
                                 </style>
                               </head>
                               <body>
@@ -2649,6 +2925,14 @@ export const App: React.FC = () => {
         onClose={() => setShowPluginMarketplace(false)}
       />
 
+      {/* Template Marketplace Component */}
+      <TemplateMarketplace
+        isOpen={showTemplateMarketplace}
+        onClose={() => setShowTemplateMarketplace(false)}
+        onApplyTemplate={handleTemplateApply}
+        theme={theme}
+      />
+
       {/* Theme Marketplace Component */}
       <ThemeMarketplace
         isOpen={showThemeMarketplace}
@@ -2753,7 +3037,7 @@ export const App: React.FC = () => {
                     onChange={(e) => setInputModal(prev => ({ ...prev, value: e.target.value }))}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
-                        inputModal.callback?.(inputModal.value, inputModal.titleValue);
+                        inputModal.callback?.(inputModal.value, inputModal.titleValue, inputModal.fileType);
                         setInputModal(prev => ({ ...prev, show: false }));
                       } else if (e.key === 'Escape') {
                         setInputModal(prev => ({ ...prev, show: false }));
@@ -2770,9 +3054,35 @@ export const App: React.FC = () => {
                       outline: 'none'
                     }}
                     placeholder={inputModal.type === 'rename' ? "请输入新名称" :
-                                 inputModal.type === 'create' ? "请输入文件名（可选 .md 扩展名）" : "在此输入 URL 地址..."}
+                                 inputModal.type === 'create' ? "请输入文件名" : "在此输入 URL 地址..."}
                   />
                 </div>
+
+                {inputModal.type === 'create' && (
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', fontSize: '12px', color: theme.colors.textSecondary, marginBottom: '5px', opacity: 0.8 }}>
+                      文件类型
+                    </label>
+                    <select
+                      value={inputModal.fileType}
+                      onChange={(e) => setInputModal(prev => ({ ...prev, fileType: e.target.value as any }))}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '6px',
+                        border: `1px solid ${theme.colors.border}`,
+                        background: theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : '#fff',
+                        color: theme.colors.textSecondary,
+                        fontSize: '14px',
+                        outline: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="markdown">Markdown (.md)</option>
+                      <option value="html">HTML (.html)</option>
+                    </select>
+                  </div>
+                )}
               </>
             )}
 
@@ -2792,7 +3102,7 @@ export const App: React.FC = () => {
               </button>
               <button 
                 onClick={() => {
-                  inputModal.callback?.(inputModal.value, inputModal.titleValue);
+                  inputModal.callback?.(inputModal.value, inputModal.titleValue, inputModal.fileType);
                   setInputModal(prev => ({ ...prev, show: false }));
                 }}
                 style={{
