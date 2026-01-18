@@ -279,6 +279,7 @@ const KeyboardShortcutsPanel: React.FC<KeyboardShortcutsPanelProps> = ({ onClose
           {renderShortcutRow('deleteLine', '删除当前行')}
           {renderShortcutRow('moveLineUp', '向上移动行')}
           {renderShortcutRow('moveLineDown', '向下移动行')}
+          {renderShortcutRow('formatDocument', '格式化全文')}
           {renderShortcutRow('formatContinuation', '格式延续')}
           {renderShortcutRow('saveFile', '保存文件')}
           {renderShortcutRow('newFile', '新建文件')}

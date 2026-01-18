@@ -30,12 +30,13 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
   // 音乐播放列表状态
   const [playlist, setPlaylist] = useState<MusicTrack[]>([
     { id: '1', title: '风止了', path: '/music/风止了.mp3' },
-    { id: '2', title: 'Sample Music 1', path: '/music/sample1.mp3' },
-    { id: '3', title: 'Sample Music 2', path: '/music/sample2.mp3' },
   ]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [showPlaylist, setShowPlaylist] = useState(false);
 
+  // 音乐节奏相关的状态
+  const [visualizerData, setVisualizerData] = useState<number[]>([]);
+  
   // 初始化位置
   useEffect(() => {
     setPosition({ x: 20, y: window.innerHeight - 60 });
@@ -47,20 +48,44 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
   // 获取music目录下的音乐文件
   const fetchMusicFiles = async () => {
     try {
-      // 注意：实际项目中需要后端API或静态文件服务来获取目录内容
-      // 这里暂时使用模拟数据，实际应用中可能需要后端支持
-      const mockTracks: MusicTrack[] = [
-        { id: '1', title: '风止了', path: '/music/风止了.mp3' },
-        { id: '2', title: 'Sample Music 1', path: '/music/sample1.mp3' },
-        { id: '3', title: 'Sample Music 2', path: '/music/sample2.mp3' },
-        // 这里可以添加更多音乐文件，从实际目录获取
-      ];
-      setPlaylist(mockTracks);
+      // 为了获取public/music目录下的所有音乐文件，我们需要一个简单的API或者JSON文件
+      // 这里我们创建一个music-list.json文件来列出所有音乐文件
+      const response = await fetch('/music/music-list.json');
+      if (response.ok) {
+        const musicList = await response.json();
+        const tracks: MusicTrack[] = musicList.map((fileName: string, index: number) => ({
+          id: `track-${index}`,
+          title: fileName.replace(/\.(mp3|wav|ogg)$/i, ''),
+          path: `/music/${fileName}`
+        }));
+        setPlaylist(tracks);
+      } else {
+        // 如果没有找到music-list.json，使用默认音乐
+        setPlaylist([{ id: '1', title: '风止了', path: '/music/风止了.mp3' }]);
+      }
     } catch (error) {
-      console.error('获取音乐文件失败:', error);
+      console.error('获取音乐文件列表失败，使用默认音乐:', error);
+      setPlaylist([{ id: '1', title: '风止了', path: '/music/风止了.mp3' }]);
     }
   };
   
+  // 获取可视化数据的回调函数
+  useEffect(() => {
+    // 当播放状态变化时，更新可视化数据
+    if (isPlaying) {
+      // 模拟音乐节奏变化（实际中这会来自音频分析）
+      const interval = setInterval(() => {
+        // 生成随机的可视化数据来模拟节奏，使其更加动态
+        const newData = Array.from({ length: 32 }, () => Math.random() * 100);
+        setVisualizerData(newData);
+      }, 50); // 减少间隔时间，使变化更流畅
+      
+      return () => clearInterval(interval);
+    } else {
+      setVisualizerData([]);
+    }
+  }, [isPlaying]);
+
   // 加载音频元数据和设置音量
   useEffect(() => {
     const audio = audioRef.current;
@@ -119,23 +144,20 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
     setIsDragging(false);
     
     // 吸附到边缘
-    const halfWindowWidth = window.innerWidth / 2;
-    const halfWindowHeight = window.innerHeight / 2;
-    
     let newX = position.x;
     let newY = position.y;
     
     // 水平方向吸附
-    if (position.x < window.innerWidth * 0.1) {
+    if (position.x <= window.innerWidth * 0.1) {
       newX = 10; // 左边
-    } else if (position.x > window.innerWidth * 0.9) {
+    } else if (position.x >= window.innerWidth - 40) {
       newX = window.innerWidth - 40; // 右边
     }
     
     // 垂直方向吸附
-    if (position.y < window.innerHeight * 0.1) {
+    if (position.y <= window.innerHeight * 0.1) {
       newY = 10; // 顶部
-    } else if (position.y > window.innerHeight * 0.9) {
+    } else if (position.y >= window.innerHeight - 40) {
       newY = window.innerHeight - 40; // 底部
     }
     
@@ -249,10 +271,33 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
   };
   
   // 当前播放的曲目
-  const currentTrack = playlist[currentTrackIndex];
+  const currentTrack = playlist[currentTrackIndex] || { id: '1', title: '风止了', path: defaultMusicPath };
+  
+  // 计算节奏变化的颜色
+  const getRhythmicColor = () => {
+    if (!isPlaying || visualizerData.length === 0) {
+      return theme.primaryColor; // 默认颜色
+    }
+    
+    // 根据音频数据的变化来调整颜色，增强变化效果
+    const avgAmplitude = visualizerData.reduce((a, b) => a + b, 0) / visualizerData.length;
+    const intensity = Math.min(avgAmplitude / 100, 1); // 限制在0-1之间
+    
+    // 创建更明显的颜色变化效果
+    const baseR = parseInt(theme.primaryColor.slice(1, 3), 16);
+    const baseG = parseInt(theme.primaryColor.slice(3, 5), 16);
+    const baseB = parseInt(theme.primaryColor.slice(5, 7), 16);
+    
+    // 增强变化范围，使颜色变化更明显
+    const r = Math.min(255, Math.floor(baseR + (255 - baseR) * intensity * 0.7));
+    const g = Math.min(255, Math.floor(baseG + (255 - baseG) * intensity * 0.7));
+    const b = Math.min(255, Math.floor(baseB + (255 - baseB) * intensity * 0.7));
+    
+    return `rgb(${r}, ${g}, ${b})`;
+  };
 
   // 是否处于收起状态（没有鼠标悬停且没有播放）
-  const isCollapsed = !showControls && !isPlaying;
+  const isCollapsed = !showControls;
 
   // 计算位置样式
   const playerStyle = {
@@ -577,14 +622,15 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: theme.primaryColor,
+          color: getRhythmicColor(), // 根据音乐节奏变化颜色
           transform: isPlaying ? 'rotate(0deg)' : 'rotate(-30deg)',
-          transition: 'transform 0.3s ease'
+          transition: 'transform 0.3s ease',
+          filter: isPlaying ? 'drop-shadow(0 0 8px rgba(58, 134, 255, 0.7))' : 'none' // 播放时添加发光效果
         }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M11 5L11 19C11 20.3807 12.5 21 13 19.5L13 6C13 4.61929 12 4 11 5Z" stroke={theme.primaryColor} strokeWidth="2" strokeLinecap="round"/>
-            <path d="M6 5L6 19C6 20.3807 7.5 21 8 19.5L8 6C8 4.61929 7 4 6 5Z" stroke={theme.primaryColor} strokeWidth="2" strokeLinecap="round"/>
-            <circle cx="12" cy="12" r="10" stroke={theme.primaryColor} strokeWidth="2"/>
+            <path d="M11 5L11 19C11 20.3807 12.5 21 13 19.5L13 6C13 4.61929 12 4 11 5Z" stroke={getRhythmicColor()} strokeWidth="2" strokeLinecap="round"/>
+            <path d="M6 5L6 19C6 20.3807 7.5 21 8 19.5L8 6C8 4.61929 7 4 6 5Z" stroke={getRhythmicColor()} strokeWidth="2" strokeLinecap="round"/>
+            <circle cx="12" cy="12" r="10" stroke={getRhythmicColor()} strokeWidth="2"/>
           </svg>
         </div>
       )}

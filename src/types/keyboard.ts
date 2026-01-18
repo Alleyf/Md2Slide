@@ -52,6 +52,7 @@ export interface ShortcutConfig {
   insertFormula: string[];
   insertMathBlock: string[];
   insertPageBreak: string[];
+  formatDocument: string[];
 }
 
 export const defaultShortcuts: ShortcutConfig = {
@@ -101,6 +102,7 @@ export const defaultShortcuts: ShortcutConfig = {
   insertFormula: ['ctrl+m', 'meta+m'],
   insertMathBlock: ['ctrl+shift+m', 'meta+shift+m'],
   insertPageBreak: ['ctrl+shift+enter', 'meta+shift+enter'],
+  formatDocument: ['ctrl+shift+f', 'meta+shift+f'],
 };
 
 export const shortcutDescriptions: Record<string, string> = {

@@ -1572,6 +1572,53 @@ export const App: React.FC = () => {
     });
   };
 
+  // 格式化文档：自动对齐缩进，去除每行首尾多余空白字符
+  const handleFormatDocument = () => {
+    if (!content) return;
+    
+    // 保存当前光标位置
+    const textarea = editorRef.current;
+    const currentCursorPosition = textarea ? textarea.selectionStart : 0;
+    
+    // 分割成行并格式化每一行
+    const lines = content.split('\n');
+    const formattedLines = lines.map(line => {
+      // 去除首尾空白字符，但保留行内缩进
+      const trimmedLine = line.trimEnd();
+      
+      // 处理缩进：将制表符转换为空格（4个空格），并将多个空格规范化
+      let formattedLine = trimmedLine.replace(/^\t+/g, match => '    '.repeat(match.length)); // 制表符转空格
+      
+      // 保持行首的缩进一致性
+      const leadingWhitespaceMatch = formattedLine.match(/^[ \t]*/);
+      const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[0] : '';
+      const contentWithoutLeadingWhitespace = formattedLine.substring(leadingWhitespace.length);
+      
+      // 对内容部分进行处理，但保留缩进
+      return leadingWhitespace + contentWithoutLeadingWhitespace.trimEnd();
+    });
+    
+    // 合并格式化后的行
+    const formattedContent = formattedLines.join('\n');
+    
+    // 保存到历史记录
+    pushToHistory(formattedContent);
+    setContent(formattedContent);
+    
+    // 恢复光标位置（尽量接近原来的位置）
+    setTimeout(() => {
+      if (textarea) {
+        // 计算新内容中的大致光标位置
+        let newPosition = currentCursorPosition;
+        if (newPosition > formattedContent.length) {
+          newPosition = formattedContent.length;
+        }
+        textarea.focus();
+        textarea.setSelectionRange(newPosition, newPosition);
+      }
+    }, 0);
+  };
+
   const handleImageInsert = () => {
     setInputModal({
       show: true,
@@ -1819,6 +1866,9 @@ export const App: React.FC = () => {
           break;
         case 'redo':
           performRedo();
+          break;
+        case 'formatDocument':
+          handleFormatDocument();
           break;
         default:
           // 如果没有匹配到任何操作，继续原有逻辑
