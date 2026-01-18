@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import MusicVisualizer from './MusicVisualizer';
+import MusicWaveBorder from './MusicWaveBorder';
 
 interface MusicPlayerProps {
   defaultMusicPath?: string;
@@ -697,6 +698,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/é£
       )}
       
       <MusicVisualizer audioRef={audioRef} isActive={isPlaying} />
+      <MusicWaveBorder audioRef={audioRef} isActive={isPlaying} />
     </>
   );
 }
