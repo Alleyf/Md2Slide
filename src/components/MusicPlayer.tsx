@@ -53,12 +53,20 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
       const response = await fetch('/music/music-list.json');
       if (response.ok) {
         const musicList = await response.json();
-        const tracks: MusicTrack[] = musicList.map((fileName: string, index: number) => ({
-          id: `track-${index}`,
-          title: fileName.replace(/\.(mp3|wav|ogg)$/i, ''),
-          path: `/music/${fileName}`
-        }));
-        setPlaylist(tracks);
+        const tracks: MusicTrack[] = musicList
+          .filter((fileName: string) => /\.(mp3|wav|ogg)$/i.test(fileName)) // 只包含音频文件
+          .map((fileName: string, index: number) => ({
+            id: `track-${index}`,
+            title: fileName.replace(/\.(mp3|wav|ogg)$/i, ''),
+            path: `/music/${fileName}`
+          }));
+        
+        if (tracks.length > 0) {
+          setPlaylist(tracks);
+        } else {
+          // 如果没有找到音频文件，使用默认音乐
+          setPlaylist([{ id: '1', title: '风止了', path: '/music/风止了.mp3' }]);
+        }
       } else {
         // 如果没有找到music-list.json，使用默认音乐
         setPlaylist([{ id: '1', title: '风止了', path: '/music/风止了.mp3' }]);
@@ -239,28 +247,55 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
   
   // 切换到指定音乐
   const playTrack = (index: number) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    
     setCurrentTrackIndex(index);
-    setIsPlaying(false); // 先暂停
+    
+    // 使用setTimeout确保音频元素已更新路径后再播放
     setTimeout(() => {
-      setIsPlaying(true); // 然后播放新音乐
+      if (audioRef.current) {
+        audioRef.current.play().catch(e => console.error("播放失败:", e));
+        setIsPlaying(true);
+      }
     }, 100);
   };
   
   // 播放下一首
   const playNext = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    
     setCurrentTrackIndex((prev) => (prev + 1) % playlist.length);
-    setIsPlaying(false);
+    
+    // 使用setTimeout确保音频元素已更新路径后再播放
     setTimeout(() => {
-      setIsPlaying(true);
+      if (audioRef.current) {
+        audioRef.current.play().catch(e => console.error("播放失败:", e));
+        setIsPlaying(true);
+      }
     }, 100);
   };
   
   // 播放上一首
   const playPrev = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    
     setCurrentTrackIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
-    setIsPlaying(false);
+    
+    // 使用setTimeout确保音频元素已更新路径后再播放
     setTimeout(() => {
-      setIsPlaying(true);
+      if (audioRef.current) {
+        audioRef.current.play().catch(e => console.error("播放失败:", e));
+        setIsPlaying(true);
+      }
     }, 100);
   };
 
@@ -331,7 +366,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
   return (
     <div 
       style={playerStyle}
-      onMouseDown={(e) => handleMouseDown(e, false)}
+      onMouseDown={(e) => handleMouseDown(e, false)} // 整个播放器区域都可以拖动
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}
     >
@@ -343,18 +378,26 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
           // 自动播放下一首
           playNext();
         }}
+        onLoadedMetadata={() => {
+          // 当音频元数据加载完成时更新时长
+          if (audioRef.current) {
+            setDuration(audioRef.current.duration);
+          }
+        }}
       />
         
-      {/* 拖动句柄 */}
+      {/* 拖动句柄 - 只在展开状态下显示，但在收起状态下仍可拖动整个图标 */}
       <div 
         style={{
-          width: '4px',
-          height: '20px',
-          backgroundColor: theme.colors.textSecondary,
+          width: isCollapsed ? '4px' : '4px',
+          height: isCollapsed ? '20px' : '20px',
+          backgroundColor: isCollapsed ? 'transparent' : theme.colors.textSecondary, // 收起时透明但仍可拖动
           borderRadius: '2px',
           cursor: 'move',
           alignSelf: 'center',
-          margin: '0 4px'
+          margin: '0 4px',
+          opacity: isCollapsed ? 0 : 1, // 收起时完全透明但仍占用空间
+          transition: 'opacity 0.3s ease'
         }}
         onMouseDown={(e) => {
           e.stopPropagation(); // 防止事件冒泡
@@ -400,40 +443,67 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
           {/* 播放列表 */}
           {showPlaylist && (
             <div style={{
-              position: 'absolute',
-              top: '-200px',
-              left: '0',
-              width: '280px',
-              maxHeight: '200px',
+              position: 'fixed',
+              bottom: `${position.y - 5}px`,
+              left: `${position.x - 305}px`,
+              width: '300px',
+              maxHeight: '300px',
               background: theme.colors.surface,
               border: `1px solid ${theme.colors.border}`,
               borderRadius: '12px',
               padding: '10px',
               overflowY: 'auto',
-              zIndex: 1001,
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
+              zIndex: 10000, // 提高层级确保显示在最上层
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+              fontFamily: 'inherit',
             }}>
-              <div style={{ marginBottom: '8px', fontWeight: 'bold', color: theme.colors.text }}>
+              <div style={{ 
+                marginBottom: '8px', 
+                fontWeight: 'bold', 
+                color: theme.colors.text,
+                textAlign: 'center',
+                borderBottom: `1px solid ${theme.colors.border}`,
+                paddingBottom: '5px'
+              }}>
                 播放列表
               </div>
+              {/* 必须渲染音乐文件名作为可预览文本 */}
               {playlist.map((track, index) => (
                 <div
                   key={track.id}
-                  onClick={() => playTrack(index)}
+                  onClick={() => {
+                    playTrack(index);
+                    setShowPlaylist(false); // 点击后隐藏播放列表
+                  }}
                   style={{
-                    padding: '8px',
-                    borderRadius: '6px',
+                    padding: '12px',
+                    borderRadius: '8px',
                     cursor: 'pointer',
-                    backgroundColor: currentTrackIndex === index ? theme.primaryColor : 'transparent',
+                    backgroundColor: currentTrackIndex === index ? theme.primaryColor : theme.colors.background,
                     color: currentTrackIndex === index ? '#fff' : theme.colors.text,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px'
+                    gap: '10px',
+                    margin: '4px 0',
+                    border: currentTrackIndex === index ? `1px solid ${theme.primaryColor}` : `1px solid ${theme.colors.border}`,
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (currentTrackIndex !== index) {
+                      e.currentTarget.style.backgroundColor = theme.colors.border;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (currentTrackIndex !== index) {
+                      e.currentTarget.style.backgroundColor = theme.colors.background;
+                    }
                   }}
                 >
-                  <span>{currentTrackIndex === index ? '▶️' : '🎵'}</span>
-                  <span style={{ flex: 1 }}>{track.title}</span>
-                  {currentTrackIndex === index && <span>Now Playing</span>}
+                  <span style={{ fontSize: '16px' }}>{currentTrackIndex === index ? '▶️' : '🎵'}</span>
+                  <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</span>
+                  {currentTrackIndex === index && (
+                    <span style={{ fontSize: '12px', opacity: 0.8 }}>正在播放</span>
+                  )}
                 </div>
               ))}
             </div>

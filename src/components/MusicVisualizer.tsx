@@ -10,6 +10,10 @@ const MusicVisualizer: React.FC<MusicVisualizerProps> = ({ audioRef, isActive })
   const animationRef = useRef<number>(0);
   const [enabled, setEnabled] = useState(true);
 
+  // 存储音频上下文和源节点作为ref，以便在组件生命周期中保持引用
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  
   useEffect(() => {
     if (!enabled || !isActive || !audioRef.current || !canvasRef.current) {
       cancelAnimationFrame(animationRef.current);
@@ -35,10 +39,24 @@ const MusicVisualizer: React.FC<MusicVisualizerProps> = ({ audioRef, isActive })
     updateCanvasSize();
     window.addEventListener('resize', updateCanvasSize);
 
+    // 如果已经存在音频上下文，先关闭它
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close();
+    }
+    
     const audio = audioRef.current;
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    audioContextRef.current = audioContext;
+    
     const analyser = audioContext.createAnalyser();
+    
+    // 断开任何现有的源连接
+    if (sourceRef.current) {
+      sourceRef.current.disconnect();
+    }
+    
     const source = audioContext.createMediaElementSource(audio);
+    sourceRef.current = source;
     
     source.connect(analyser);
     analyser.connect(audioContext.destination);
@@ -99,8 +117,19 @@ const MusicVisualizer: React.FC<MusicVisualizerProps> = ({ audioRef, isActive })
     return () => {
       window.removeEventListener('resize', updateCanvasSize);
       cancelAnimationFrame(animationRef.current);
-      if (audioContext.state !== 'closed') {
-        audioContext.close();
+      
+      // 清理音频资源
+      if (sourceRef.current) {
+        sourceRef.current.disconnect();
+        sourceRef.current = null;
+      }
+      
+      if (analyser) {
+        analyser.disconnect();
+      }
+      
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close();
       }
     };
   }, [isActive, enabled, audioRef]);
