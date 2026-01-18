@@ -15,7 +15,17 @@ interface ThemeMarketplaceProps {
 const ThemePreviewImage: React.FC<{ theme: ThemeMetadata; height?: string; coverUrl?: string; currentTheme?: any }> = ({ theme, height = '120px', coverUrl, currentTheme }) => {
   const [imageError, setImageError] = useState(false);
 
-  if (coverUrl && !coverUrl.startsWith('http')) {
+  // 当 theme 或 coverUrl 改变时，重置错误状态
+  useEffect(() => {
+    setImageError(false);
+  }, [theme.id, coverUrl]);
+
+  // 确保图片加载失败时重置状态
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  if (coverUrl && coverUrl.trim()) {
     return (
       <div style={{
         width: '100%',
@@ -41,7 +51,7 @@ const ThemePreviewImage: React.FC<{ theme: ThemeMetadata; height?: string; cover
           <img 
             src={coverUrl} 
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            onError={() => setImageError(true)}
+            onError={handleImageError}
           />
         )}
       </div>
@@ -670,6 +680,336 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
           `}
         </style>
       </div>
+
+      {/* 主题详情模态框 */}
+      {showDetails && selectedTheme && (
+        <>
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.6)',
+              zIndex: 3002,
+              backdropFilter: 'blur(4px)'
+            }}
+            onClick={handleCloseDetails}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '90%',
+              maxWidth: '700px',
+              maxHeight: '85vh',
+              backgroundColor: theme.colors.surface,
+              borderRadius: '16px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              zIndex: 3003,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+            }}
+          >
+            {/* 头部 */}
+            <div style={{
+              padding: '20px 24px',
+              borderBottom: `1px solid ${theme.colors.border}`,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: theme.colors.background
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button
+                  onClick={handleCloseDetails}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: theme.colors.textSecondary,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '6px',
+                    borderRadius: '8px',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme.colors.border}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <ArrowLeft size={20} />
+                </button>
+                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: theme.colors.text }}>
+                  {selectedTheme.metadata.name}
+                </h2>
+              </div>
+              <button
+                onClick={handleCloseDetails}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: theme.colors.textSecondary,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '6px',
+                  borderRadius: '8px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme.colors.border}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* 内容 */}
+            <div style={{ flex: '1', overflowY: 'auto', padding: '24px' }}>
+              <ThemePreviewImage
+                theme={selectedTheme.metadata}
+                height="200px"
+                coverUrl={themeCovers[selectedTheme.metadata.id] || selectedTheme.metadata.previewImage}
+                currentTheme={theme}
+              />
+
+              <div style={{ marginTop: '20px' }}>
+                <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', color: theme.colors.text }}>
+                  描述
+                </h3>
+                <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: theme.colors.textSecondary, lineHeight: '1.6' }}>
+                  {selectedTheme.metadata.description}
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <span style={{ fontSize: '12px', color: theme.colors.textSecondary, display: 'block', marginBottom: '4px' }}>
+                      版本
+                    </span>
+                    <span style={{ fontSize: '14px', color: theme.colors.text }}>
+                      {selectedTheme.metadata.version}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '12px', color: theme.colors.textSecondary, display: 'block', marginBottom: '4px' }}>
+                      作者
+                    </span>
+                    <span style={{ fontSize: '14px', color: theme.colors.text }}>
+                      {selectedTheme.metadata.author}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '12px', color: theme.colors.textSecondary, display: 'block', marginBottom: '4px' }}>
+                      更新时间
+                    </span>
+                    <span style={{ fontSize: '14px', color: theme.colors.text }}>
+                      {new Date(selectedTheme.metadata.updatedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '12px', color: theme.colors.textSecondary, display: 'block', marginBottom: '4px' }}>
+                      许可证
+                    </span>
+                    <span style={{ fontSize: '14px', color: theme.colors.text }}>
+                      {selectedTheme.metadata.license || 'MIT'}
+                    </span>
+                  </div>
+                </div>
+
+                {selectedTheme.metadata.tags && selectedTheme.metadata.tags.length > 0 && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <span style={{ fontSize: '12px', color: theme.colors.textSecondary, display: 'block', marginBottom: '8px' }}>
+                      标签
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {selectedTheme.metadata.tags.map((tag, index) => (
+                        <span
+                          key={index}
+                          style={{
+                            padding: '4px 12px',
+                            backgroundColor: `${theme.primaryColor}20`,
+                            color: theme.primaryColor,
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: 500
+                          }}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedTheme.theme && (
+                  <div style={{ marginTop: '20px' }}>
+                    <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', color: theme.colors.text }}>
+                      主题配置
+                    </h3>
+                    <div style={{
+                      padding: '16px',
+                      backgroundColor: theme.colors.background,
+                      borderRadius: '8px',
+                      border: `1px solid ${theme.colors.border}`
+                    }}>
+                      {selectedTheme.theme.colors && (
+                        <div style={{ marginBottom: '16px' }}>
+                          <span style={{ fontSize: '12px', color: theme.colors.textSecondary, display: 'block', marginBottom: '8px' }}>
+                            配色方案
+                          </span>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            {Object.entries(selectedTheme.theme.colors).map(([key, value]) => (
+                              <div
+                                key={key}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '4px 8px',
+                                  backgroundColor: theme.colors.surface,
+                                  borderRadius: '6px',
+                                  fontSize: '12px'
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: '16px',
+                                    height: '16px',
+                                    borderRadius: '4px',
+                                    backgroundColor: value as string,
+                                    border: `1px solid ${theme.colors.border}`
+                                  }}
+                                />
+                                <span style={{ color: theme.colors.text }}>{key}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedTheme.theme.fonts && (
+                        <div style={{ marginBottom: '16px' }}>
+                          <span style={{ fontSize: '12px', color: theme.colors.textSecondary, display: 'block', marginBottom: '8px' }}>
+                            字体设置
+                          </span>
+                          <div style={{ display: 'grid', gap: '8px' }}>
+                            {Object.entries(selectedTheme.theme.fonts).map(([key, value]) => (
+                              <div
+                                key={key}
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  fontSize: '12px',
+                                  color: theme.colors.text
+                                }}
+                              >
+                                <span>{key}</span>
+                                <span style={{ fontFamily: value as string }}>{value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 底部按钮 */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: `1px solid ${theme.colors.border}`,
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end',
+              background: theme.colors.background
+            }}>
+              <button
+                onClick={handleCloseDetails}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: `1px solid ${theme.colors.border}`,
+                  background: 'transparent',
+                  color: theme.colors.text,
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme.colors.surface}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                关闭
+              </button>
+              {selectedTheme.metadata.homepage && (
+                <a
+                  href={selectedTheme.metadata.homepage}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    border: `1px solid ${theme.colors.border}`,
+                    background: theme.colors.surface,
+                    color: theme.colors.text,
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  查看官网
+                </a>
+              )}
+              <button
+                onClick={() => {
+                  isThemeInstalled(selectedTheme.metadata.id)
+                    ? handleApplyTheme(selectedTheme.metadata.id)
+                    : handleInstallTheme(selectedTheme.metadata.id);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: theme.primaryColor,
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                {isThemeInstalled(selectedTheme.metadata.id) ? (
+                  <>
+                    <Check size={16} />
+                    应用主题
+                  </>
+                ) : (
+                  <>
+                    <Download size={16} />
+                    安装主题
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
     </>
   );

@@ -207,7 +207,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>数学公式</span> <code style={{ color: theme.primaryColor }}>Ctrl + M</code></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>插入表格</span> <code style={{ color: theme.primaryColor }}>Ctrl+Alt+T</code></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>插入分页符</span> <code style={{ color: theme.primaryColor }}>Ctrl+Shift+↵</code></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>复制当前行</span> <code style={{ color: theme.primaryColor }}>Ctrl + D</code></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>删除当前行</span> <code style={{ color: theme.primaryColor }}>Ctrl+Shift+D</code></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>向上移动行</span> <code style={{ color: theme.primaryColor }}>Alt + ↑</code></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>向下移动行</span> <code style={{ color: theme.primaryColor }}>Alt + ↓</code></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>撤销操作</span> <code style={{ color: theme.primaryColor }}>Ctrl + Z</code></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontStyle: 'italic', fontSize: '11px', opacity: 0.8 }}><span>💡 提示</span> <span>快捷键可在设置中自定义</span></div>
                 </div>
               </div>
               <div>

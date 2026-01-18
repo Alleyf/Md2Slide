@@ -32,6 +32,7 @@ import { FileItem } from './types/file';
 import { FileTree } from './components/FileTree';
 import { Toolbar } from './components/Toolbar';
 import { HelpModal } from './components/HelpModal';
+import KeyboardShortcutsPanel from './components/KeyboardShortcutsPanel';
 import { downloadPDF } from './utils/export/pdf';
 import { downloadPPTX } from './utils/export/pptx';
 import { downloadWord } from './utils/export/word';
@@ -43,6 +44,7 @@ import { getStorageItem, setStorageItem, storageKeys } from './utils/storage';
 import { AIAssistant } from './components/AIAssistant';
 import { SelectionAIAssistant } from './components/SelectionAIAssistant';
 import { aiService, DEFAULT_AI_CONFIG } from './services/ai';
+import { AIServiceConfig } from './types/ai';
 import { ThemeMarketplace } from './components/ThemeMarketplace';
 import { TemplateMarketplace } from './components/TemplateMarketplace';
 import { Template, templateMarketplaceService } from './services/templateMarketplaceService';
@@ -50,6 +52,9 @@ import { themeMarketplaceService } from './services/themeMarketplace';
 import { PluginMarketplace } from './components/PluginMarketplace';
 import { pluginManager } from './services/pluginManager';
 import { ThemePlugin } from './plugins/ThemePlugin';
+import { keyboardService } from './services/keyboardService';
+import { ShortcutConfig } from './types/keyboard';
+import MusicPlayer from './components/MusicPlayer';
 
 interface AppSettings {
   useDelimiterPagination: boolean;
@@ -75,9 +80,16 @@ export const App: React.FC = () => {
   const [content, setContent] = useState('');
   const [editorMode, setEditorMode] = useState<'markdown' | 'html'>('markdown');
   const [slides, setSlides] = useState<SlideContent[]>([]);
+  
+  // 撤销/重做栈
+  const undoStack = useRef<string[]>([]);
+  const redoStack = useRef<string[]>([]);
+  const isUndoRedoOperation = useRef(false);
+  
   const [showEditor, setShowEditor] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
   const [helpTab, setHelpTab] = useState<'usage' | 'shortcuts' | 'about'>('usage');
+  const [settingsTab, setSettingsTab] = useState<'general' | 'keyboard'>('general');
   const [showSidebar, setShowSidebar] = useState(true);
   const [showPreview, setShowPreview] = useState(true);
   const [showTOC, setShowTOC] = useState(true);
@@ -91,7 +103,7 @@ export const App: React.FC = () => {
   const previewRef = useRef<HTMLDivElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [fileList, setFileList] = useState<FileItem[]>(() => {
-    const defaultFiles = [
+    const defaultFiles: FileItem[] = [
       { name: 'tutorial.md', path: 'docs/tutorial.md', kind: 'file', isStatic: true },
       { name: 'tutorial.html', path: 'docs/tutorial.html', kind: 'file', isStatic: true }
     ];
@@ -144,6 +156,48 @@ export const App: React.FC = () => {
   const [showPluginMarketplace, setShowPluginMarketplace] = useState(false);
   const [showAISidebar, setShowAISidebar] = useState(false);
   const [showViewMenu, setShowViewMenu] = useState(false);
+  
+  // 撤销/重做辅助函数
+  const pushToHistory = (newContent: string) => {
+    if (!isUndoRedoOperation.current) {
+      // 保存当前状态到撤销栈
+      undoStack.current.push(content);
+      // 限制撤销栈大小为 50
+      if (undoStack.current.length > 50) {
+        undoStack.current.shift();
+      }
+      // 清空重做栈
+      redoStack.current = [];
+    }
+  };
+  
+  const performUndo = () => {
+    if (undoStack.current.length > 0) {
+      // 保存当前状态到重做栈
+      redoStack.current.push(content);
+      // 从撤销栈中恢复上一个状态
+      const previousContent = undoStack.current.pop()!;
+      isUndoRedoOperation.current = true;
+      setContent(previousContent);
+      setTimeout(() => {
+        isUndoRedoOperation.current = false;
+      }, 0);
+    }
+  };
+  
+  const performRedo = () => {
+    if (redoStack.current.length > 0) {
+      // 保存当前状态到撤销栈
+      undoStack.current.push(content);
+      // 从重做栈中恢复下一个状态
+      const nextContent = redoStack.current.pop()!;
+      isUndoRedoOperation.current = true;
+      setContent(nextContent);
+      setTimeout(() => {
+        isUndoRedoOperation.current = false;
+      }, 0);
+    }
+  };
   
   // 点击外部关闭下拉菜单
   useEffect(() => {
@@ -657,9 +711,9 @@ export const App: React.FC = () => {
     
     // 如果当前内容是默认的 md 教程且要切换到 html，或者反之，则加载对应的默认教程
     if (mode === 'html' && (activeFile === 'docs/tutorial.md' || content.includes('Markdown 教程'))) {
-      loadFile({ name: 'docs/tutorial.html', kind: 'file', isStatic: true });
+      loadFile({ name: 'docs/tutorial.html', path: 'docs/tutorial.html', kind: 'file', isStatic: true });
     } else if (mode === 'markdown' && (activeFile === 'docs/tutorial.html' || content.includes('HTML 模式指南'))) {
-      loadFile({ name: 'docs/tutorial.md', kind: 'file', isStatic: true });
+      loadFile({ name: 'docs/tutorial.md', path: 'docs/tutorial.md', kind: 'file', isStatic: true });
     }
     
     setEditorMode(mode);
@@ -1224,6 +1278,287 @@ export const App: React.FC = () => {
     }
   };
 
+    // 复制当前行
+    const duplicateLine = () => {
+      const textarea = editorRef.current;
+      if (!textarea) return;
+      
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const lines = content.split('\n');
+      
+      // 计算当前光标所在的行号
+      let currentLineStart = 0;
+      let currentLineNum = 0;
+      for (let i = 0; i < lines.length; i++) {
+        const lineEnd = currentLineStart + lines[i].length;
+        if (start <= lineEnd) {
+          currentLineNum = i;
+          break;
+        }
+        currentLineStart = lineEnd + 1; // +1 for newline character
+      }
+      
+      // 获取当前行内容
+      const currentLine = lines[currentLineNum];
+      
+      // 在当前行之后插入相同内容
+      lines.splice(currentLineNum + 1, 0, currentLine);
+      
+      // 计算新内容和光标位置
+      const newContent = lines.join('\n');
+      const newCursorPosition = currentLineStart + currentLine.length + 1; // +1 for newline
+      
+      // 保存到历史记录
+      pushToHistory(newContent);
+      
+      // 更新内容并设置光标位置
+      setContent(newContent);
+    
+    setTimeout(() => {
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+      }
+    }, 0);
+  };
+  
+    // 删除当前行
+  const deleteLine = () => {
+    const textarea = editorRef.current;
+    if (!textarea) return;
+    
+    const start = textarea.selectionStart;
+    const lines = content.split('\n');
+    
+    // 计算当前光标所在的行号
+    let currentLineStart = 0;
+    let currentLineNum = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const lineEnd = currentLineStart + lines[i].length;
+      if (start <= lineEnd) {
+        currentLineNum = i;
+        break;
+      }
+      currentLineStart = lineEnd + 1; // +1 for newline character
+    }
+    
+    // 删除当前行
+    lines.splice(currentLineNum, 1);
+    
+    // 计算新内容和光标位置
+    const newContent = lines.join('\n');
+    let newCursorPosition = currentLineStart;
+    // 确保光标位置不超过新内容长度
+    if (newCursorPosition > newContent.length) {
+      newCursorPosition = newContent.length;
+    }
+    
+    // 保存到历史记录
+    pushToHistory(newContent);
+    
+    // 更新内容并设置光标位置
+    setContent(newContent);
+    
+    setTimeout(() => {
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+      }
+    }, 0);
+  };
+  
+    // 移动行向上
+  const moveLineUp = () => {
+    const textarea = editorRef.current;
+    if (!textarea) return;
+    
+    const start = textarea.selectionStart;
+    const lines = content.split('\n');
+    
+    // 计算当前光标所在的行号
+    let currentLineStart = 0;
+    let currentLineNum = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const lineEnd = currentLineStart + lines[i].length;
+      if (start <= lineEnd) {
+        currentLineNum = i;
+        break;
+      }
+      currentLineStart = lineEnd + 1; // +1 for newline character
+    }
+    
+    // 如果不是第一行，则向上移动
+    if (currentLineNum > 0) {
+      // 交换当前行和上一行
+      const temp = lines[currentLineNum];
+      lines[currentLineNum] = lines[currentLineNum - 1];
+      lines[currentLineNum - 1] = temp;
+      
+      // 计算新内容和光标位置
+      const prevLineLength = lines[currentLineNum].length; // 新位置的上一行长度
+      const newContent = lines.join('\n');
+      const newCursorPosition = start - prevLineLength - 1; // -1 for newline character
+      
+      // 保存到历史记录
+      pushToHistory(newContent);
+      
+      // 更新内容并设置光标位置
+      setContent(newContent);
+      
+      setTimeout(() => {
+        if (textarea) {
+          textarea.focus();
+          textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+        }
+      }, 0);
+    }
+  };
+  
+  // 移动行向下
+  const moveLineDown = () => {
+    const textarea = editorRef.current;
+    if (!textarea) return;
+    
+    const start = textarea.selectionStart;
+    const lines = content.split('\n');
+    
+    // 计算当前光标所在的行号
+    let currentLineStart = 0;
+    let currentLineNum = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const lineEnd = currentLineStart + lines[i].length;
+      if (start <= lineEnd) {
+        currentLineNum = i;
+        break;
+      }
+      currentLineStart = lineEnd + 1; // +1 for newline character
+    }
+    
+    // 如果不是最后一行，则向下移动
+    if (currentLineNum < lines.length - 1) {
+      // 交换当前行和下一行
+      const temp = lines[currentLineNum];
+      lines[currentLineNum] = lines[currentLineNum + 1];
+      lines[currentLineNum + 1] = temp;
+      
+      // 计算新内容和光标位置
+      const currLineLength = lines[currentLineNum + 1].length; // 原位置的当前行长度
+      const newContent = lines.join('\n');
+      const newCursorPosition = start + currLineLength + 1; // +1 for newline character
+      
+      // 保存到历史记录
+      pushToHistory(newContent);
+      
+      // 更新内容并设置光标位置
+      setContent(newContent);
+      
+      setTimeout(() => {
+        if (textarea) {
+          textarea.focus();
+          textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+        }
+      }, 0);
+    }
+  };
+  
+
+  
+  // 处理格式延续
+  const handleFormatContinuation = () => {
+    const textarea = editorRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    // 获取当前行的格式
+    const formatInfo = getCurrentLineFormat(start);
+    
+    // 如果当前行有格式，则在下一行插入相同的格式
+    if (formatInfo.format) {
+      const lines = content.split('\n');
+      
+      let currentLineStart = 0;
+      let currentLineNum = 0;
+      for (let i = 0; i < lines.length; i++) {
+        const lineEnd = currentLineStart + lines[i].length;
+        if (start <= lineEnd) {
+          currentLineNum = i;
+          break;
+        }
+        currentLineStart = lineEnd + 1; // +1 for newline character
+      }
+      
+      // 插入换行和格式
+      const newContent = content.substring(0, start) + '\n' + formatInfo.indent + formatInfo.format + content.substring(end);
+      // 保存到历史记录
+      pushToHistory(newContent);
+      setContent(newContent);
+      
+      // 设置光标位置
+      setTimeout(() => {
+        if (textarea) {
+          const newCursorPosition = start + 1 + formatInfo.indent.length + formatInfo.format.length; // +1 for newline
+          textarea.focus();
+          textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+        }
+      }, 0);
+    } else {
+      // 如果当前行没有特殊格式，则正常插入换行
+      const newContent = content.substring(0, start) + '\n' + content.substring(end);
+      // 保存到历史记录
+      pushToHistory(newContent);
+      setContent(newContent);
+      
+      setTimeout(() => {
+        if (textarea) {
+          textarea.focus();
+          textarea.setSelectionRange(start + 1, start + 1); // +1 for newline
+        }
+      }, 0);
+    }
+  };
+  
+  // 获取当前行的缩进和格式
+  const getCurrentLineFormat = (cursorPosition: number) => {
+    const lines = content.split('\n');
+    
+    let currentLineStart = 0;
+    let currentLineNum = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const lineEnd = currentLineStart + lines[i].length;
+      if (cursorPosition <= lineEnd) {
+        currentLineNum = i;
+        break;
+      }
+      currentLineStart = lineEnd + 1; // +1 for newline character
+    }
+    
+    const currentLine = lines[currentLineNum];
+
+    // 检测不同类型的格式（按优先级从高到低）
+    const todoMatch = currentLine.match(/^([\s\t]*)((-|\*)[\s\t]+\[[ xX]\][\s\t]+)/); // 任务列表（优先）
+    const listMatch = currentLine.match(/^([\s\t]*)((-|\*)\s+)/); // 无序列表
+    const orderedListMatch = currentLine.match(/^([\s\t]*)(\d+\.\s+)/); // 有序列表
+    const quoteMatch = currentLine.match(/^([\s\t]*)>\s+/); // 引用
+
+    if (todoMatch) {
+      // 任务列表：保留列表符号，重置为 [ ]
+      return { indent: todoMatch[1], format: todoMatch[2].replace(/\[[ xX]\]/, '[ ] ') };
+    } else if (listMatch) {
+      return { indent: listMatch[1], format: listMatch[2] };
+    } else if (orderedListMatch) {
+      // 递增数字
+      const nextNum = parseInt(orderedListMatch[2]) + 1;
+      return { indent: orderedListMatch[1], format: `${nextNum}. ` };
+    } else if (quoteMatch) {
+      return { indent: quoteMatch[1], format: '> ' };
+    }
+
+    return { indent: '', format: '' };
+  };
+  
   const handleLinkInsert = () => {
     const textarea = editorRef.current;
     const selection = textarea ? content.slice(textarea.selectionStart, textarea.selectionEnd) : '';
@@ -1368,10 +1703,134 @@ export const App: React.FC = () => {
     const isCtrl = e.ctrlKey || e.metaKey;
     const isShift = e.shiftKey;
     const isAlt = e.altKey;
+    const isCmd = e.metaKey; // macOS上的Cmd键
 
-    // 常用快捷键映射
+    // 获取当前快捷键配置
+    const shortcuts = keyboardService.getShortcuts();
+
+    // 检查是否有匹配的快捷键组合
+    const matchedActionRaw = keyboardService.getActionForKeyboardEvent(e.nativeEvent);
+
+    // 系统级快捷键，应该让浏览器原生处理
+    const systemLevelShortcuts: Array<keyof ShortcutConfig> = [
+      'copy', 'cut', 'paste', 'selectAll', 'undo', 'redo'
+    ];
+
+    // 导航专用快捷键，不阻止默认行为（让浏览器的原生编辑功能工作）
+    const navigationShortcuts: Array<keyof ShortcutConfig> = [
+      'nextSlide', 'prevSlide', 'toggleFullscreen', 'toggleEditor'
+    ];
+
+    if (matchedActionRaw) {
+      const matchedAction = matchedActionRaw as keyof ShortcutConfig;
+
+      // 对于导航类快捷键，不处理（返回）
+      if (navigationShortcuts.includes(matchedAction)) {
+        return;
+      }
+
+      // 对于系统级快捷键，不阻止默认行为
+      if (!systemLevelShortcuts.includes(matchedAction)) {
+        e.preventDefault();
+      }
+
+      switch (matchedAction) {
+        case 'duplicateLine':
+          duplicateLine();
+          break;
+        case 'deleteLine':
+          deleteLine();
+          break;
+        case 'moveLineUp':
+          moveLineUp();
+          break;
+        case 'moveLineDown':
+          moveLineDown();
+          break;
+        case 'formatContinuation':
+          handleFormatContinuation();
+          break;
+        case 'insertBold':
+          applySnippet('**', '**');
+          break;
+        case 'insertItalic':
+          if (isShift) {
+            handleImageInsert();
+          } else {
+            applySnippet('*', '*');
+          }
+          break;
+        case 'insertStrikethrough':
+          applySnippet('~~', '~~');
+          break;
+        case 'saveFile':
+          saveCurrentFile();
+          break;
+        case 'insertLink':
+          handleLinkInsert();
+          break;
+        case 'insertCodeBlock':
+          applySnippet('```\n', '\n```');
+          break;
+        case 'insertCode':
+          applySnippet('`', '`');
+          break;
+        case 'insertImage':
+          handleImageInsert();
+          break;
+        case 'insertHeading1':
+          applySnippet('# ', '');
+          break;
+        case 'insertHeading2':
+          applySnippet('## ', '');
+          break;
+        case 'insertHeading3':
+          applySnippet('### ', '');
+          break;
+        case 'insertList':
+          applySnippet('- ', '');
+          break;
+        case 'insertOrderedList':
+          applySnippet('1. ', '');
+          break;
+        case 'insertTodo':
+          applySnippet('- [ ] ', '');
+          break;
+        case 'insertQuote':
+          applySnippet('> ', '');
+          break;
+        case 'insertFormula':
+          applySnippet('$', '$');
+          break;
+        case 'insertMathBlock':
+          applySnippet('$$\n', '\n$$');
+          break;
+        case 'insertPageBreak':
+          applySnippet('\n---\n', '');
+          break;
+        case 'insertTable':
+          applySnippet('| 列1 | 列2 |\n| :--- | :--- |\n| 内容1 | 内容2 |', '');
+          break;
+        case 'insertVideo':
+          handleVideoInsert();
+          break;
+        case 'undo':
+          performUndo();
+          break;
+        case 'redo':
+          performRedo();
+          break;
+        default:
+          // 如果没有匹配到任何操作，继续原有逻辑
+          break;
+      }
+      return;
+    }
+
+    // 保留原有的其他 Ctrl 键快捷键
     if (isCtrl) {
       if (isAlt) {
+        // 原有的 Ctrl+Alt 快捷键
         switch (e.key.toLowerCase()) {
           case 't': // 表格
             e.preventDefault();
@@ -1397,6 +1856,7 @@ export const App: React.FC = () => {
         return;
       }
 
+      // 原有的其他 Ctrl 快捷键
       switch (e.key.toLowerCase()) {
         case 'b': // 加粗
           e.preventDefault();
@@ -1471,8 +1931,14 @@ export const App: React.FC = () => {
           break;
       }
     }
+
+    // 处理 Enter 键的格式延续功能（如果没有在 switch 中处理）
+    if (e.key === 'Enter' && !isCtrl && !isShift && !isAlt && matchedActionRaw !== 'formatContinuation') {
+      e.preventDefault();
+      handleFormatContinuation();
+    }
   };
- 
+
    const handleEditorScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
      const scrollTop = e.currentTarget.scrollTop;
      setShowScrollTop(scrollTop > 300);
@@ -1748,7 +2214,7 @@ export const App: React.FC = () => {
             newList[index] = { ...newList[index], content: fileContent };
             return newList;
           }
-          return [...prev, { name: file.name, kind: 'file', content: fileContent }];
+          return [...prev, { name: file.name, path: file.name, kind: 'file', content: fileContent }];
         });
 
         // 自动保存到模板市场
@@ -2575,7 +3041,8 @@ export const App: React.FC = () => {
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.45)',
+            background: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
@@ -2586,23 +3053,42 @@ export const App: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
             style={{
               width: '90%',
-              maxWidth: '520px',
+              maxWidth: '800px',
+              maxHeight: '85vh',
               background: theme.colors.surface,
-              borderRadius: '12px',
+              borderRadius: '16px',
               border: `1px solid ${theme.colors.border}`,
-              boxShadow: theme === darkTheme ? '0 20px 50px rgba(0,0,0,0.6)' : '0 20px 40px rgba(15,23,42,0.18)',
-              padding: '20px 24px',
+              boxShadow: theme === darkTheme ? '0 25px 60px rgba(0,0,0,0.6)' : '0 25px 50px rgba(15,23,42,0.18)',
+              padding: '28px 32px',
               boxSizing: 'border-box',
               display: 'flex',
               flexDirection: 'column',
-              gap: '16px'
+              gap: '20px',
+              overflow: 'hidden'
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: theme.colors.text }}>全局设置</div>
-                <div style={{ fontSize: '12px', color: theme.colors.textSecondary, marginTop: '4px' }}>
-                  配置分页规则等常用偏好
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '10px',
+                  background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor || theme.primaryColor})`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: `0 8px 20px -6px ${theme.primaryColor}50`
+                }}>
+                  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1-1.73V4a2 2 0 0 0-2-2z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: theme.colors.text, marginBottom: '2px' }}>全局设置</div>
+                  <div style={{ fontSize: '13px', color: theme.colors.textSecondary }}>
+                    配置应用偏好和快捷键
+                  </div>
                 </div>
               </div>
               <button
@@ -2610,144 +3096,394 @@ export const App: React.FC = () => {
                 style={{
                   border: `1px solid ${theme.colors.border}`,
                   background: 'transparent',
-                  borderRadius: '999px',
-                  width: 28,
-                  height: 28,
+                  borderRadius: '8px',
+                  width: 36,
+                  height: 36,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
                   color: theme.colors.textSecondary,
-                  fontSize: '14px'
+                  transition: 'all 0.2s ease',
+                  fontSize: '18px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.colors.border;
+                  e.currentTarget.style.transform = 'rotate(90deg)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.transform = 'rotate(0deg)';
                 }}
               >
                 ✕
               </button>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                padding: '12px 14px',
-                borderRadius: '10px',
-                background: theme.theme === 'dark' ? 'rgba(15,23,42,0.6)' : '#f9fafb',
-                border: `1px dashed ${theme.colors.border}`
-              }}
-            >
-              <div style={{ fontSize: '13px', fontWeight: 600, color: theme.colors.text }}>分页设置</div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: theme.colors.textSecondary }}>
-                <input
-                  type="checkbox"
-                  checked={appSettings.useDelimiterPagination}
-                  onChange={(e) =>
-                    setAppSettings((prev) => ({
-                      ...prev,
-                      useDelimiterPagination: e.target.checked,
-                    }))
+            {/* 设置选项卡 */}
+            <div style={{
+              display: 'flex',
+              gap: '8px',
+              borderBottom: `1px solid ${theme.colors.border}`,
+              paddingBottom: '0'
+            }}>
+              <button
+                style={{
+                  padding: '12px 20px',
+                  borderRadius: '8px 8px 0 0',
+                  background: settingsTab === 'general' ? `${theme.primaryColor}12` : 'transparent',
+                  color: settingsTab === 'general' ? theme.primaryColor : theme.colors.text,
+                  border: settingsTab === 'general' ? `2px solid ${theme.primaryColor}` : '2px solid transparent',
+                  borderBottom: settingsTab === 'general' ? `2px solid ${theme.colors.surface}` : 'none',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: settingsTab === 'general' ? '600' : '500',
+                  transition: 'all 0.2s ease',
+                  marginBottom: settingsTab === 'general' ? '-2px' : '0'
+                }}
+                onClick={() => setSettingsTab('general')}
+                onMouseEnter={(e) => {
+                  if (settingsTab !== 'general') {
+                    e.currentTarget.style.background = `${theme.colors.border}40`;
                   }
-                />
-                使用 --- 作为手动分页符
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: theme.colors.textSecondary }}>
-                <input
-                  type="checkbox"
-                  checked={appSettings.useHeadingPagination}
-                  onChange={(e) =>
-                    setAppSettings((prev) => ({
-                      ...prev,
-                      useHeadingPagination: e.target.checked,
-                    }))
+                }}
+                onMouseLeave={(e) => {
+                  if (settingsTab !== 'general') {
+                    e.currentTarget.style.background = 'transparent';
                   }
-                />
-                根据标题自动分页
-              </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
-                <span>标题等级阈值</span>
-                <select
-                  value={appSettings.minHeadingLevel}
-                  disabled={!appSettings.useHeadingPagination}
-                  onChange={(e) =>
-                    setAppSettings((prev) => ({
-                      ...prev,
-                      minHeadingLevel: Number(e.target.value),
-                    }))
+                }}
+              >
+                通用设置
+              </button>
+              <button
+                style={{
+                  padding: '12px 20px',
+                  borderRadius: '8px 8px 0 0',
+                  background: settingsTab === 'keyboard' ? `${theme.primaryColor}12` : 'transparent',
+                  color: settingsTab === 'keyboard' ? theme.primaryColor : theme.colors.text,
+                  border: settingsTab === 'keyboard' ? `2px solid ${theme.primaryColor}` : '2px solid transparent',
+                  borderBottom: settingsTab === 'keyboard' ? `2px solid ${theme.colors.surface}` : 'none',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: settingsTab === 'keyboard' ? '600' : '500',
+                  transition: 'all 0.2s ease',
+                  marginBottom: settingsTab === 'keyboard' ? '-2px' : '0'
+                }}
+                onClick={() => setSettingsTab('keyboard')}
+                onMouseEnter={(e) => {
+                  if (settingsTab !== 'keyboard') {
+                    e.currentTarget.style.background = `${theme.colors.border}40`;
                   }
-                  style={{
-                    padding: '4px 8px',
-                    borderRadius: '6px',
-                    border: `1px solid ${theme.colors.border}`,
-                    background: 'transparent',
-                    color: theme.colors.text,
-                    fontSize: '13px'
-                  }}
-                >
-                  <option value={1}>一级及以上 (#)</option>
-                  <option value={2}>二级及以上 (##)</option>
-                  <option value={3}>三级及以上 (###)</option>
-                  <option value={4}>四级及以上 (####)</option>
-                  <option value={5}>五级及以上 (#####)</option>
-                  <option value={6}>六级及以上 (######)</option>
-                </select>
-              </div>
+                }}
+                onMouseLeave={(e) => {
+                  if (settingsTab !== 'keyboard') {
+                    e.currentTarget.style.background = 'transparent';
+                  }
+                }}
+              >
+                键盘快捷键
+              </button>
+            </div>
+            
+            {/* 设置内容区域 */}
+            <div style={{
+              flex: 1,
+              overflow: 'auto',
+              minHeight: 0
+            }}>
+              {/* 通用设置内容 */}
+              {settingsTab === 'general' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '16px',
+                      padding: '20px 24px',
+                      borderRadius: '12px',
+                      background: theme.colors.background,
+                      border: `1px solid ${theme.colors.border}`
+                    }}
+                  >
+                    <div style={{ fontSize: '15px', fontWeight: 600, color: theme.colors.text, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={theme.primaryColor} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                      </svg>
+                      分页设置
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <label style={{ 
+                        display: 'flex', 
+                        alignItems: 'flex-start', 
+                        gap: '12px', 
+                        fontSize: '14px', 
+                        color: theme.colors.text,
+                        cursor: 'pointer',
+                        padding: '8px',
+                        borderRadius: '8px',
+                        transition: 'background 0.2s',
+                        marginLeft: '-8px',
+                        paddingLeft: '20px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = `${theme.colors.border}40`;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                      }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={appSettings.useDelimiterPagination}
+                          onChange={(e) =>
+                            setAppSettings((prev) => ({
+                              ...prev,
+                              useDelimiterPagination: e.target.checked,
+                            }))
+                          }
+                          style={{
+                            marginTop: '2px',
+                            cursor: 'pointer'
+                          }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 500 }}>使用 --- 作为手动分页符</div>
+                          <div style={{ fontSize: '12px', color: theme.colors.textSecondary, marginTop: '2px' }}>
+                            在 Markdown 中使用三个横线分隔符创建新的幻灯片
+                          </div>
+                        </div>
+                      </label>
+
+                      <label style={{ 
+                        display: 'flex', 
+                        alignItems: 'flex-start', 
+                        gap: '12px', 
+                        fontSize: '14px', 
+                        color: theme.colors.text,
+                        cursor: 'pointer',
+                        padding: '8px',
+                        borderRadius: '8px',
+                        transition: 'background 0.2s',
+                        marginLeft: '-8px',
+                        paddingLeft: '20px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = `${theme.colors.border}40`;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                      }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={appSettings.useHeadingPagination}
+                          onChange={(e) =>
+                            setAppSettings((prev) => ({
+                              ...prev,
+                              useHeadingPagination: e.target.checked,
+                            }))
+                          }
+                          style={{
+                            marginTop: '2px',
+                            cursor: 'pointer'
+                          }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 500 }}>根据标题自动分页</div>
+                          <div style={{ fontSize: '12px', color: theme.colors.textSecondary, marginTop: '2px' }}>
+                            按照指定的标题级别自动创建新的幻灯片
+                          </div>
+                        </div>
+                      </label>
+
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '12px', 
+                        fontSize: '14px', 
+                        color: theme.colors.text,
+                        padding: '8px 8px 8px 20px',
+                        opacity: appSettings.useHeadingPagination ? 1 : 0.5
+                      }}>
+                        <span style={{ fontWeight: 500 }}>标题等级阈值：</span>
+                        <select
+                          value={appSettings.minHeadingLevel}
+                          disabled={!appSettings.useHeadingPagination}
+                          onChange={(e) =>
+                            setAppSettings((prev) => ({
+                              ...prev,
+                              minHeadingLevel: Number(e.target.value),
+                            }))
+                          }
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            border: `1px solid ${theme.colors.border}`,
+                            background: theme.colors.surface,
+                            color: theme.colors.text,
+                            fontSize: '14px',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!appSettings.useHeadingPagination) return;
+                            e.currentTarget.style.borderColor = theme.primaryColor;
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!appSettings.useHeadingPagination) return;
+                            e.currentTarget.style.borderColor = theme.colors.border;
+                          }}
+                        >
+                          <option value={1}>一级标题 (#)</option>
+                          <option value={2}>二级标题 (##)</option>
+                          <option value={3}>三级标题 (###)</option>
+                          <option value={4}>四级标题 (####)</option>
+                          <option value={5}>五级标题 (#####)</option>
+                          <option value={6}>六级标题 (######)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '16px',
+                      padding: '20px 24px',
+                      borderRadius: '12px',
+                      background: theme.colors.background,
+                      border: `1px solid ${theme.colors.border}`
+                    }}
+                  >
+                    <div style={{ fontSize: '15px', fontWeight: 600, color: theme.colors.text, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={theme.primaryColor} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                      </svg>
+                      预览设置
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ fontSize: '14px', color: theme.colors.text, fontWeight: 500 }}>HTML 预览背景色</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '10px',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          border: `1px solid ${theme.colors.border}`,
+                          background: theme.colors.surface,
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = theme.primaryColor;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = theme.colors.border;
+                        }}>
+                          <input
+                            type="color"
+                            value={appSettings.htmlPreviewBackground || theme.colors.background}
+                            onChange={(e) =>
+                              setAppSettings((prev) => ({
+                                ...prev,
+                                htmlPreviewBackground: e.target.value,
+                              }))
+                            }
+                            style={{
+                              padding: '0',
+                              width: '36px',
+                              height: '28px',
+                              borderRadius: '6px',
+                              border: `1px solid ${theme.colors.border}`,
+                              background: 'transparent',
+                              cursor: 'pointer'
+                            }}
+                            title="选择 HTML 预览背景色"
+                          />
+                          <span style={{ 
+                            fontSize: '13px', 
+                            fontFamily: 'monospace',
+                            color: theme.colors.textSecondary,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            background: theme.colors.background
+                          }}>
+                            {appSettings.htmlPreviewBackground || '跟随主题'}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setAppSettings(prev => ({ ...prev, htmlPreviewBackground: '' }))}
+                          style={{
+                            padding: '8px 16px',
+                            fontSize: '13px',
+                            fontWeight: 500,
+                            borderRadius: '8px',
+                            border: `1px solid ${theme.colors.border}`,
+                            background: 'transparent',
+                            color: theme.colors.text,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = theme.colors.border;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'transparent';
+                          }}
+                        >
+                          恢复默认
+                        </button>
+                      </div>
+                      <div style={{ 
+                        fontSize: '12px', 
+                        color: theme.colors.textSecondary, 
+                        opacity: 0.8,
+                        padding: '8px 12px',
+                        background: `${theme.colors.textSecondary}10`,
+                        borderRadius: '6px',
+                        borderLeft: `3px solid ${theme.primaryColor}`
+                      }}>
+                        💡 提示：HTML 预览模式下，可以使用 <code style={{
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          background: theme.colors.border,
+                          fontFamily: 'monospace',
+                          fontSize: '11px'
+                        }}>.contrast-text</code> 类确保文字清晰。
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* 键盘快捷键设置内容 */}
+              {settingsTab === 'keyboard' && (
+                <div style={{ padding: '4px 0' }}>
+                  <KeyboardShortcutsPanel embedded={true} />
+                </div>
+              )}
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                padding: '12px 14px',
-                borderRadius: '10px',
-                background: theme.theme === 'dark' ? 'rgba(15,23,42,0.6)' : '#f9fafb',
-                border: `1px dashed ${theme.colors.border}`
-              }}
-            >
-              <div style={{ fontSize: '13px', fontWeight: 600, color: theme.colors.text }}>预览设置</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
-                <span>HTML 预览背景</span>
-                <input
-                  type="color"
-                  value={appSettings.htmlPreviewBackground || theme.colors.background}
-                  onChange={(e) =>
-                    setAppSettings((prev) => ({
-                      ...prev,
-                      htmlPreviewBackground: e.target.value,
-                    }))
-                  }
-                  style={{
-                    padding: '0',
-                    width: '32px',
-                    height: '24px',
-                    borderRadius: '4px',
-                    border: `1px solid ${theme.colors.border}`,
-                    background: 'transparent',
-                    cursor: 'pointer'
-                  }}
-                  title="选择 HTML 预览背景色，留空则跟随主题"
-                />
-                <button
-                  onClick={() => setAppSettings(prev => ({ ...prev, htmlPreviewBackground: '' }))}
-                  style={{
-                    padding: '2px 8px',
-                    fontSize: '11px',
-                    borderRadius: '4px',
-                    border: `1px solid ${theme.colors.border}`,
-                    background: 'transparent',
-                    color: theme.colors.textSecondary,
-                    cursor: 'pointer'
-                  }}
-                >
-                  恢复默认
-                </button>
-              </div>
-              <div style={{ fontSize: '11px', color: theme.colors.textSecondary, opacity: 0.7 }}>
-                提示：HTML 预览模式下，可以使用 <code>.contrast-text</code> 类确保文字清晰。
-              </div>
-            </div>
-
-            <div style={{ fontSize: '12px', color: theme.colors.textSecondary, marginTop: '4px' }}>
+            <div style={{ 
+              fontSize: '12px', 
+              color: theme.colors.textSecondary, 
+              padding: '12px 16px',
+              background: `${theme.colors.textSecondary}08`,
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={theme.colors.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+              </svg>
               设置会自动保存到浏览器本地，仅在当前设备生效。
             </div>
           </div>
@@ -3803,6 +4539,9 @@ export const App: React.FC = () => {
       )}
 
       {renderInputModal()}
+      
+      {/* Music Player */}
+      <MusicPlayer />
     </div>
   );
 };

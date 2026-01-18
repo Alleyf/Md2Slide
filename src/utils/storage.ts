@@ -12,6 +12,7 @@ export const storageKeys = {
   INSTALLED_THEMES: 'md2slide-installed-themes',
   FILE_LIST: 'md2slide-file-list',
   CUSTOM_TEMPLATES: 'md2slide-custom-templates',
+  SHORTCUTS: 'md2slide-shortcuts',
 } as const;
 
 /**

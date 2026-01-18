@@ -27,6 +27,7 @@ export interface ThemeConfig {
     border: string;
     codeBackground: string;
     codeText: string;
+    primary?: string;
   };
   responsive?: {
     fontSize: {
