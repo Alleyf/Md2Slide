@@ -16,14 +16,15 @@ export class AIService {
 
   constructor(config: AIServiceConfig) {
     this.config = config;
-    this.capabilities = this.detectCapabilities(config.model || '');
+    this.capabilities = this.detectCapabilities(config.model || '', config.imageModel || '');
   }
 
   /**
    * 识别模型能力
    */
-  private detectCapabilities(model: string): AIAssistantCapabilities {
+  private detectCapabilities(model: string, imageModel: string = ''): AIAssistantCapabilities {
     const m = model.toLowerCase();
+    const im = imageModel.toLowerCase();
     
     // 基础能力
     const capabilities: AIAssistantCapabilities = {
@@ -48,7 +49,8 @@ export class AIService {
     }
 
     // 图像生成能力 (Image Generation)
-    if (m.includes('dall-e') || m.includes('flux') || m.includes('stable-diffusion')) {
+    if (im.includes('dall-e') || im.includes('flux') || im.includes('stable-diffusion') || im.includes('image') || 
+        m.includes('dall-e') || m.includes('flux') || m.includes('stable-diffusion')) {
       capabilities.generateImages = true;
     }
 
@@ -61,17 +63,28 @@ export class AIService {
   async request(options: AIRequestOptions): Promise<AIResponse> {
     console.log(`AI Request [${this.config.provider}]:`, options.prompt.substring(0, 50) + '...');
     
+    // 自动识别模型类型并路由
+    if (!options.type) {
+      const model = this.config.model?.toLowerCase() || '';
+      const isImageModel = model.includes('image') || model.includes('dall-e') || model.includes('flux') || model.includes('stable-diffusion');
+      if (isImageModel) {
+        options.type = 'image';
+      } else {
+        options.type = 'chat';
+      }
+    }
+
     // 根据配置的提供商调用相应的API
     try {
       switch (this.config.provider) {
         case 'openai':
+        case 'custom':
           return await this.callOpenAIAPI(options);
         case 'anthropic':
           return await this.callAnthropicAPI(options);
         case 'ollama':
           return await this.callOllamaAPI(options);
         case 'local':
-        case 'custom':
           return await this.callLocalAPI(options);
         default:
           throw new Error(`不支持的AI提供商: ${this.config.provider}`);
@@ -104,34 +117,65 @@ export class AIService {
    */
   private async callOpenAIAPI(options: AIRequestOptions): Promise<AIResponse> {
     const apiKey = this.config.apiKey?.trim();
-    if (!apiKey) {
+    const isCustom = this.config.provider === 'custom';
+    
+    if (!apiKey && !isCustom) {
       throw new Error('OpenAI API密钥未配置');
     }
 
-    const url = this.getFullURL(this.config.baseURL, 'https://api.openai.com/v1', ENDPOINTS.OPENAI);
-    console.log('Fetching OpenAI URL:', url);
+    const isImageRequest = options.type === 'image';
+    const endpoint = isImageRequest ? '/images/generations' : ENDPOINTS.OPENAI;
+    const defaultBase = 'https://api.openai.com/v1';
+    const url = this.getFullURL(this.config.baseURL, defaultBase, endpoint);
+    console.log(`Fetching ${isCustom ? 'Custom' : 'OpenAI'} URL:`, url);
     
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+    
+    let body: any;
+    if (isImageRequest) {
+      body = {
+        model: this.config.imageModel || 'dall-e-3',
+        prompt: options.prompt,
+        n: 1,
+        size: '1024x1024',
+      };
+    } else {
+      body = {
         model: this.config.model || 'gpt-3.5-turbo',
         messages: [{ role: 'user', content: options.prompt }],
         max_tokens: options.maxTokens || 1000,
         temperature: options.temperature || 0.7,
-      })
+      };
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(`OpenAI API错误: ${response.status} - ${errorData.error?.message || response.statusText}`);
+      const providerName = isCustom ? 'Custom' : 'OpenAI';
+      throw new Error(`${providerName} API错误: ${response.status} - ${errorData.error?.message || response.statusText}`);
     }
 
     const data = await response.json();
     
+    if (isImageRequest) {
+      const imageUrl = data.data?.[0]?.url;
+      return {
+        content: imageUrl ? `![Generated Image](${imageUrl})` : '未能生成图片',
+        model: this.config.imageModel
+      };
+    }
+
     return {
       content: data.choices[0]?.message?.content || '未能获取AI响应',
       usage: data.usage,
@@ -288,9 +332,7 @@ export class AIService {
    */
   updateConfig(newConfig: Partial<AIServiceConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    if (newConfig.model) {
-      this.capabilities = this.detectCapabilities(newConfig.model);
-    }
+    this.capabilities = this.detectCapabilities(this.config.model || '', this.config.imageModel || '');
   }
 }
 
@@ -298,6 +340,7 @@ export class AIService {
 export const DEFAULT_AI_CONFIG: AIServiceConfig = {
   provider: (import.meta.env.VITE_AI_PROVIDER as 'openai' | 'anthropic' | 'ollama' | 'local' | 'custom') || 'openai',
   model: import.meta.env.VITE_AI_MODEL || 'gpt-3.5-turbo',
+  imageModel: import.meta.env.VITE_AI_IMAGE_MODEL || 'dall-e-3',
   apiKey: import.meta.env.VITE_AI_API_KEY || '',
   baseURL: import.meta.env.VITE_AI_BASE_URL || 'https://api.openai.com/v1'
 };

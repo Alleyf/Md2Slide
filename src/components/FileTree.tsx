@@ -151,6 +151,7 @@ interface FileTreeProps {
   onFileClick: (file: FileItem) => void;
   onDelete: (fileName: string) => void;
   onRename: (item: FileItem) => void;
+  onSaveAsTemplate?: (item: FileItem) => void;
   onMove?: (sourcePath: string, targetPath: string) => void;
   onExport: (file: FileItem) => void;
    onExportPPTX?: (file: FileItem) => void;
@@ -168,6 +169,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   onFileClick,
   onDelete,
   onRename,
+  onSaveAsTemplate,
   onMove,
   onExport,
   onExportPPTX,
@@ -453,6 +455,28 @@ export const FileTree: React.FC<FileTreeProps> = ({
           >
             <span>✏️</span> 重命名
           </div>
+          {onSaveAsTemplate && contextMenu.item.kind === 'file' && (
+            <div
+              onClick={() => {
+                onSaveAsTemplate(contextMenu.item);
+                closeMenu();
+              }}
+              style={{
+                padding: '8px 12px',
+                fontSize: '13px',
+                color: theme.colors.text,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <span>🌟</span> 保存为模板
+            </div>
+          )}
           <div
             onClick={() => {
               onDelete(contextMenu.item.path);

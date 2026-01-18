@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Wand2, Type, Image as ImageIcon, MessageSquare, X } from 'lucide-react';
+import { Sparkles, Wand2, Type, Image as ImageIcon, MessageSquare, X, Maximize2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { aiService, DEFAULT_AI_CONFIG } from '../services/ai';
@@ -24,6 +24,7 @@ export const SelectionAIAssistant: React.FC<SelectionAIAssistantProps> = ({
   const [loading, setLoading] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [result, setResult] = useState('');
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,7 +64,8 @@ export const SelectionAIAssistant: React.FC<SelectionAIAssistantProps> = ({
     setResult(''); // 清空之前的结果
     try {
       const response = await aiService.request({
-        prompt: `${promptPrefix}\n\n内容：${selection}`
+        prompt: `${promptPrefix}\n\n内容：${selection}`,
+        type: action === 'image' ? 'image' : 'chat'
       });
       setResult(response.content);
     } catch (error) {
@@ -77,7 +79,7 @@ export const SelectionAIAssistant: React.FC<SelectionAIAssistantProps> = ({
   const actions = [
     { id: 'polish', icon: <Wand2 size={14} />, label: '润色', prompt: '请润色以下内容，使其更专业、生动：' },
     { id: 'rewrite', icon: <Type size={14} />, label: '改写', prompt: '请以不同的口吻改写以下内容：' },
-    { id: 'image', icon: <ImageIcon size={14} />, label: '生图', prompt: '请根据以下文字描述，生成一段用于 AI 绘图的详细提示词（Prompt）：' },
+    { id: 'image', icon: <ImageIcon size={14} />, label: '生图', prompt: selection }, // 生图直接使用选择内容作为 prompt
     { id: 'ask', icon: <MessageSquare size={14} />, label: '提问', prompt: '请针对以下内容进行深度解析并回答可能存在的问题：' },
   ];
 
@@ -163,8 +165,19 @@ export const SelectionAIAssistant: React.FC<SelectionAIAssistantProps> = ({
                 marginBottom: '12px',
                 lineHeight: '1.6'
               }}>
-                <div className="markdown-body">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <div className="markdown-body" style={{ fontSize: '13px', lineHeight: '1.6' }}>
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      img: ({ node, ...props }) => (
+                        <img 
+                          {...props} 
+                          style={{ maxWidth: '100%', height: 'auto', display: 'block' }} 
+                          title="右键图片另存为可下载"
+                        />
+                      )
+                    }}
+                  >
                     {result}
                   </ReactMarkdown>
                 </div>

@@ -3,6 +3,7 @@ export interface AIServiceConfig {
   apiKey?: string;
   baseURL?: string;
   model?: string;
+  imageModel?: string;
 }
 
 export interface AIRequestOptions {
@@ -10,6 +11,7 @@ export interface AIRequestOptions {
   maxTokens?: number;
   temperature?: number;
   stream?: boolean;
+  type?: 'chat' | 'image';
 }
 
 export interface AIResponse {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Layout, FileText, Globe, Download, Upload } from 'lucide-react';
+import { X, Layout, FileText, Globe, Download, Upload, Edit2, Check, Trash2 } from 'lucide-react';
 import { templateMarketplaceService, Template } from '../services/templateMarketplaceService';
 import { ThemeConfig } from '../types/theme';
 
@@ -17,7 +17,36 @@ export const TemplateMarketplace: React.FC<TemplateMarketplaceProps> = ({
   theme
 }) => {
   const [filter, setFilter] = useState<'all' | 'md' | 'html'>('all');
-  const templates = templateMarketplaceService.getTemplates();
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+
+  // 每次打开弹窗时重新加载模板
+  React.useEffect(() => {
+    if (isOpen) {
+      setTemplates(templateMarketplaceService.getTemplates());
+    }
+  }, [isOpen]);
+
+  const handleRename = (id: string, newName: string) => {
+    if (newName.trim()) {
+      templateMarketplaceService.updateTemplateName(id, newName);
+      setTemplates([...templateMarketplaceService.getTemplates()]);
+    }
+    setEditingId(null);
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm('确定要删除这个模板吗？')) {
+      const success = templateMarketplaceService.deleteTemplate(id);
+      if (success) {
+        // 使用新数组触发重新渲染
+        setTemplates([...templateMarketplaceService.getTemplates()]);
+      } else {
+        alert('无法删除内置模板');
+      }
+    }
+  };
 
   const filteredTemplates = templates.filter(t => 
     filter === 'all' ? true : t.type === filter
@@ -40,6 +69,8 @@ export const TemplateMarketplace: React.FC<TemplateMarketplaceProps> = ({
         description: '本地上传的模板',
         content: content
       };
+      templateMarketplaceService.addTemplate(newTemplate);
+      setTemplates(templateMarketplaceService.getTemplates());
       onApplyTemplate(newTemplate);
       onClose();
     };
@@ -185,7 +216,85 @@ export const TemplateMarketplace: React.FC<TemplateMarketplaceProps> = ({
                 {template.type === 'md' ? <FileText size={48} opacity={0.3} /> : <Globe size={48} opacity={0.3} />}
               </div>
               <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', color: theme.colors.text }}>{template.name}</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  {editingId === template.id ? (
+                    <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
+                      <input
+                        autoFocus
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleRename(template.id, editName);
+                          if (e.key === 'Escape') setEditingId(null);
+                        }}
+                        style={{
+                          flex: 1,
+                          fontSize: '14px',
+                          padding: '2px 4px',
+                          borderRadius: '4px',
+                          border: `1px solid ${theme.primaryColor}`,
+                          background: theme.colors.surface,
+                          color: theme.colors.text
+                        }}
+                      />
+                      <button
+                        onClick={() => handleRename(template.id, editName)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#22c55e' }}
+                      >
+                        <Check size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <h3 style={{ margin: 0, fontSize: '16px', color: theme.colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {template.name}
+                      </h3>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingId(template.id);
+                            setEditName(template.name);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: theme.colors.textSecondary,
+                            opacity: 0.6,
+                            padding: '4px'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+                          title="修改名称"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        {template.isCustom && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(template.id);
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: '#ef4444',
+                              opacity: 0.6,
+                              padding: '4px'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+                            title="删除模板"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
                 <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: theme.colors.textSecondary, flex: 1 }}>
                   {template.description}
                 </p>

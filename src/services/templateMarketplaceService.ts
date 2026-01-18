@@ -1,3 +1,5 @@
+import { getStorageItem, setStorageItem, storageKeys } from '../utils/storage';
+
 export interface Template {
   id: string;
   name: string;
@@ -5,6 +7,7 @@ export interface Template {
   description: string;
   content: string;
   previewImage?: string;
+  isCustom?: boolean;
 }
 
 class TemplateMarketplaceService {
@@ -39,8 +42,20 @@ class TemplateMarketplaceService {
     }
   ];
 
+  constructor() {
+    this.loadCustomTemplates();
+  }
+
+  private loadCustomTemplates() {
+    const customTemplates = getStorageItem<Template[]>(storageKeys.CUSTOM_TEMPLATES, []);
+    // 过滤掉可能存在的重复 ID
+    const builtInIds = new Set(this.templates.map(t => t.id));
+    const uniqueCustom = customTemplates.filter(t => !builtInIds.has(t.id));
+    this.templates = [...this.templates, ...uniqueCustom.map(t => ({ ...t, isCustom: true }))];
+  }
+
   getTemplates(): Template[] {
-    return this.templates;
+    return [...this.templates];
   }
 
   getTemplateById(id: string): Template | undefined {
@@ -48,7 +63,39 @@ class TemplateMarketplaceService {
   }
 
   addTemplate(template: Template) {
-    this.templates.push(template);
+    const newTemplate = { ...template, isCustom: true };
+    this.templates.push(newTemplate);
+    
+    this.saveCustomTemplates();
+  }
+
+  updateTemplateName(id: string, newName: string) {
+    const template = this.templates.find(t => t.id === id);
+    if (template) {
+      template.name = newName;
+      if (template.isCustom) {
+        this.saveCustomTemplates();
+      }
+    }
+  }
+
+  deleteTemplate(id: string) {
+    const index = this.templates.findIndex(t => t.id === id);
+    if (index !== -1) {
+      // 允许删除自定义模板
+      if (this.templates[index].isCustom) {
+        this.templates.splice(index, 1);
+        this.saveCustomTemplates();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private saveCustomTemplates() {
+    // 仅保存自定义模板
+    const customOnly = this.templates.filter(t => t.isCustom);
+    setStorageItem(storageKeys.CUSTOM_TEMPLATES, customOnly);
   }
 }
 

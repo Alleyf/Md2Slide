@@ -24,7 +24,7 @@ import { SelectionAIAssistant } from './components/SelectionAIAssistant';
 import { aiService, DEFAULT_AI_CONFIG } from './services/ai';
 import { ThemeMarketplace } from './components/ThemeMarketplace';
 import { TemplateMarketplace } from './components/TemplateMarketplace';
-import { Template } from './services/templateMarketplaceService';
+import { Template, templateMarketplaceService } from './services/templateMarketplaceService';
 import { themeMarketplaceService } from './services/themeMarketplace';
 import { PluginMarketplace } from './components/PluginMarketplace';
 import { pluginManager } from './services/pluginManager';
@@ -519,7 +519,17 @@ export const App: React.FC = () => {
             alert('🎉 恭喜！神秘代码正确，内置 AI 配置已解锁');
             setTimeout(() => setShowEasterEgg(false), 5000);
           } else {
-            alert('❌ 神秘代码错误，无法解锁神秘力量');
+            // 输入错误，清除当前配置并提示
+            const emptyConfig: AIServiceConfig = {
+              provider: 'openai',
+              model: '',
+              imageModel: '',
+              apiKey: '',
+              baseURL: 'https://api.openai.com/v1'
+            };
+            setStorageItem(storageKeys.AI_CONFIG, emptyConfig);
+            aiService.updateConfig(emptyConfig);
+            alert('❌ 神秘代码错误：无法验证身份。为确保安全，已重置并禁用当前内置 AI 配置。');
           }
         }
       });
@@ -557,6 +567,56 @@ export const App: React.FC = () => {
     
     setEditorMode(template.type === 'md' ? 'markdown' : template.type);
     setShowTemplateMarketplace(false);
+  };
+
+  const handleSaveAsTemplate = async (item: FileItem) => {
+    try {
+      // 1. 获取文件内容
+      let fileContent = '';
+      const filePath = item.path || item.name;
+      const storageKey = `md2slide_file_${filePath}`;
+      const savedContent = localStorage.getItem(storageKey);
+
+      if (savedContent !== null) {
+        fileContent = savedContent;
+      } else if (item.content !== undefined) {
+        fileContent = item.content;
+      } else if (item.isStatic) {
+        const response = await fetch(`/${filePath}`);
+        if (response.ok) {
+          fileContent = await response.text();
+        }
+      }
+
+      if (!fileContent) {
+        alert('无法获取文件内容，保存失败');
+        return;
+      }
+
+      // 2. 弹出重命名/描述输入框
+      setInputModal({
+        show: true,
+        type: 'confirm',
+        value: '',
+        message: `将 "${item.name}" 保存为模板？`,
+        callback: () => {
+          const type = item.name.endsWith('.html') ? 'html' : 'md';
+          const newTemplate: Template = {
+            id: `custom-${Date.now()}`,
+            name: item.name.replace(/\.(md|html)$/, ''),
+            type: type,
+            description: '从本地文件保存的自定义模板',
+            content: fileContent
+          };
+          
+          templateMarketplaceService.addTemplate(newTemplate);
+          alert('🎉 模板保存成功！您可以在模板市场中找到它。');
+        }
+      });
+    } catch (error) {
+      console.error('Failed to save as template:', error);
+      alert('保存模板时出错');
+    }
   };
 
   const handleModeSwitch = (mode: 'markdown' | 'html') => {
@@ -808,6 +868,18 @@ export const App: React.FC = () => {
         }
         return [...prev, newFile];
       });
+
+      // 自动保存到模板市场
+      const templateType = file.name.endsWith('.html') ? 'html' : 'md';
+      const newTemplate: Template = {
+        id: `import-${Date.now()}`,
+        name: file.name.replace(/\.(md|html)$/, ''),
+        type: templateType,
+        description: '自动导入的模板',
+        content: fileContent
+      };
+      templateMarketplaceService.addTemplate(newTemplate);
+
       loadFile(newFile);
     } catch (err) {
       console.error(`${fileType === 'html' ? 'HTML' : 'Markdown'} Import failed:`, err);
@@ -1645,6 +1717,17 @@ export const App: React.FC = () => {
           }
           return [...prev, { name: file.name, kind: 'file', content: fileContent }];
         });
+
+        // 自动保存到模板市场
+        const templateType = file.name.toLowerCase().endsWith('.html') || file.name.toLowerCase().endsWith('.htm') ? 'html' : 'md';
+        const newTemplate: Template = {
+          id: `upload-${Date.now()}`,
+          name: file.name.replace(/\.(md|html|htm)$/i, ''),
+          type: templateType,
+          description: '自动上传的模板',
+          content: fileContent
+        };
+        templateMarketplaceService.addTemplate(newTemplate);
       };
       reader.readAsText(file);
     }
@@ -2712,13 +2795,14 @@ export const App: React.FC = () => {
                     )}
                   </div>
                 <div style={{ flex: 1, overflowY: 'auto' }}>
-                  <FileTree
-                    files={fileList}
-                    activeFile={activeFile}
-                    onFileClick={loadFile}
-                    onDelete={deleteFile}
-                    onRename={renameFile}
-                    onMove={moveFile}
+                  <FileTree 
+              files={fileList} 
+              activeFile={activeFile}
+              onFileClick={loadFile}
+              onDelete={deleteFile}
+              onRename={renameFile}
+              onSaveAsTemplate={handleSaveAsTemplate}
+              onMove={moveFile}
                     onExport={handleExportPDF}
                   onExportPPTX={handleExportPPTX}
                   onExportWord={handleExportWord}
