@@ -38,7 +38,7 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({ icon, title, shortcut, on
           background: 'transparent',
           border: 'none',
           borderRadius: '4px',
-          color: theme.colors.textSecondary,
+          color: theme.colors.text,
           cursor: 'pointer',
           fontSize: '13px',
           fontWeight: 600,

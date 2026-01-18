@@ -5,6 +5,7 @@ import { getStorageItem, setStorageItem, storageKeys } from '../utils/storage';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Sparkles, Wand2, List, FileText, Settings, X, Send, Check, Languages, Volume2, Zap, Info, Save } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 interface AIAssistantProps {
   editorContent: string;
@@ -21,6 +22,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
   onClose: externalOnClose,
   isSidebar = false
 }) => {
+  const { themeConfig: theme } = useTheme();
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'general' | 'improve' | 'slides' | 'translate' | 'suggest' | 'settings'>('general');
   const [inputText, setInputText] = useState(editorContent);
@@ -147,13 +149,13 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
         cursor: 'pointer',
         fontSize: '13px',
         fontWeight: 500,
-        color: activeTab === tab ? '#4f46e5' : '#6b7280',
+        color: activeTab === tab ? theme.primaryColor : theme.colors.textSecondary,
         display: 'flex',
         flexDirection: isSidebar ? 'column' : 'row',
         alignItems: 'center',
         gap: isSidebar ? '4px' : '8px',
-        borderBottom: !isSidebar && activeTab === tab ? '2px solid #4f46e5' : '2px solid transparent',
-        background: isSidebar && activeTab === tab ? '#f3f4f6' : 'transparent',
+        borderBottom: !isSidebar && activeTab === tab ? `2px solid ${theme.primaryColor}` : '2px solid transparent',
+        background: isSidebar && activeTab === tab ? theme.colors.background : 'transparent',
         borderRadius: isSidebar ? '8px' : '0',
         flex: isSidebar ? 1 : 'none'
       }}
@@ -170,12 +172,13 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
         style={{
           width: '100%',
           height: '100%',
-          backgroundColor: 'white',
+          backgroundColor: theme.colors.surface,
           borderRadius: isSidebar ? '0' : '12px',
           boxShadow: isSidebar ? 'none' : '0 20px 50px rgba(0, 0, 0, 0.3)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
+          color: theme.colors.text,
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
         }}
       >
@@ -183,16 +186,16 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
         className="ai-assistant-header"
         style={{
           padding: '12px 16px',
-          borderBottom: '1px solid #f3f4f6',
+          borderBottom: `1px solid ${theme.colors.border}`,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: '#f9fafb'
+          background: theme.colors.background
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Sparkles size={18} color="#4f46e5" />
-          <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#111827' }}>AI 助手</h2>
+          <Sparkles size={18} color={theme.primaryColor} />
+          <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: theme.colors.text }}>AI 助手</h2>
           
           <div style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
             {capabilities.reasoning && <span title="推理能力" style={{ fontSize: '10px', padding: '1px 4px', background: '#e0e7ff', color: '#4338ca', borderRadius: '4px' }}>推理</span>}
@@ -222,7 +225,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
 
       <div className="ai-assistant-tabs" style={{ 
         display: 'flex', 
-        borderBottom: '1px solid #f3f4f6', 
+        borderBottom: `1px solid ${theme.colors.border}`, 
         padding: '0 8px',
         overflowX: 'auto',
         scrollbarWidth: 'none'

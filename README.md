@@ -605,62 +605,183 @@ npm run deploy
 
 ### Docker 部署
 
-#### 1. 创建 Dockerfile
+我们提供了完整的 Docker 支持，可以方便地将应用打包成镜像进行部署。
 
-```dockerfile
-FROM node:18-alpine as builder
+#### 1. 构建 Docker 镜像
 
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci
-
-COPY . .
-RUN npm run build
-
-FROM nginx:alpine
-
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/nginx.conf
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
-```
-
-#### 2. 创建 nginx.conf
-
-```nginx
-events {}
-http {
-  include /etc/nginx/mime.types;
-  default_type application/octet-stream;
-
-  server {
-    listen 80;
-    server_name localhost;
-
-    root /usr/share/nginx/html;
-    index index.html;
-
-    location / {
-      try_files $uri $uri/ /index.html;
-    }
-  }
-}
-```
-
-#### 3. 构建并运行
+项目根目录包含预配置的 `Dockerfile` 和 `nginx.conf`，可以直接使用：
 
 ```bash
-# 构建镜像
+# 构建镜像 (使用多阶段构建优化镜像大小)
 docker build -t md2slide .
 
-# 运行容器
-docker run -d -p 8080:80 md2slide
+# 或者使用构建缓存加速构建过程
+docker build --no-cache -t md2slide .
+```
 
-# 访问
+#### 2. 运行容器
+
+```bash
+# 基础运行 (端口映射到 8080)
+docker run -d -p 8080:80 --name md2slide-container md2slide
+
+# 或者指定内存限制
+docker run -d -p 8080:80 --name md2slide-container --memory=512m md2slide
+
+# 访问应用
 open http://localhost:8080
+```
+
+#### 3. 使用环境变量配置 (可选)
+
+如果需要配置环境变量（如AI服务API密钥等），可以在构建时或运行时传递。项目支持以下环境变量：
+
+| 环境变量 | 描述 | 默认值 |
+|---------|------|--------|
+| VITE_AI_PROVIDER | AI服务提供商 | openai |
+| VITE_AI_MODEL | AI模型名称 | gpt-3.5-turbo |
+| VITE_AI_API_KEY | AI服务API密钥 | (无) |
+| VITE_AI_BASE_URL | AI服务基础URL | https://api.openai.com/v1 |
+
+**构建时设置环境变量：**
+
+```bash
+# 构建时传入环境变量
+docker build -t md2slide \
+  --build-arg VITE_AI_PROVIDER=anthropic \
+  --build-arg VITE_AI_MODEL=claude-3-haiku-20240307 \
+  --build-arg VITE_AI_API_KEY=your_anthropic_api_key \
+  --build-arg VITE_AI_BASE_URL=https://api.anthropic.com/v1 .
+```
+
+**运行时设置环境变量：**
+
+```bash
+# 运行时传入环境变量
+docker run -d -p 8080:80 \
+  -e VITE_AI_PROVIDER=openai \
+  -e VITE_AI_MODEL=gpt-3.5-turbo \
+  -e VITE_AI_API_KEY=your_api_key \
+  --name md2slide-container md2slide
+```
+
+**使用环境变量文件：**
+
+创建 `.env` 文件：
+
+```bash
+VITE_AI_PROVIDER=openai
+VITE_AI_MODEL=gpt-3.5-turbo
+VITE_AI_API_KEY=your_api_key
+VITE_AI_BASE_URL=https://api.openai.com/v1
+```
+
+然后运行容器：
+
+```bash
+# 从文件加载环境变量
+docker run -d -p 8080:80 --env-file ./.env --name md2slide-container md2slide
+```
+
+> **重要注意事项：** 由于这是前端应用，环境变量只在构建时生效，而不是在运行时。这意味着：
+>
+> 1. **构建时注入**：环境变量在 `npm run build` 时被注入到JavaScript文件中
+> 2. **运行时固定**：一旦构建完成，环境变量就成为静态值，无法在容器运行时更改
+> 3. **重新构建**：如果需要更改环境变量，必须重新构建镜像
+> 4. **安全性**：敏感信息（如API密钥）会暴露在构建产物中，不适合公开部署
+> 5. **替代方案**：对于需要运行时更改的配置，考虑使用API接口或配置文件
+```
+
+#### 4. Docker Compose 部署 (推荐)
+
+对于更复杂的部署场景，您可以使用 Docker Compose。Docker Compose 配置已经包含在项目中，支持构建时和运行时环境变量：
+
+```yaml
+version: '3.8'
+services:
+  md2slide:
+    build:
+      context: .
+      args:  # 构建时环境变量
+        - VITE_AI_PROVIDER=${VITE_AI_PROVIDER:-openai}
+        - VITE_AI_MODEL=${VITE_AI_MODEL:-gpt-3.5-turbo}
+        - VITE_AI_API_KEY=${VITE_AI_API_KEY}
+        - VITE_AI_BASE_URL=${VITE_AI_BASE_URL:-https://api.openai.com/v1}
+    ports:
+      - "8080:80"
+    environment:  # 运行时环境变量（主要用于构建时注入的值）
+      - NODE_ENV=production
+    restart: unless-stopped
+    volumes:
+      - ./logs:/var/log/nginx  # 挂载日志目录
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+```
+
+使用方法：
+
+```bash
+# 复制环境变量示例文件
+cp .env.example .env
+
+# 编辑 .env 文件填入您的配置
+nano .env
+
+# 使用 Docker Compose 启动
+docker-compose up -d
+
+# 查看运行状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f
+```
+
+> **注意：** Docker Compose 会自动从 `.env` 文件加载环境变量，无需手动指定 `--env-file` 参数。
+
+#### 5. 镜像优化说明
+
+- 使用 Alpine Linux 基础镜像减小镜像大小
+- 多阶段构建只保留生产环境所需文件
+- 启用 Nginx 静态资源缓存和 Gzip 压缩
+- 针对 SPA 应用优化路由处理
+
+#### 6. 部署到云平台
+
+您也可以将构建好的镜像推送到云平台容器 registry：
+
+```bash
+# 标记镜像
+docker tag md2slide your-registry/md2slide:latest
+
+# 推送到 registry
+docker push your-registry/md2slide:latest
+
+# 在云平台上运行
+docker run -d -p 80:80 your-registry/md2slide:latest
+```
+
+#### 7. 环境变量配置
+
+有关环境变量的详细配置说明，请参阅 [Docker 环境变量配置指南](./docs/docker-environment-variables.md)。
+
+#### 8. 健康检查
+
+Dockerfile 包含了基础的健康检查机制，确保服务正常运行：
+
+```bash
+# 检查容器运行状态
+docker ps
+
+# 检查容器日志
+docker logs md2slide-container
+
+# 进入容器调试
+docker exec -it md2slide-container sh
 ```
 
 ---

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Theme, ThemeConfig } from '../types/theme';
 import { darkTheme, lightTheme } from '../styles/theme';
 import { getTheme, setTheme, getStorageItem, setStorageItem, storageKeys } from '../utils/storage';
+import { themeMarketplaceService } from '../services/themeMarketplace';
 
 export interface ThemeContextType {
   theme: Theme;
@@ -34,8 +35,23 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [customThemeConfig]);
 
   // 切换主题
-  const toggleTheme = () => {
+  const toggleTheme = async () => {
     const newTheme: Theme = theme === 'dark' ? 'light' : 'dark';
+    
+    // 如果有自定义主题（来自市场），我们需要尝试切换其变体
+    if (customThemeConfig?.id) {
+      try {
+        const themePkg = await themeMarketplaceService.getThemeDetails(customThemeConfig.id, newTheme);
+        if (themePkg) {
+          setThemeConfig(themePkg.theme);
+          return;
+        }
+      } catch (e) {
+        console.error('Failed to toggle custom theme variant:', e);
+      }
+    }
+
+    // 否则切换基础主题
     setTheme(newTheme);
     setThemeState(newTheme);
     setCustomThemeConfig(null); // 切换基础主题时重置自定义配置

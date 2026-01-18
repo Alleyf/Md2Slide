@@ -279,6 +279,21 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
     touchStartRef.current = null;
   };
 
+  // 监听大纲点击同步
+  useEffect(() => {
+    const handleTocClick = (e: CustomEvent) => {
+      const { lineIndex } = e.detail;
+      if (lineIndex >= 0) {
+        // 查找该行对应的幻灯片索引
+        // 这里的逻辑需要与 App.tsx 中的 scrollToLine 保持一致
+        // 但简单起见，我们可以通过全局状态 activeSlideIndex 来同步，
+        // SlideTemplate 已经有了对 activeSlideIndex 的监听。
+      }
+    };
+    window.addEventListener('toc-scroll-to-line' as any, handleTocClick as any);
+    return () => window.removeEventListener('toc-scroll-to-line' as any, handleTocClick as any);
+  }, []);
+
   // 同步外部传入的页码
   useEffect(() => {
     if (activeSlideIndex !== undefined && activeSlideIndex !== currentSlideIndex) {

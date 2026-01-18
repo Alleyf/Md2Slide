@@ -3,6 +3,7 @@ export type Theme = 'light' | 'dark';
 
 // 主题配置接口
 export interface ThemeConfig {
+  id?: string;
   theme: Theme;
   primaryColor: string;
   secondaryColor: string;

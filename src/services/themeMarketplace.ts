@@ -284,108 +284,47 @@ export class ThemeMarketplaceService {
   /**
    * 创建模拟主题数据
    */
-  private createMockTheme(id: string, description: string): ThemePackage {
+  private createMockTheme(id: string, description: string, mode: 'light' | 'dark' = 'light'): ThemePackage {
     const now = new Date().toISOString();
 
-    // 根据主题ID选择不同的配色方案
+    // 基础颜色方案
     let colors: any = {
       primary: '#007acc',
       secondary: '#6c757d',
-      background: '#ffffff',
-      surface: '#f8fafc',
-      text: '#333333',
-      textSecondary: '#64748b',
-      border: '#e2e8f0',
-      highlight: '#ffeb3b',
-      codeBackground: '#f1f5f9',
-      codeText: '#1e293b'
+      background: mode === 'dark' ? '#0f172a' : '#ffffff',
+      surface: mode === 'dark' ? '#1e293b' : '#f8fafc',
+      text: mode === 'dark' ? '#f1f5f9' : '#333333',
+      textSecondary: mode === 'dark' ? '#94a3b8' : '#64748b',
+      border: mode === 'dark' ? '#334155' : '#e2e8f0',
+      highlight: mode === 'dark' ? '#fde68a' : '#ffeb3b',
+      codeBackground: mode === 'dark' ? '#0f172a' : '#f1f5f9',
+      codeText: mode === 'dark' ? '#60a5fa' : '#1e293b'
     };
 
-    // 根据主题ID设置特定配色
+    // 根据主题ID设置特定配色，同时考虑模式
     switch(id) {
       case 'minimal':
-        colors = {
-          primary: '#2563eb',
-          secondary: '#64748b',
-          background: '#ffffff',
-          surface: '#ffffff',
-          text: '#1e293b',
-          textSecondary: '#64748b',
-          border: '#e2e8f0',
-          highlight: '#fef3c7',
-          codeBackground: '#f1f5f9',
-          codeText: '#1e293b'
-        };
-        break;
-      case 'dark':
-        colors = {
-          primary: '#60a5fa',
-          secondary: '#94a3b8',
-          background: '#0f172a',
-          surface: '#1e293b',
-          text: '#f1f5f9',
-          textSecondary: '#94a3b8',
-          border: '#334155',
-          highlight: '#fde68a',
-          codeBackground: '#0f172a',
-          codeText: '#60a5fa'
-        };
+        colors.primary = mode === 'dark' ? '#60a5fa' : '#2563eb';
         break;
       case 'cyberpunk':
         colors = {
           primary: '#06b6d4',
           secondary: '#8b5cf6',
-          background: '#000000',
-          surface: '#111111',
-          text: '#e2e8f0',
-          textSecondary: '#94a3b8',
-          border: '#333333',
+          background: mode === 'dark' ? '#000000' : '#f0f9ff',
+          surface: mode === 'dark' ? '#111111' : '#ffffff',
+          text: mode === 'dark' ? '#e2e8f0' : '#083344',
+          textSecondary: mode === 'dark' ? '#94a3b8' : '#0e7490',
+          border: mode === 'dark' ? '#333333' : '#bae6fd',
           highlight: '#f472b6',
-          codeBackground: '#1a1a1a',
+          codeBackground: mode === 'dark' ? '#1a1a1a' : '#ecfeff',
           codeText: '#06b6d4'
         };
         break;
       case 'academic':
-        colors = {
-          primary: '#1e40af',
-          secondary: '#475569',
-          background: '#f8fafc',
-          surface: '#ffffff',
-          text: '#0f172a',
-          textSecondary: '#475569',
-          border: '#e2e8f0',
-          highlight: '#fde68a',
-          codeBackground: '#f1f5f9',
-          codeText: '#1e40af'
-        };
-        break;
-      case 'presentation':
-        colors = {
-          primary: '#3b82f6',
-          secondary: '#6b7280',
-          background: '#ffffff',
-          surface: '#f9fafb',
-          text: '#111827',
-          textSecondary: '#6b7280',
-          border: '#e5e7eb',
-          highlight: '#fef3c7',
-          codeBackground: '#f3f4f6',
-          codeText: '#3b82f6'
-        };
+        colors.primary = mode === 'dark' ? '#93c5fd' : '#1e40af';
         break;
       case 'creative':
-        colors = {
-          primary: '#ec4899',
-          secondary: '#8b5cf6',
-          background: '#f9fafb',
-          surface: '#ffffff',
-          text: '#111827',
-          textSecondary: '#6b7280',
-          border: '#f3f4f6',
-          highlight: '#a7f3d0',
-          codeBackground: '#fdf2f8',
-          codeText: '#ec4899'
-        };
+        colors.primary = mode === 'dark' ? '#f472b6' : '#ec4899';
         break;
     }
 
@@ -403,7 +342,7 @@ export class ThemeMarketplaceService {
       },
       theme: {
         id,
-        theme: id === 'dark' || id === 'cyberpunk' ? 'dark' : 'light',
+        theme: mode,
         primaryColor: colors.primary,
         secondaryColor: colors.secondary,
         accentColor: colors.highlight,
@@ -431,31 +370,12 @@ export class ThemeMarketplaceService {
         }
       },
       files: {
-        css: `.theme-${id} {
+        css: `.theme-${id}-${mode} {
           --primary-color: ${colors.primary};
           --secondary-color: ${colors.secondary};
           --bg-color: ${colors.background};
           --text-color: ${colors.text};
           --highlight-color: ${colors.highlight};
-        }
-        
-        /* 主题: ${id} */
-        body {
-          background-color: ${colors.background};
-          color: ${colors.text};
-        }
-        
-        .slide-container {
-          background-color: ${colors.background};
-          color: ${colors.text};
-        }
-        
-        h1, h2, h3 {
-          color: ${colors.primary};
-        }
-        
-        .highlight {
-          color: ${colors.highlight};
         }`,
         assets: [`/themes/assets/${id}/logo.svg`]
       }
@@ -539,18 +459,20 @@ export class ThemeMarketplaceService {
   /**
    * 获取主题详情
    */
-  async getThemeDetails(themeId: string): Promise<ThemePackage | null> {
+  async getThemeDetails(themeId: string, mode: 'light' | 'dark' = 'light'): Promise<ThemePackage | null> {
     // 检查已安装的主题
     const installed = this.installedThemes.get(themeId);
     if (installed) {
-      return installed;
+      // 如果已安装，我们需要根据模式返回正确的配置
+      // 在模拟实现中，我们直接调用 createMockTheme
+      return this.createMockTheme(themeId, installed.metadata.description, mode);
     }
 
     // 模拟从远程获取主题详情
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // 返回模拟数据
-    const mockTheme = this.createMockTheme(themeId, `主题 ${themeId} 的详细描述`);
+    const mockTheme = this.createMockTheme(themeId, `主题 ${themeId} 的详细描述`, mode);
     return mockTheme;
   }
 }

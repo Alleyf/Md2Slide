@@ -1,0 +1,54 @@
+# 忽略node_modules（在构建阶段会重新安装）
+node_modules
+
+# 忽略git相关文件
+.git
+.gitignore
+
+# 忽略IDE文件
+.vscode
+.idea
+
+# 忽略系统文件
+.DS_Store
+Thumbs.db
+
+# 忽略日志文件
+*.log
+logs/
+
+# 忽略环境配置
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 忽略测试相关
+coverage/
+.nyc_output/
+
+# 忽略构建工具缓存
+dist/
+build/
+.nuxt/
+.next/
+output/
+
+# 忽略其他开发相关文件
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 忽略临时文件
+tmp/
+temp/
+*.tmp
+*.temp
+
+# 忽略文档
+*.md
+docs/
+
+# 保留必要的文件
+!dist/

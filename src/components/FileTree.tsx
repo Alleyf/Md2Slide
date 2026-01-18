@@ -150,7 +150,7 @@ interface FileTreeProps {
   activeFile: string | null;
   onFileClick: (file: FileItem) => void;
   onDelete: (fileName: string) => void;
-  onRename: (fileName: string) => void;
+  onRename: (item: FileItem) => void;
   onMove?: (sourcePath: string, targetPath: string) => void;
   onExport: (file: FileItem) => void;
    onExportPPTX?: (file: FileItem) => void;
@@ -158,6 +158,7 @@ interface FileTreeProps {
   onImport: (fileType?: 'markdown' | 'html') => void;
   onOpenFolder: () => void;
   onCreate: (item: FileItem) => void;
+  onCreateDir?: (item: FileItem) => void;
   theme: ThemeConfig;
 }
 
@@ -174,6 +175,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   onImport,
   onOpenFolder,
   onCreate,
+  onCreateDir,
   theme,
 }) => {
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: FileItem } | null>(null);
@@ -195,11 +197,23 @@ export const FileTree: React.FC<FileTreeProps> = ({
     }
   };
 
+  const handleTreeDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sourcePath = e.dataTransfer.getData('text/plain');
+    if (sourcePath && onMove) {
+      // 移动到根目录
+      onMove(sourcePath, 'root');
+    }
+  };
+
   return (
     <div 
-      style={{ padding: '10px 0' }} 
+      style={{ padding: '10px 0', minHeight: '100px' }} 
       onClick={closeMenu}
       onContextMenu={handleTreeContextMenu}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleTreeDrop}
     >
       {files.map(file => (
         <FileTreeItem
@@ -397,9 +411,31 @@ export const FileTree: React.FC<FileTreeProps> = ({
           >
             <span>📝</span> 新建文件
           </div>
+          {onCreateDir && (
+            <div
+              onClick={() => {
+                onCreateDir(contextMenu.item);
+                closeMenu();
+              }}
+              style={{
+                padding: '8px 12px',
+                fontSize: '13px',
+                color: theme.colors.text,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <span>📁</span> 新建目录
+            </div>
+          )}
           <div
             onClick={() => {
-              onRename(contextMenu.item.path);
+              onRename(contextMenu.item);
               closeMenu();
             }}
             style={{

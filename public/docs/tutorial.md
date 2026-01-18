@@ -103,7 +103,6 @@ const quickSort = (arr) => {
 
 ![Md2Slide Logo](/logo.jpg)
 
-![示例图片](https://yuanqi-1251316161.cos.ap-guangzhou.myqcloud.com/public/2012387237031398656/2012387424248353280/image/QwmziYAUwDStgGhsJVL-2012387425087214080.jpg)
 
 - **视频**：使用 `` `!video(链接)` ``
 
