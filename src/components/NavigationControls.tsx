@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { darkTheme } from '../styles/theme';
-import { Play, Pause, RotateCcw, ChevronLeft, ChevronRight, Maximize, Monitor } from 'lucide-react';
+import { Play, Pause, RotateCcw, ChevronLeft, ChevronRight, Maximize, Monitor, GripVertical } from 'lucide-react';
 import { getStorageItem, setStorageItem, storageKeys } from '../utils/storage';
 
 interface NavigationControlsProps {
@@ -189,7 +189,7 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
         }}
         title="拖动工具栏"
       >
-        <span style={{ fontSize: '10px' }}>⠿</span>
+        <GripVertical size={14} />
       </div>
       <button
         onClick={onPrev}

@@ -6,6 +6,10 @@ export const storageKeys = {
   EDITOR_STATE: 'md2slide-editor-state',
   PREVIEW_NAV_POSITION: 'md2slide-preview-nav-position',
   APP_SETTINGS: 'md2slide-app-settings',
+  AI_CONFIG: 'md2slide-ai-config',
+  CUSTOM_THEME: 'md2slide-custom-theme',
+  ENABLED_PLUGINS: 'md2slide-enabled-plugins',
+  INSTALLED_THEMES: 'md2slide-installed-themes',
 } as const;
 
 /**

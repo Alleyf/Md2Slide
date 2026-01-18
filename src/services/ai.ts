@@ -1,4 +1,11 @@
 import { AIServiceConfig, AIRequestOptions, AIResponse, AIAssistantCapabilities } from '../types/ai';
+import { getStorageItem, storageKeys } from '../utils/storage';
+
+const ENDPOINTS = {
+  OPENAI: '/chat/completions',
+  ANTHROPIC: '/messages',
+  OLLAMA: '/api/generate'
+};
 
 /**
  * AI服务类，提供各种AI辅助功能
@@ -9,14 +16,43 @@ export class AIService {
 
   constructor(config: AIServiceConfig) {
     this.config = config;
-    this.capabilities = {
+    this.capabilities = this.detectCapabilities(config.model || '');
+  }
+
+  /**
+   * 识别模型能力
+   */
+  private detectCapabilities(model: string): AIAssistantCapabilities {
+    const m = model.toLowerCase();
+    
+    // 基础能力
+    const capabilities: AIAssistantCapabilities = {
       summarize: true,
       improveText: true,
       extractKeyPoints: true,
       generateSlides: true,
-      generateImages: false, // 图片生成功能暂未实现
       translate: true,
+      generateImages: false,
+      reasoning: false,
+      toolUse: false
     };
+
+    // 推理能力 (Reasoning)
+    if (m.includes('o1') || m.includes('o3') || m.includes('reasoning') || m.includes('deepseek-r1')) {
+      capabilities.reasoning = true;
+    }
+
+    // 工具调用能力 (Tool Use)
+    if (m.includes('gpt-4') || m.includes('claude-3') || m.includes('gemini-1.5') || m.includes('deepseek-chat')) {
+      capabilities.toolUse = true;
+    }
+
+    // 图像生成能力 (Image Generation)
+    if (m.includes('dall-e') || m.includes('flux') || m.includes('stable-diffusion')) {
+      capabilities.generateImages = true;
+    }
+
+    return capabilities;
   }
 
   /**
@@ -38,6 +74,14 @@ export class AIService {
     }
   }
 
+  private getFullURL(baseURL: string | undefined, defaultBase: string, endpoint: string): string {
+    const base = baseURL || defaultBase;
+    // 如果 baseURL 已经包含了 endpoint，则直接返回
+    if (base.endsWith(endpoint)) return base;
+    // 移除末尾的斜杠并拼接
+    return `${base.replace(/\/+$/, '')}${endpoint}`;
+  }
+
   /**
    * 调用OpenAI API
    */
@@ -47,7 +91,8 @@ export class AIService {
       throw new Error('OpenAI API密钥未配置');
     }
 
-    const response = await fetch(this.config.baseURL || 'https://api.openai.com/v1/chat/completions', {
+    const url = this.getFullURL(this.config.baseURL, 'https://api.openai.com/v1', ENDPOINTS.OPENAI);
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -84,7 +129,8 @@ export class AIService {
       throw new Error('Anthropic API密钥未配置');
     }
 
-    const response = await fetch(this.config.baseURL || 'https://api.anthropic.com/v1/messages', {
+    const url = this.getFullURL(this.config.baseURL, 'https://api.anthropic.com/v1', ENDPOINTS.ANTHROPIC);
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -121,7 +167,8 @@ export class AIService {
    * 调用Ollama API
    */
   private async callOllamaAPI(options: AIRequestOptions): Promise<AIResponse> {
-    const response = await fetch(this.config.baseURL || 'http://localhost:11434/api/generate', {
+    const url = this.getFullURL(this.config.baseURL, 'http://localhost:11434', ENDPOINTS.OLLAMA);
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -221,8 +268,19 @@ export class AIService {
   }
 }
 
+// 默认配置从环境变量读取
+export const DEFAULT_AI_CONFIG: AIServiceConfig = {
+  provider: (import.meta.env.VITE_AI_PROVIDER as any) || 'openai',
+  model: import.meta.env.VITE_AI_MODEL || 'gpt-3.5-turbo',
+  apiKey: import.meta.env.VITE_AI_API_KEY || '',
+  baseURL: import.meta.env.VITE_AI_BASE_URL || 'https://api.openai.com/v1'
+};
+
+// 获取初始配置（优先从存储获取，否则使用环境变量）
+const getInitialConfig = (): AIServiceConfig => {
+  if (typeof window === 'undefined') return DEFAULT_AI_CONFIG;
+  return getStorageItem<AIServiceConfig>(storageKeys.AI_CONFIG, DEFAULT_AI_CONFIG);
+};
+
 // 默认实例
-export const aiService = new AIService({
-  provider: 'openai',
-  model: 'gpt-3.5-turbo'
-});
+export const aiService = new AIService(getInitialConfig());

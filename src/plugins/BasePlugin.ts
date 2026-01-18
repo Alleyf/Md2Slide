@@ -34,7 +34,10 @@ export abstract class BasePlugin<TConfig = any> {
   abstract initialize(api: PluginAPI): Promise<void>;
   abstract destroy(): Promise<void>;
 
-  static get manifest(): PluginManifest {
-    throw new Error('Plugin manifest not implemented');
+  /**
+   * 实例的元数据，从静态 manifest 获取
+   */
+  get manifest(): PluginManifest {
+    return (this.constructor as any).manifest;
   }
 }

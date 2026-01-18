@@ -185,6 +185,16 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [localAutoPlayInterval, setLocalAutoPlayInterval] = useState(autoPlayInterval);
   const [codeOutputs, setCodeOutputs] = useState<Record<string, { type: 'text' | 'html' | 'json'; content: string }>>({});
+  const [, setRefreshCount] = useState(0);
+
+  useEffect(() => {
+    // 订阅插件状态变化
+    const unsubscribe = pluginManager.subscribe(() => {
+      setRefreshCount(prev => prev + 1);
+    });
+    return unsubscribe;
+  }, []);
+
   const autoPlayIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);

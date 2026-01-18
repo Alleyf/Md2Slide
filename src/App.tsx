@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
-import { ArrowUp, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Layout, HelpCircle, Menu, X, Settings, Puzzle } from 'lucide-react';
+import { ArrowUp, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Layout, HelpCircle, Menu, X, Settings, Puzzle, Sparkles, Wand2, Info, GripVertical } from 'lucide-react';
 import { SlideTemplate } from './components/SlideTemplate';
 import { SlideContent, SlideElement } from './types/slide';
 import { ThemeToggle } from './components/ThemeToggle';
@@ -20,7 +20,9 @@ import { formatInlineMarkdown } from './parser/markdownHelpers';
 import { htmlToMarkdown } from './utils/htmlToMarkdown';
 import { getStorageItem, setStorageItem, storageKeys } from './utils/storage';
 import { AIAssistant } from './components/AIAssistant';
+import { SelectionAIAssistant } from './components/SelectionAIAssistant';
 import { ThemeMarketplace } from './components/ThemeMarketplace';
+import { themeMarketplaceService } from './services/themeMarketplace';
 import { PluginMarketplace } from './components/PluginMarketplace';
 import { pluginManager } from './services/pluginManager';
 import { ThemePlugin } from './plugins/ThemePlugin';
@@ -32,11 +34,6 @@ interface AppSettings {
   enableAutoAnimate: boolean;
   autoAnimateDuration: number;
   autoAnimateEasing: string;
-  aiProvider: 'openai' | 'anthropic' | 'ollama' | 'local';
-  aiApiKey?: string;
-  aiModel?: string;
-  aiEndpoint?: string;
-  selectedTheme?: string;
 }
 
 const defaultAppSettings: AppSettings = {
@@ -46,15 +43,11 @@ const defaultAppSettings: AppSettings = {
   enableAutoAnimate: false,
   autoAnimateDuration: 600,
   autoAnimateEasing: 'ease-in-out',
-  aiProvider: 'openai',
-  aiApiKey: '',
-  aiModel: 'gpt-3.5-turbo',
-  aiEndpoint: '',
-  selectedTheme: 'default',
 };
 
 export const App: React.FC = () => {
-  const [markdown, setMarkdown] = useState('');
+  const [content, setContent] = useState('');
+  const [editorMode, setEditorMode] = useState<'markdown' | 'html'>('markdown');
   const [slides, setSlides] = useState<SlideContent[]>([]);
   const [showEditor, setShowEditor] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
@@ -68,20 +61,30 @@ export const App: React.FC = () => {
   const [activePreviewSlideIndex, setActivePreviewSlideIndex] = useState(0);
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const [fileList, setFileList] = useState<FileItem[]>([
-    { name: 'tutorial.md', kind: 'file', isStatic: true }
+    { name: 'tutorial.md', kind: 'file', isStatic: true },
+    { name: 'tutorial.html', kind: 'file', isStatic: true }
   ]);
+  const [logoClicks, setLogoClicks] = useState(0);
+  const [showEasterEgg, setShowEasterEgg] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(220);
   const [editorWidth, setEditorWidth] = useState(550);
+  const [aiWidth, setAIWidth] = useState(300);
   const [tocHeight, setTocHeight] = useState(300);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [isResizingEditor, setIsResizingEditor] = useState(false);
+  const [isResizingAI, setIsResizingAI] = useState(false);
   const [isResizingTOC, setIsResizingTOC] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showSaveNotification, setShowSaveNotification] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [selectionInfo, setSelectionInfo] = useState<{
+    text: string;
+    position: { x: number; y: number };
+  } | null>(null);
   const [showThemeMarketplace, setShowThemeMarketplace] = useState(false);
   const [showPluginMarketplace, setShowPluginMarketplace] = useState(false);
+  const [showAISidebar, setShowAISidebar] = useState(false);
   const [inputModal, setInputModal] = useState<{
     show: boolean;
     type: 'link' | 'image' | 'video' | 'audio' | 'rename' | 'confirm' | 'create';
@@ -90,7 +93,7 @@ export const App: React.FC = () => {
     message?: string;
     callback?: (val: string, title?: string) => void;
   }>({ show: false, type: 'link', value: '' });
-  type LayoutSection = 'sidebar' | 'editor' | 'preview';
+  type LayoutSection = 'sidebar' | 'editor' | 'preview' | 'ai';
   const [layoutOrder, setLayoutOrder] = useState<LayoutSection[]>(['sidebar', 'editor', 'preview']);
   const [draggingSection, setDraggingSection] = useState<LayoutSection | null>(null);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
@@ -102,9 +105,7 @@ export const App: React.FC = () => {
     }
     return getStorageItem<AppSettings>(storageKeys.APP_SETTINGS, defaultAppSettings);
   });
-  
-  const [currentTheme, setCurrentTheme] = useState(appSettings.selectedTheme || 'default');
-  const { themeConfig: theme } = useTheme();
+  const { themeConfig: theme, setThemeConfig } = useTheme();
 
   const isPresenterWindow = typeof window !== 'undefined' && window.location.search.includes('presenter=true');
 
@@ -135,8 +136,13 @@ export const App: React.FC = () => {
       if (isResizingSidebar) {
         setSidebarWidth(Math.max(150, Math.min(400, e.clientX)));
       } else if (isResizingEditor) {
-        const sidebarActual = showSidebar ? sidebarWidth : 0;
+        const sidebarActual = showSidebar ? sidebarWidth : (isMobile ? 0 : 30);
         setEditorWidth(Math.max(300, e.clientX - sidebarActual));
+      } else if (isResizingAI) {
+        const rect = document.getElementById('ai-container')?.getBoundingClientRect();
+        if (rect) {
+          setAIWidth(Math.max(250, Math.min(600, window.innerWidth - e.clientX)));
+        }
       } else if (isResizingTOC) {
         const sidebarElement = document.getElementById('sidebar-container');
         if (sidebarElement) {
@@ -150,12 +156,13 @@ export const App: React.FC = () => {
     const handleMouseUp = () => {
       setIsResizingSidebar(false);
       setIsResizingEditor(false);
+      setIsResizingAI(false);
       setIsResizingTOC(false);
       document.body.style.cursor = 'default';
       document.body.style.userSelect = 'auto';
     };
 
-    if (isResizingSidebar || isResizingEditor || isResizingTOC) {
+    if (isResizingSidebar || isResizingEditor || isResizingAI || isResizingTOC) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
       document.body.style.cursor = isResizingTOC ? 'row-resize' : 'col-resize';
@@ -166,7 +173,44 @@ export const App: React.FC = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizingSidebar, isResizingEditor, isResizingTOC, sidebarWidth, showSidebar]);
+  }, [isResizingSidebar, isResizingEditor, isResizingAI, isResizingTOC, sidebarWidth, showSidebar]);
+
+  const handleLogoClick = () => {
+    const newClicks = logoClicks + 1;
+    setLogoClicks(newClicks);
+    if (newClicks >= 3) {
+      setShowEasterEgg(true);
+      setLogoClicks(0);
+      setTimeout(() => setShowEasterEgg(false), 5000);
+    }
+    // 3秒后重置点击次数
+    const timer = setTimeout(() => setLogoClicks(0), 3000);
+    return () => clearTimeout(timer);
+  };
+
+  const handleModeSwitch = (mode: 'markdown' | 'html') => {
+    if (mode === editorMode) return;
+    
+    // 如果当前内容是默认的 md 教程且要切换到 html，或者反之，则加载对应的默认教程
+    if (mode === 'html' && (activeFile === 'tutorial.md' || content.includes('Markdown 教程'))) {
+      loadFile({ name: 'tutorial.html', kind: 'file', isStatic: true });
+    } else if (mode === 'markdown' && (activeFile === 'tutorial.html' || content.includes('HTML 模式指南'))) {
+      loadFile({ name: 'tutorial.md', kind: 'file', isStatic: true });
+    }
+    
+    setEditorMode(mode);
+  };
+
+  const toggleAISidebar = () => {
+    const isVisible = layoutOrder.includes('ai');
+    if (isVisible) {
+      setLayoutOrder(prev => prev.filter(s => s !== 'ai'));
+      setShowAISidebar(false);
+    } else {
+      setLayoutOrder(prev => [...prev, 'ai']);
+      setShowAISidebar(true);
+    }
+  };
 
   const loadFile = async (file: FileItem) => {
     try {
@@ -191,8 +235,15 @@ export const App: React.FC = () => {
       }
 
       if (text) {
-        setMarkdown(text);
+        setContent(text);
         setActiveFile(file.name);
+        
+        // 自动切换模式
+        if (file.name.toLowerCase().endsWith('.html') || file.name.toLowerCase().endsWith('.htm')) {
+          setEditorMode('html');
+        } else {
+          setEditorMode('markdown');
+        }
       }
     } catch (error) {
       console.error('Failed to load file:', error);
@@ -219,7 +270,7 @@ export const App: React.FC = () => {
         });
         if (activeFile === fileName) {
           setActiveFile(null);
-          setMarkdown('');
+          setContent('');
         }
       }
     });
@@ -241,7 +292,7 @@ export const App: React.FC = () => {
 
   const handleExportPPTX = (item: FileItem) => {
     if (activeFile === item.name) {
-      downloadPPTX(slides);
+      downloadPPTX(slides, theme);
     } else {
       loadFile(item).then(() => {
         alert('请先打开该文件再进行导出');
@@ -275,28 +326,24 @@ export const App: React.FC = () => {
         }],
       });
       const file = await handle.getFile();
-      const content = await file.text();
+      const fileContent = await file.text();
 
-      if (fileType === 'html') {
-        const markdownContent = htmlToMarkdown(content);
-        const finalName = file.name.replace(/\.html?$/i, '.md');
-        const newFile: FileItem = {
-          name: finalName,
-          kind: 'file',
-          content: markdownContent,
-        };
-        setFileList(prev => [...prev, newFile]);
-        loadFile(newFile);
-      } else {
-        const newFile: FileItem = {
-          name: file.name,
-          kind: 'file',
-          content,
-          handle: handle
-        };
-        setFileList(prev => [...prev, newFile]);
-        loadFile(newFile);
-      }
+      const newFile: FileItem = {
+        name: file.name,
+        kind: 'file',
+        content: fileContent,
+        handle: handle
+      };
+      setFileList(prev => {
+        const existingIndex = prev.findIndex(f => f.name === file.name);
+        if (existingIndex !== -1) {
+          const newList = [...prev];
+          newList[existingIndex] = newFile;
+          return newList;
+        }
+        return [...prev, newFile];
+      });
+      loadFile(newFile);
     } catch (err) {
       console.error(`${fileType === 'html' ? 'HTML' : 'Markdown'} Import failed:`, err);
     }
@@ -391,8 +438,15 @@ export const App: React.FC = () => {
           }
           
           // 自动打开新文件并设置初始内容
-          setMarkdown('');
+          setContent('');
           setActiveFile(finalFileName);
+          
+          // 默认根据后缀设置模式
+          if (finalFileName.toLowerCase().endsWith('.html') || finalFileName.toLowerCase().endsWith('.htm')) {
+            setEditorMode('html');
+          } else {
+            setEditorMode('markdown');
+          }
         }
       }
     });
@@ -461,17 +515,17 @@ export const App: React.FC = () => {
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const selection = markdown.slice(start, end);
+    const selection = content.slice(start, end);
     
     // 检查是否是行首语法 (标题、列表、引用)
     const isLineStart = beforeStr.startsWith('#') || beforeStr.startsWith('- ') || beforeStr.startsWith('1. ') || beforeStr.startsWith('> ');
     
     if (isLineStart) {
-      const lastNewLine = markdown.lastIndexOf('\n', start - 1);
+      const lastNewLine = content.lastIndexOf('\n', start - 1);
       const lineStart = lastNewLine === -1 ? 0 : lastNewLine + 1;
-      const lineEnd = markdown.indexOf('\n', start);
-      const actualLineEnd = lineEnd === -1 ? markdown.length : lineEnd;
-      const lineText = markdown.slice(lineStart, actualLineEnd);
+      const lineEnd = content.indexOf('\n', start);
+      const actualLineEnd = lineEnd === -1 ? content.length : lineEnd;
+      const lineText = content.slice(lineStart, actualLineEnd);
       
       // 对于行首语法，我们需要替换整行内容以支持 Undo
       // 先选中整行
@@ -527,7 +581,7 @@ export const App: React.FC = () => {
     try {
       // 保存到 localStorage
       const storageKey = `md2slide_file_${activeFile}`;
-      localStorage.setItem(storageKey, markdown);
+      localStorage.setItem(storageKey, content);
 
       // 显示保存成功提示
       setShowSaveNotification(true);
@@ -540,7 +594,7 @@ export const App: React.FC = () => {
 
   const handleLinkInsert = () => {
     const textarea = editorRef.current;
-    const selection = textarea ? markdown.slice(textarea.selectionStart, textarea.selectionEnd) : '';
+    const selection = textarea ? content.slice(textarea.selectionStart, textarea.selectionEnd) : '';
     
     setInputModal({
       show: true,
@@ -577,6 +631,56 @@ export const App: React.FC = () => {
       value: 'https://',
       callback: (url) => applySnippet(`!audio(${url})`, '')
     });
+  };
+
+  const handleTextSelection = (e: React.MouseEvent | React.KeyboardEvent) => {
+    const textarea = editorRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selection = textarea.value.substring(start, end).trim();
+
+    if (selection && selection.length > 0) {
+      let x = 0;
+      let y = 0;
+
+      if ('clientX' in e) {
+        x = (e as React.MouseEvent).clientX;
+        y = (e as React.MouseEvent).clientY;
+      } else {
+        const rect = textarea.getBoundingClientRect();
+        x = rect.left + rect.width / 2;
+        y = rect.top + rect.height / 2;
+      }
+
+      setSelectionInfo({
+        text: selection,
+        position: { x, y }
+      });
+    } else {
+      setTimeout(() => {
+        if (editorRef.current && editorRef.current.selectionStart === editorRef.current.selectionEnd) {
+          setSelectionInfo(null);
+        }
+      }, 200);
+    }
+  };
+
+  const handleSelectionApply = (newText: string) => {
+    const textarea = editorRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newContent = content.slice(0, start) + newText + content.slice(end);
+    setContent(newContent);
+    setSelectionInfo(null);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start, start + newText.length);
+    }, 0);
   };
 
   const handleHtmlImport = () => {
@@ -758,44 +862,42 @@ export const App: React.FC = () => {
   // 解析 Markdown 为幻灯片
 
   const parsedSlides = useMemo(() => {
-    const parsed = parseMarkdownToSlides(markdown, {
+    if (editorMode !== 'markdown') return [];
+    const parsed = parseMarkdownToSlides(content, {
       useDelimiter: appSettings.useDelimiterPagination,
       useHeadingPagination: appSettings.useHeadingPagination,
       minHeadingLevel: appSettings.minHeadingLevel,
     });
     localStorage.setItem('md2slide_presenter_slides', JSON.stringify(parsed));
     return parsed;
-  }, [markdown, appSettings]);
+  }, [content, appSettings, editorMode]);
 
   useEffect(() => {
-    setSlides(parsedSlides);
-    localStorage.setItem('md2slide_presenter_slides', JSON.stringify(parsedSlides));
-    setActivePreviewSlideIndex(0);
-    setToc(parseTableOfContents(markdown));
-  }, [parsedSlides, markdown]);
+    if (editorMode === 'markdown') {
+      setSlides(parsedSlides);
+      localStorage.setItem('md2slide_presenter_slides', JSON.stringify(parsedSlides));
+      setActivePreviewSlideIndex(0);
+      setToc(parseTableOfContents(content));
+    }
+  }, [parsedSlides, content, editorMode]);
 
   useEffect(() => {
     if (activeFile) {
       setFileList(prev => {
         const index = prev.findIndex(f => f.name === activeFile);
-        if (index !== -1 && prev[index].content !== undefined && prev[index].content !== markdown) {
+        if (index !== -1 && prev[index].content !== undefined && prev[index].content !== content) {
           const newList = [...prev];
-          newList[index] = { ...newList[index], content: markdown };
+          newList[index] = { ...newList[index], content: content };
           return newList;
         }
         return prev;
       });
     }
-  }, [markdown, activeFile]);
+  }, [content, activeFile]);
 
   useEffect(() => {
     setStorageItem<AppSettings>(storageKeys.APP_SETTINGS, appSettings);
   }, [appSettings]);
-
-  // 当主题改变时更新DOM
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', currentTheme);
-  }, [currentTheme]);
 
   const scrollToLine = (lineIndex: number) => {
     const textarea = editorRef.current;
@@ -813,10 +915,11 @@ export const App: React.FC = () => {
     const lineHeight = 24;
     textarea.scrollTop = lineIndex * lineHeight - 100;
 
-    const mdLines = markdown.split('\n');
-    const slideIndices: number[] = [];
-    let currentSlideIndex = 0;
-    let hasContentInCurrentSlide = false;
+    if (editorMode === 'markdown') {
+      const mdLines = content.split('\n');
+      const slideIndices: number[] = [];
+      let currentSlideIndex = 0;
+      let hasContentInCurrentSlide = false;
 
     for (let i = 0; i < mdLines.length; i++) {
       const raw = mdLines[i];
@@ -866,7 +969,8 @@ export const App: React.FC = () => {
     } else {
       setActivePreviewSlideIndex(0);
     }
-  };
+  }
+};
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -912,19 +1016,26 @@ export const App: React.FC = () => {
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
-        const content = event.target?.result as string;
-        setMarkdown(content);
+        const fileContent = event.target?.result as string;
+        setContent(fileContent);
         setActiveFile(file.name);
+        
+        // 自动切换模式
+        if (file.name.toLowerCase().endsWith('.html') || file.name.toLowerCase().endsWith('.htm')) {
+          setEditorMode('html');
+        } else {
+          setEditorMode('markdown');
+        }
         
         // 将文件添加到左侧列表（如果不存在则添加，存在则更新内容）
         setFileList(prev => {
           const index = prev.findIndex(f => f.name === file.name);
           if (index !== -1) {
             const newList = [...prev];
-            newList[index] = { ...newList[index], content };
+            newList[index] = { ...newList[index], content: fileContent };
             return newList;
           }
-          return [...prev, { name: file.name, kind: 'file', content }];
+          return [...prev, { name: file.name, kind: 'file', content: fileContent }];
         });
       };
       reader.readAsText(file);
@@ -932,8 +1043,8 @@ export const App: React.FC = () => {
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(markdown);
-    alert('Markdown 已复制到剪贴板');
+    navigator.clipboard.writeText(content);
+    alert(`${editorMode === 'markdown' ? 'Markdown' : 'HTML'} 已复制到剪贴板`);
   };
 
   return (
@@ -947,6 +1058,12 @@ export const App: React.FC = () => {
           --epr-bg-color: ${theme.colors.surface} !important;
           --epr-category-label-bg-color: ${theme.colors.surface} !important;
           --epr-search-input-bg-color: ${theme.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'} !important;
+        }
+        @keyframes bounceIn {
+          0% { opacity: 0; transform: scale(0.3) translateY(20px); }
+          50% { opacity: 1; transform: scale(1.05) translateY(-5px); }
+          70% { transform: scale(0.9) translateY(2px); }
+          100% { transform: scale(1) translateY(0); }
         }
       `}</style>
 
@@ -1008,16 +1125,22 @@ export const App: React.FC = () => {
               <Menu size={24} />
             </button>
           )}
-          <h1 style={{
-            margin: 0,
-            fontSize: isMobile ? '18px' : '20px',
-            fontWeight: 800,
-            letterSpacing: '-0.5px',
-            textShadow: theme.theme === 'light' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
-            display: 'flex',
-            alignItems: 'center',
-            gap: isMobile ? '6px' : '8px'
-          }}>
+          <h1 
+            onClick={handleLogoClick}
+            style={{
+              margin: 0,
+              fontSize: isMobile ? '18px' : '20px',
+              fontWeight: 800,
+              letterSpacing: '-0.5px',
+              textShadow: theme.theme === 'light' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: isMobile ? '6px' : '8px',
+              cursor: 'pointer',
+              userSelect: 'none',
+              position: 'relative'
+            }}
+          >
             <img
               src="/logo.jpg"
               alt="Md2Slide logo"
@@ -1031,7 +1154,9 @@ export const App: React.FC = () => {
                   : '0 0 10px rgba(37,99,235,0.35)',
                 border: theme.theme === 'dark'
                   ? '1px solid rgba(148,163,184,0.6)'
-                  : '1px solid rgba(148,163,184,0.4)'
+                  : '1px solid rgba(148,163,184,0.4)',
+                transform: showEasterEgg ? 'rotate(360deg) scale(1.5)' : 'none',
+                transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)'
               }}
             />
             <span style={{
@@ -1041,9 +1166,29 @@ export const App: React.FC = () => {
               WebkitBackgroundClip: theme.theme === 'dark' ? 'text' : 'initial',
               WebkitTextFillColor: theme.theme === 'dark' ? 'transparent' : theme.colors.text,
               color: theme.theme === 'dark' ? 'transparent' : theme.colors.text,
+              transform: showEasterEgg ? 'translateX(10px) skewX(-10deg)' : 'none',
+              transition: 'all 0.5s ease'
             }}>
               Md2Slide
             </span>
+            {showEasterEgg && (
+              <div style={{
+                position: 'absolute',
+                top: '40px',
+                left: '0',
+                background: theme.primaryColor,
+                color: '#fff',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                animation: 'bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+                zIndex: 1000
+              }}>
+                ✨ 你发现了神秘彩蛋！
+              </div>
+            )}
           </h1>
           {!isMobile && (
             <>
@@ -1054,69 +1199,66 @@ export const App: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', gap: isMobile ? '12px' : '15px', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button
-              onClick={() => setShowAIAssistant(true)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: theme.colors.textSecondary,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s',
-                opacity: 0.7,
-                padding: isMobile ? '4px' : '0',
-                position: 'relative'
-              }}
-              onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
-              onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
-              title="AI 助手"
-            >
-              💡
-            </button>
-            <button
-              onClick={() => setShowThemeMarketplace(true)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: theme.colors.textSecondary,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s',
-                opacity: 0.7,
-                padding: isMobile ? '4px' : '0'
-              }}
-              onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
-              onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
-              title="主题市场"
-            >
-              <Puzzle size={isMobile ? 22 : 20} />
-            </button>
-            <button
-              onClick={() => setShowPluginMarketplace(true)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: theme.colors.textSecondary,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s',
-                opacity: 0.7,
-                padding: isMobile ? '4px' : '0'
-              }}
-              onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
-              onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
-              title="插件市场"
-            >
-              🧩
-            </button>
-          </div>
+          <button
+            onClick={() => setShowPluginMarketplace(true)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: theme.colors.textSecondary,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
+              opacity: 0.7,
+              padding: isMobile ? '4px' : '0'
+            }}
+            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
+            title="插件市场"
+          >
+            <Puzzle size={isMobile ? 22 : 20} />
+          </button>
+          <button
+            onClick={() => setShowThemeMarketplace(true)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: theme.colors.textSecondary,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
+              opacity: 0.7,
+              padding: isMobile ? '4px' : '0'
+            }}
+            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
+            title="主题市场"
+          >
+            <Layout size={isMobile ? 22 : 20} />
+          </button>
+          <button
+            onClick={toggleAISidebar}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: showAISidebar ? theme.primaryColor : theme.colors.textSecondary,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
+              opacity: showAISidebar ? 1 : 0.7,
+              padding: isMobile ? '4px' : '0'
+            }}
+            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => !isMobile && !showAISidebar && (e.currentTarget.style.opacity = '0.7')}
+            title="AI 助手"
+          >
+            <Sparkles size={isMobile ? 22 : 20} />
+          </button>
           <button
             onClick={() => setShowSettings(true)}
             style={{
@@ -1628,286 +1770,71 @@ export const App: React.FC = () => {
               </button>
             </div>
 
-            <div style={{ display: 'flex', gap: '16px', flexDirection: 'column' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  background: theme.theme === 'dark' ? 'rgba(15,23,42,0.6)' : '#f9fafb',
-                  border: `1px dashed ${theme.colors.border}`
-                }}
-              >
-                <div style={{ fontSize: '13px', fontWeight: 600, color: theme.colors.text }}>分页设置</div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: theme.colors.textSecondary }}>
-                  <input
-                    type="checkbox"
-                    checked={appSettings.useDelimiterPagination}
-                    onChange={(e) =>
-                      setAppSettings((prev) => ({
-                        ...prev,
-                        useDelimiterPagination: e.target.checked,
-                      }))
-                    }
-                  />
-                  使用 --- 作为手动分页符
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: theme.colors.textSecondary }}>
-                  <input
-                    type="checkbox"
-                    checked={appSettings.useHeadingPagination}
-                    onChange={(e) =>
-                      setAppSettings((prev) => ({
-                        ...prev,
-                        useHeadingPagination: e.target.checked,
-                      }))
-                    }
-                  />
-                  根据标题自动分页
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
-                  <span>标题等级阈值</span>
-                  <select
-                    value={appSettings.minHeadingLevel}
-                    disabled={!appSettings.useHeadingPagination}
-                    onChange={(e) =>
-                      setAppSettings((prev) => ({
-                        ...prev,
-                        minHeadingLevel: Number(e.target.value),
-                      }))
-                    }
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      color: theme.colors.text,
-                      fontSize: '13px'
-                    }}
-                  >
-                    <option value={1}>一级及以上 (#)</option>
-                    <option value={2}>二级及以上 (##)</option>
-                    <option value={3}>三级及以上 (###)</option>
-                    <option value={4}>四级及以上 (####)</option>
-                    <option value={5}>五级及以上 (#####)</option>
-                    <option value={6}>六级及以上 (######)</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  background: theme.theme === 'dark' ? 'rgba(15,23,42,0.6)' : '#f9fafb',
-                  border: `1px dashed ${theme.colors.border}`
-                }}
-              >
-                <div style={{ fontSize: '13px', fontWeight: 600, color: theme.colors.text }}>AI 设置</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
-                  <span>提供商</span>
-                  <select
-                    value={appSettings.aiProvider}
-                    onChange={(e) =>
-                      setAppSettings((prev) => ({
-                        ...prev,
-                        aiProvider: e.target.value as any,
-                      }))
-                    }
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      color: theme.colors.text,
-                      fontSize: '13px'
-                    }}
-                  >
-                    <option value="openai">OpenAI</option>
-                    <option value="anthropic">Anthropic</option>
-                    <option value="ollama">Ollama</option>
-                    <option value="local">本地模型</option>
-                  </select>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
-                  <span>API密钥</span>
-                  <input
-                    type="password"
-                    value={appSettings.aiApiKey || ''}
-                    onChange={(e) =>
-                      setAppSettings((prev) => ({
-                        ...prev,
-                        aiApiKey: e.target.value,
-                      }))
-                    }
-                    placeholder="输入API密钥"
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      color: theme.colors.text,
-                      fontSize: '13px',
-                      flex: 1
-                    }}
-                  />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
-                  <span>模型</span>
-                  <input
-                    type="text"
-                    value={appSettings.aiModel || ''}
-                    onChange={(e) =>
-                      setAppSettings((prev) => ({
-                        ...prev,
-                        aiModel: e.target.value,
-                      }))
-                    }
-                    placeholder="例如: gpt-3.5-turbo"
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      color: theme.colors.text,
-                      fontSize: '13px',
-                      flex: 1
-                    }}
-                  />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
-                  <span>端点</span>
-                  <input
-                    type="text"
-                    value={appSettings.aiEndpoint || ''}
-                    onChange={(e) =>
-                      setAppSettings((prev) => ({
-                        ...prev,
-                        aiEndpoint: e.target.value,
-                      }))
-                    }
-                    placeholder="可选: 自定义API端点"
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      border: `1px solid ${theme.colors.border}`,
-                      background: 'transparent',
-                      color: theme.colors.text,
-                      fontSize: '13px',
-                      flex: 1
-                    }}
-                  />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                  <span style={{ fontSize: '13px', color: theme.colors.textSecondary }}>AI配置测试</span>
-                  <button
-                    onClick={async () => {
-                      try {
-                        // 创建一个临时的AI服务实例来测试配置
-                        const aiService = {
-                          request: async ({ prompt, maxTokens }: { prompt: string; maxTokens?: number }) => {
-                            // 根据当前配置创建适当的请求
-                            const config = appSettings;
-                            
-                            // 使用fetch发送请求到相应的AI服务
-                            let response;
-                            if (config.aiProvider === 'openai') {
-                              response = await fetch(config.aiEndpoint || 'https://api.openai.com/v1/chat/completions', {
-                                method: 'POST',
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                  'Authorization': `Bearer ${config.aiApiKey || ''}`
-                                },
-                                body: JSON.stringify({
-                                  model: config.aiModel || 'gpt-3.5-turbo',
-                                  messages: [{ role: 'user', content: prompt }],
-                                  max_tokens: maxTokens || 20
-                                })
-                              });
-                            } else if (config.aiProvider === 'anthropic') {
-                              response = await fetch(config.aiEndpoint || 'https://api.anthropic.com/v1/messages', {
-                                method: 'POST',
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                  'x-api-key': config.aiApiKey || '',
-                                  'anthropic-version': '2023-06-01'
-                                },
-                                body: JSON.stringify({
-                                  model: config.aiModel || 'claude-3-haiku-20240307',
-                                  messages: [{ role: 'user', content: prompt }],
-                                  max_tokens: maxTokens || 20
-                                })
-                              });
-                            } else {
-                              // 对于Ollama或本地模型，使用不同的端点
-                              response = await fetch(config.aiEndpoint || 'http://localhost:11434/api/generate', {
-                                method: 'POST',
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({
-                                  model: config.aiModel || 'llama2',
-                                  prompt: prompt,
-                                  stream: false
-                                })
-                              });
-                            }
-                            
-                            if (!response.ok) {
-                              throw new Error(`AI服务返回错误: ${response.status} ${response.statusText}`);
-                            }
-                            
-                            const data = await response.json();
-                            
-                            // 根据不同API返回格式提取内容
-                            let content;
-                            if (config.aiProvider === 'openai') {
-                              content = data.choices[0]?.message?.content || '无法获取响应';
-                            } else if (config.aiProvider === 'anthropic') {
-                              content = data.content[0]?.text || '无法获取响应';
-                            } else {
-                              content = data.response || data.message || '无法获取响应';
-                            }
-                            
-                            return {
-                              content,
-                              usage: data.usage || undefined,
-                              model: data.model || config.aiModel
-                            };
-                          }
-                        };
-                        
-                        // 发送测试请求
-                        const result = await aiService.request({ 
-                          prompt: '请回复：AI配置测试成功',
-                          maxTokens: 20
-                        });
-                        
-                        alert('AI配置测试成功！');
-                      } catch (error) {
-                        console.error('AI配置测试失败:', error);
-                        alert('AI配置测试失败：' + (error as Error).message);
-                      }
-                    }}
-                    style={{
-                      padding: '6px 12px',
-                      backgroundColor: '#10b981',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      fontWeight: 500
-                    }}
-                  >
-                    🧪 测试配置
-                  </button>
-                </div>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                background: theme.theme === 'dark' ? 'rgba(15,23,42,0.6)' : '#f9fafb',
+                border: `1px dashed ${theme.colors.border}`
+              }}
+            >
+              <div style={{ fontSize: '13px', fontWeight: 600, color: theme.colors.text }}>分页设置</div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: theme.colors.textSecondary }}>
+                <input
+                  type="checkbox"
+                  checked={appSettings.useDelimiterPagination}
+                  onChange={(e) =>
+                    setAppSettings((prev) => ({
+                      ...prev,
+                      useDelimiterPagination: e.target.checked,
+                    }))
+                  }
+                />
+                使用 --- 作为手动分页符
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: theme.colors.textSecondary }}>
+                <input
+                  type="checkbox"
+                  checked={appSettings.useHeadingPagination}
+                  onChange={(e) =>
+                    setAppSettings((prev) => ({
+                      ...prev,
+                      useHeadingPagination: e.target.checked,
+                    }))
+                  }
+                />
+                根据标题自动分页
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: theme.colors.textSecondary }}>
+                <span>标题等级阈值</span>
+                <select
+                  value={appSettings.minHeadingLevel}
+                  disabled={!appSettings.useHeadingPagination}
+                  onChange={(e) =>
+                    setAppSettings((prev) => ({
+                      ...prev,
+                      minHeadingLevel: Number(e.target.value),
+                    }))
+                  }
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    border: `1px solid ${theme.colors.border}`,
+                    background: 'transparent',
+                    color: theme.colors.text,
+                    fontSize: '13px'
+                  }}
+                >
+                  <option value={1}>一级及以上 (#)</option>
+                  <option value={2}>二级及以上 (##)</option>
+                  <option value={3}>三级及以上 (###)</option>
+                  <option value={4}>四级及以上 (####)</option>
+                  <option value={5}>五级及以上 (#####)</option>
+                  <option value={6}>六级及以上 (######)</option>
+                </select>
               </div>
             </div>
 
@@ -2278,31 +2205,73 @@ export const App: React.FC = () => {
                       >
                         <PanelRightClose size={14} />
                       </button>
-                      <span style={{ fontSize: '12px', opacity: 0.5 }}>⠿</span>
-                      Markdown 编辑器
-                  </div>
-                  {activeFile && (
+                      <GripVertical size={14} style={{ opacity: 0.5 }} />
+                      {editorMode === 'markdown' ? 'Markdown 编辑器' : 'HTML 编辑器'}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: theme.colors.border, padding: '2px', borderRadius: '6px' }}>
+                      <button
+                        onClick={() => handleModeSwitch('markdown')}
+                        style={{
+                          padding: '4px 10px',
+                          fontSize: '10px',
+                          border: 'none',
+                          borderRadius: '4px',
+                          background: editorMode === 'markdown' ? theme.primaryColor : 'transparent',
+                          color: editorMode === 'markdown' ? '#fff' : theme.colors.textSecondary,
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        MARKDOWN
+                      </button>
+                      <button
+                        onClick={() => handleModeSwitch('html')}
+                        style={{
+                          padding: '4px 10px',
+                          fontSize: '10px',
+                          border: 'none',
+                          borderRadius: '4px',
+                          background: editorMode === 'html' ? theme.primaryColor : 'transparent',
+                          color: editorMode === 'html' ? '#fff' : theme.colors.textSecondary,
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        HTML
+                      </button>
+                    </div>
+                    {activeFile && (
                     <span style={{ fontSize: '10px', opacity: 0.6, textTransform: 'none' }}>
                       正在编辑: {activeFile}
                     </span>
                   )}
                 </div>
 
-                {/* Markdown Toolbar */}
-                <Toolbar 
-                  applySnippet={applySnippet}
-                  handleLinkInsert={handleLinkInsert}
-                  handleImageInsert={handleImageInsert}
-                  handleVideoInsert={handleVideoInsert}
-                  handleAudioInsert={handleAudioInsert}
-                  handleHtmlImport={handleHtmlImport}
-                  showEmojiPicker={showEmojiPicker}
-                  setShowEmojiPicker={setShowEmojiPicker}
-                  theme={theme}
-                />
+                {/* Markdown Toolbar - Only show in markdown mode */}
+                {editorMode === 'markdown' ? (
+                  <Toolbar 
+                    applySnippet={applySnippet}
+                    handleLinkInsert={handleLinkInsert}
+                    handleImageInsert={handleImageInsert}
+                    handleVideoInsert={handleVideoInsert}
+                    handleAudioInsert={handleAudioInsert}
+                    handleHtmlImport={handleHtmlImport}
+                    showEmojiPicker={showEmojiPicker}
+                    setShowEmojiPicker={setShowEmojiPicker}
+                    theme={theme}
+                  />
+                ) : (
+                  <div style={{ padding: '6px 10px', borderBottom: `1px solid ${theme.colors.border}`, display: 'flex', gap: '8px' }}>
+                    <span style={{ fontSize: '12px', color: theme.colors.textSecondary, opacity: 0.8 }}>
+                      HTML 编辑模式：支持标准 HTML5 语法及内联样式。
+                    </span>
+                  </div>
+                )}
 
                 {/* Emoji Picker Overlay */}
-                {showEmojiPicker && (
+                {showEmojiPicker && editorMode === 'markdown' && (
                   <div style={{
                     position: 'absolute',
                     top: '100%',
@@ -2338,9 +2307,11 @@ export const App: React.FC = () => {
 
                 <textarea
                     ref={editorRef}
-                    value={markdown}
-                    onChange={(e) => setMarkdown(e.target.value)}
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
                     onKeyDown={handleEditorKeyDown}
+                    onMouseUp={handleTextSelection}
+                    onKeyUp={handleTextSelection}
                     onScroll={handleEditorScroll}
                     style={{
                       flex: 1,
@@ -2356,7 +2327,7 @@ export const App: React.FC = () => {
                       tabSize: 2,
                       WebkitOverflowScrolling: 'touch'
                     }}
-                    placeholder="在此输入 Markdown 内容..."
+                    placeholder={editorMode === 'markdown' ? "在此输入 Markdown 内容..." : "在此输入 HTML 内容..."}
                   />
 
                   {/* Scroll to Top Button */}
@@ -2405,7 +2376,11 @@ export const App: React.FC = () => {
                     borderTop: `1px solid ${theme.colors.border}`,
                     background: theme.colors.surface
                   }}>
-                    <span style={{ color: theme.primaryColor }}>技巧:</span> 使用 <code style={{ color: theme.colors.textSecondary }}>---</code> 分隔幻灯片。
+                    <span style={{ color: theme.primaryColor }}>技巧:</span> {editorMode === 'markdown' ? (
+                      <>使用 <code style={{ color: theme.colors.textSecondary }}>---</code> 分隔幻灯片。</>
+                    ) : (
+                      <>使用标准 HTML 标签，如 <code style={{ color: theme.colors.textSecondary }}>&lt;div&gt;</code>, <code style={{ color: theme.colors.textSecondary }}>&lt;h1&gt;</code> 等。</>
+                    )}
                   </div>
 
                   {/* Horizontal Resize Handle for Editor */}
@@ -2442,7 +2417,7 @@ export const App: React.FC = () => {
                     width: !isFullscreenMode && showEditor && index < layoutOrder.length - 1 ? '500px' : 'auto',
                     display: 'flex',
                     flexDirection: 'column',
-                    minWidth: isFullscreenMode ? '100vw' : (isMobile ? '100%' : '300px'),
+                    minWidth: isFullscreenMode ? '100vw' : (isMobile ? '100%' : '0'),
                     position: 'relative',
                     opacity: draggingSection === 'preview' ? 0.5 : 1,
                     borderRight: !isFullscreenMode && index < layoutOrder.length - 1 && !isMobile ? `1px solid ${theme.colors.border}` : 'none'
@@ -2475,25 +2450,174 @@ export const App: React.FC = () => {
                         background: theme.colors.surface
                       }}
                     >
-                      <span style={{ fontSize: '12px', opacity: 0.5 }}>⠿</span>
-                      幻灯片预览
+                      <GripVertical size={14} style={{ opacity: 0.5 }} />
+                      {editorMode === 'markdown' ? '幻灯片预览' : 'HTML 实时预览'}
                     </div>
                   )}
-                  <div ref={slideContainerRef} style={{ flex: 1, position: 'relative', background: theme.colors.background }}>
-                    <SlideTemplate 
-                      slides={slides} 
-                      activeSlideIndex={activePreviewSlideIndex}
-                      onSlideChange={(index) => setActivePreviewSlideIndex(index)}
-                      onFullscreenToggle={toggleFullscreen}
-                      onPresenterModeToggle={handlePresenterModeToggle}
-                      isFullscreen={isFullscreenMode}
-                      enableAutoAnimate={appSettings.enableAutoAnimate}
-                      autoAnimateDuration={appSettings.autoAnimateDuration}
-                      autoAnimateEasing={appSettings.autoAnimateEasing}
-                    />
+                  <div ref={slideContainerRef} style={{ 
+                    flex: 1, 
+                    position: 'relative', 
+                    background: theme.colors.background,
+                    overflow: editorMode === 'html' ? 'auto' : 'hidden'
+                  }}>
+                    {editorMode === 'markdown' ? (
+                      <SlideTemplate 
+                        slides={slides} 
+                        activeSlideIndex={activePreviewSlideIndex}
+                        onSlideChange={(index) => setActivePreviewSlideIndex(index)}
+                        onFullscreenToggle={toggleFullscreen}
+                        onPresenterModeToggle={handlePresenterModeToggle}
+                        isFullscreen={isFullscreenMode}
+                        enableAutoAnimate={appSettings.enableAutoAnimate}
+                        autoAnimateDuration={appSettings.autoAnimateDuration}
+                        autoAnimateEasing={appSettings.autoAnimateEasing}
+                      />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
+                        <iframe
+                          title="HTML Preview"
+                          sandbox="allow-popups allow-forms allow-scripts allow-same-origin"
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            border: 'none',
+                            display: 'block',
+                            background: theme.colors.background
+                          }}
+                          srcDoc={`
+                            <!DOCTYPE html>
+                            <html>
+                              <head>
+                                <meta charset="utf-8">
+                                <style>
+                                  body {
+                                    margin: 0;
+                                    padding: 40px;
+                                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                                    color: ${theme.colors.text};
+                                    background-color: ${theme.colors.background};
+                                    line-height: 1.6;
+                                    font-size: 16px;
+                                    word-break: break-word;
+                                  }
+                                  h1, h2, h3 {
+                                    margin-top: 1.5em;
+                                    margin-bottom: 0.5em;
+                                    color: ${theme.primaryColor};
+                                    font-weight: 700;
+                                  }
+                                  h1 { font-size: 2.2em; border-bottom: 2px solid ${theme.colors.border}; padding-bottom: 0.3em; }
+                                  h2 { font-size: 1.8em; }
+                                  p { margin-bottom: 1.2em; }
+                                  ul, ol { margin-bottom: 1.2em; padding-left: 2em; }
+                                  li { margin-bottom: 0.5em; }
+                                  img { max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+                                  code { background: ${theme.colors.border}; padding: 0.2em 0.4em; border-radius: 4px; font-family: monospace; }
+                                </style>
+                              </head>
+                              <body>
+                                ${content}
+                              </body>
+                            </html>
+                          `}
+                        />
+                      </div>
+                    )}
                   </div>
+                  {!isMobile && index < layoutOrder.length - 1 && (
+                    <div
+                      onMouseDown={() => {
+                        // 如果下一个是 AI，则调整 AI 宽度
+                        if (layoutOrder[index + 1] === 'ai') {
+                          setIsResizingAI(true);
+                        }
+                      }}
+                      style={{
+                        width: '4px',
+                        height: '100%',
+                        cursor: 'col-resize',
+                        position: 'absolute',
+                        right: '-2px',
+                        top: 0,
+                        zIndex: 20,
+                        background: isResizingAI ? theme.primaryColor : 'transparent',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = theme.primaryColor}
+                      onMouseLeave={(e) => !isResizingAI && (e.currentTarget.style.background = 'transparent')}
+                    />
+                  )}
                 </div>
               </React.Fragment>
+            );
+          }
+
+          if (section === 'ai') {
+            if (isMobile) return null;
+            return (
+              <div
+                key="ai"
+                id="ai-container"
+                onDragOver={(e) => handleDragOver(e, 'ai')}
+                style={{
+                  width: `${aiWidth}px`,
+                  minWidth: '250px',
+                  height: '100%',
+                  borderLeft: `1px solid ${theme.colors.border}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  background: theme.colors.surface,
+                  position: 'relative',
+                  opacity: draggingSection === 'ai' ? 0.5 : 1,
+                  flex: index === layoutOrder.length - 1 ? 1 : 'none'
+                }}
+              >
+                <div
+                  draggable
+                  onDragStart={() => handleDragStart('ai')}
+                  onDragEnd={() => setDraggingSection(null)}
+                  style={{
+                    padding: '10px 20px',
+                    fontSize: '11px',
+                    color: theme.colors.textSecondary,
+                    borderBottom: `1px solid ${theme.colors.border}`,
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    cursor: 'grab'
+                  }}
+                >
+                  <GripVertical size={14} style={{ opacity: 0.5 }} />
+                  AI 助手
+                  <button
+                    onClick={toggleAISidebar}
+                    style={{
+                      marginLeft: 'auto',
+                      background: 'transparent',
+                      border: 'none',
+                      color: theme.colors.textSecondary,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '2px',
+                      borderRadius: '4px'
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <AIAssistant
+                    isSidebar={true}
+                    editorContent={content}
+                    onContentUpdate={(newContent) => setContent(newContent)}
+                  />
+                </div>
+              </div>
             );
           }
           return null;
@@ -2520,7 +2644,7 @@ export const App: React.FC = () => {
       </div>
 
       {/* Plugin Marketplace Component */}
-      <PluginMarketplace
+      <PluginMarketplace 
         isOpen={showPluginMarketplace}
         onClose={() => setShowPluginMarketplace(false)}
       />
@@ -2529,28 +2653,29 @@ export const App: React.FC = () => {
       <ThemeMarketplace
         isOpen={showThemeMarketplace}
         onClose={() => setShowThemeMarketplace(false)}
-        onThemeChange={(themeId) => {
-          setCurrentTheme(themeId);
-          setAppSettings(prev => ({
-            ...prev,
-            selectedTheme: themeId
-          }));
+        onThemeChange={async (themeId) => {
+          console.log(`Theme changed to: ${themeId}`);
+          try {
+            const themePackage = await themeMarketplaceService.getThemeDetails(themeId);
+            if (themePackage && themePackage.theme) {
+              setThemeConfig(themePackage.theme);
+            }
+          } catch (error) {
+            console.error('Failed to apply theme from marketplace:', error);
+          }
         }}
       />
 
-      {/* AI Assistant Component */}
-      <AIAssistant
-        markdownContent={markdown}
-        onContentUpdate={(newContent) => setMarkdown(newContent)}
-        aiConfig={{
-          provider: appSettings.aiProvider,
-          apiKey: appSettings.aiApiKey,
-          model: appSettings.aiModel,
-          endpoint: appSettings.aiEndpoint
-        }}
-        isOpen={showAIAssistant}
-        onClose={() => setShowAIAssistant(false)}
-      />
+      {/* Selection AI Assistant */}
+      {selectionInfo && (
+        <SelectionAIAssistant
+          selection={selectionInfo.text}
+          position={selectionInfo.position}
+          onClose={() => setSelectionInfo(null)}
+          onApply={handleSelectionApply}
+          theme={theme}
+        />
+      )}
 
       {/* Global Input Modal Overlay */}
       {inputModal.show && (

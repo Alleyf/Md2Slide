@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { pluginManager } from '../services/pluginManager';
 import { BasePlugin } from '../services/plugins/BasePlugin';
+import { Puzzle, Search, X, Info, CheckCircle, PlayCircle, StopCircle, User, Zap, Star } from 'lucide-react';
 
 interface PluginMarketplaceProps {
   isOpen: boolean;
@@ -8,28 +9,25 @@ interface PluginMarketplaceProps {
 }
 
 export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, onClose }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [plugins, setPlugins] = useState<BasePlugin[]>([]);
   const [availablePlugins, setAvailablePlugins] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [enabledPlugins, setEnabledPlugins] = useState<string[]>([]);
-  const [selectedPlugin, setSelectedPlugin] = useState<BasePlugin | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [selectedPlugin, setSelectedPlugin] = useState<any | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [, setRefreshCount] = useState(0);
 
   useEffect(() => {
-    if (isOpen) {
-      loadPlugins();
-    }
-  }, [isOpen]);
+    // 订阅插件管理器状态变化
+    const unsubscribe = pluginManager.subscribe(() => {
+      setRefreshCount(prev => prev + 1);
+    });
+    return unsubscribe;
+  }, []);
 
-  const loadPlugins = async () => {
-    setLoading(true);
-    try {
-      // 获取当前已启用的插件
-      const enabled = pluginManager.getEnabledPlugins();
-      setEnabledPlugins(enabled.map((p: BasePlugin) => p.manifest.id));
-      
-      // 获取所有可用插件
+  useEffect(() => {
+    const fetchPlugins = async () => {
+      setLoading(true);
+      // 模拟从服务器获取可用插件
       const allPlugins = [
         {
           id: 'diagram-maker',
@@ -39,41 +37,8 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
           version: '1.0.0',
           tags: ['diagram', 'visualization', 'flowchart'],
           previewImage: '/plugins/previews/diagram-maker.jpg',
-          icon: '📊',
+          icon: <Zap size={24} color="#f59e0b" />,
           features: ['流程图', '架构图', 'UML图']
-        },
-        {
-          id: 'math-renderer',
-          name: '数学公式渲染器',
-          description: '高级数学公式渲染和编辑工具',
-          author: 'Math Team',
-          version: '1.0.0',
-          tags: ['math', 'latex', 'equation'],
-          previewImage: '/plugins/previews/math-renderer.jpg',
-          icon: '🔢',
-          features: ['LaTeX支持', '实时预览', '公式库']
-        },
-        {
-          id: 'code-highlighter',
-          name: '代码高亮增强',
-          description: '支持更多语言和主题的代码高亮',
-          author: 'Dev Team',
-          version: '1.0.0',
-          tags: ['code', 'syntax', 'highlight'],
-          previewImage: '/plugins/previews/code-highlighter.jpg',
-          icon: '💻',
-          features: ['150+语言', '多种主题', '行号显示']
-        },
-        {
-          id: 'media-embedder',
-          name: '媒体嵌入工具',
-          description: '轻松嵌入视频、音频和其他媒体内容',
-          author: 'Media Team',
-          version: '1.0.0',
-          tags: ['media', 'video', 'audio'],
-          previewImage: '/plugins/previews/media-embedder.jpg',
-          icon: '🎬',
-          features: ['视频嵌入', '音频播放', '交互式图表']
         },
         {
           id: 'collaboration',
@@ -83,127 +48,65 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
           version: '1.0.0',
           tags: ['collaboration', 'real-time', 'sharing'],
           previewImage: '/plugins/previews/collaboration.jpg',
-          icon: '👥',
+          icon: <Zap size={24} color="#8b5cf6" />,
           features: ['实时同步', '评论系统', '权限管理']
         },
         {
-          id: 'export-enhancer',
-          name: '导出增强',
-          description: '支持更多格式的导出选项',
-          author: 'Export Team',
+          id: 'code-runner-plugin',
+          name: '代码实时运行',
+          description: '允许在幻灯片预览中直接运行 JavaScript、HTML 代码块',
+          author: 'Md2Slide Team',
           version: '1.0.0',
-          tags: ['export', 'format', 'pdf'],
-          previewImage: '/plugins/previews/export-enhancer.jpg',
-          icon: '📤',
-          features: ['PDF导出', '视频导出', '多种格式']
+          tags: ['code', 'runner', 'interactive'],
+          previewImage: '/plugins/previews/code-runner.jpg',
+          icon: <PlayCircle size={24} color="#f97316" />,
+          features: ['JS 实时运行', 'HTML 预览', '控制台输出重定向']
         }
       ];
       
       setAvailablePlugins(allPlugins);
-      
-      // 创建插件实例
-      const pluginInstances = allPlugins.map(plugin => {
-        return {
-          manifest: {
-            id: plugin.id,
-            name: plugin.name,
-            description: plugin.description,
-            version: plugin.version,
-            author: plugin.author,
-            tags: plugin.tags,
-            previewImage: plugin.previewImage,
-            icon: plugin.icon,
-            features: plugin.features
-          },
-          initialize: () => {},
-          destroy: () => {},
-          execute: async (params: any) => {
-            console.log(`Executing plugin ${plugin.id} with params:`, params);
-            return { success: true, message: `Plugin ${plugin.name} executed successfully` };
-          }
-        };
-      });
-      
-      setPlugins(pluginInstances as unknown as BasePlugin[]);
-    } catch (error) {
-      console.error('Failed to load plugins:', error);
-    } finally {
       setLoading(false);
+    };
+
+    if (isOpen) {
+      fetchPlugins();
     }
-  };
+  }, [isOpen]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
 
   const handleEnablePlugin = async (pluginId: string) => {
-    setLoading(true);
-    try {
-      // 检查插件是否已在插件管理器中注册
-      const pluginExists = plugins.some(p => p.manifest.id === pluginId);
-      
-      if (pluginExists) {
-        // 临时创建插件实例以便启用
-        const pluginInstance = plugins.find(p => p.manifest.id === pluginId);
-        if (pluginInstance) {
-          // 尝试启用插件
-          pluginManager.registerPlugin(pluginInstance);
-          
-          // 检查插件是否可以被启用
-          const result = await pluginManager.enablePlugin(pluginId);
-          if (result.success) {
-            // 更新已启用插件列表
-            setEnabledPlugins([...enabledPlugins, pluginId]);
-            alert(`插件 "${pluginId}" 启用成功！`);
-          } else {
-            alert(`插件 "${pluginId}" 启用失败：${result.error}`);
-          }
-        }
-      } else {
-        alert(`插件 "${pluginId}" 不存在`);
-      }
-    } catch (error) {
-      console.error('Failed to enable plugin:', error);
-      alert('插件启用失败，请重试');
-    } finally {
-      setLoading(false);
+    const result = await pluginManager.enablePlugin(pluginId);
+    if (result.success) {
+      alert(`插件 ${pluginId} 已启用！`);
+    } else {
+      alert(`启用失败: ${result.error}`);
     }
   };
 
   const handleDisablePlugin = async (pluginId: string) => {
-    setLoading(true);
-    try {
-      const result = await pluginManager.disablePlugin(pluginId);
-      if (result.success) {
-        // 更新已启用插件列表
-        setEnabledPlugins(enabledPlugins.filter(id => id !== pluginId));
-        alert(`插件 "${pluginId}" 已禁用`);
-      } else {
-        alert(`插件 "${pluginId}" 禁用失败：${result.error}`);
-      }
-    } catch (error) {
-      console.error('Failed to disable plugin:', error);
-      alert('插件禁用失败，请重试');
-    } finally {
-      setLoading(false);
+    const result = await pluginManager.disablePlugin(pluginId);
+    if (result.success) {
+      alert(`插件 ${pluginId} 已禁用！`);
+    } else {
+      alert(`禁用失败: ${result.error}`);
     }
   };
 
+  const isPluginEnabled = (pluginId: string) => {
+    return pluginManager.isPluginEnabled(pluginId);
+  };
+
   const handleViewDetails = (plugin: any) => {
-    const pluginInstance = plugins.find(p => p.manifest.id === plugin.id);
-    if (pluginInstance) {
-      setSelectedPlugin(pluginInstance);
-      setShowDetails(true);
-    }
+    setSelectedPlugin(plugin);
+    setShowDetails(true);
   };
 
   const handleCloseDetails = () => {
     setShowDetails(false);
     setSelectedPlugin(null);
-  };
-
-  const isPluginEnabled = (pluginId: string) => {
-    return enabledPlugins.includes(pluginId);
   };
 
   if (!isOpen) return null;
@@ -225,11 +128,12 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 1000
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          zIndex: 3000,
+          backdropFilter: 'blur(4px)'
         }}
         onClick={onClose}
-      ></div>
+      />
 
       <div
         className="plugin-marketplace-modal"
@@ -240,350 +144,334 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
           transform: 'translate(-50%, -50%)',
           width: '90%',
           maxWidth: '1000px',
-          maxHeight: '80vh',
+          maxHeight: '85vh',
           backgroundColor: 'white',
-          borderRadius: '8px',
-          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
-          zIndex: 1001,
+          borderRadius: '16px',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          zIndex: 3001,
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          overflow: 'hidden',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
         }}
       >
         <div
           className="plugin-marketplace-header"
           style={{
-            padding: '16px',
-            borderBottom: '1px solid #e5e7eb',
+            padding: '20px 24px',
+            borderBottom: '1px solid #f3f4f6',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
+            background: '#f9fafb'
           }}
         >
-          <h2 style={{ margin: 0 }}>插件市场</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Puzzle size={24} color="#4f46e5" />
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: '#111827' }}>插件市场</h2>
+          </div>
           <button
             onClick={onClose}
             style={{
-              background: 'none',
+              background: 'transparent',
               border: 'none',
-              fontSize: '20px',
-              cursor: 'pointer'
+              color: '#6b7280',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '6px',
+              borderRadius: '8px',
+              transition: 'all 0.2s'
             }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            ×
+            <X size={20} />
           </button>
         </div>
 
-        <div className="plugin-marketplace-search" style={{ padding: '16px', borderBottom: '1px solid #e5e7eb' }}>
-          <input
-            type="text"
-            placeholder="搜索插件..."
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '10px',
-              border: '1px solid #d1d5db',
-              borderRadius: '4px',
-              fontSize: '16px'
-            }}
-          />
+        <div className="plugin-marketplace-search" style={{ padding: '16px 24px', borderBottom: '1px solid #f3f4f6', background: 'white' }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <Search size={18} color="#9ca3af" style={{ position: 'absolute', left: '12px' }} />
+            <input
+              type="text"
+              placeholder="搜索插件、功能或标签..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '12px 12px 12px 40px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '10px',
+                fontSize: '15px',
+                outline: 'none',
+                transition: 'all 0.2s',
+                backgroundColor: '#f9fafb'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#4f46e5';
+                e.target.style.backgroundColor = 'white';
+                e.target.style.boxShadow = '0 0 0 3px rgba(79, 70, 229, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = '#e5e7eb';
+                e.target.style.backgroundColor = '#f9fafb';
+                e.target.style.boxShadow = 'none';
+              }}
+            />
+          </div>
         </div>
 
-        {loading && (
-          <div style={{ textAlign: 'center', padding: '40px' }}>
-            <div>加载中...</div>
-            <div className="spinner" style={{ marginTop: '10px', textAlign: 'center' }}>
-              <div style={{
-                width: '20px',
-                height: '20px',
-                border: '2px solid #f3f4f6',
-                borderTop: '2px solid #3b82f6',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-                display: 'inline-block',
-                marginLeft: '10px'
-              }}></div>
+        <div style={{ display: 'flex', flex: '1', overflow: 'hidden' }}>
+          {/* 侧边栏 */}
+          <div
+            className="plugin-marketplace-sidebar"
+            style={{
+              width: '200px',
+              borderRight: '1px solid #f3f4f6',
+              padding: '20px 0',
+              backgroundColor: '#f9fafb'
+            }}
+          >
+            <div style={{ padding: '0 24px 12px', fontSize: '12px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              插件分类
             </div>
-          </div>
-        )}
-
-        {!loading && !showDetails && (
-          <div
-            className="plugin-marketplace-content"
-            style={{
-              padding: '16px',
-              overflowY: 'auto',
-              flex: 1
-            }}
-          >
-            <section>
-              <h3 style={{ margin: '0 0 16px 0', fontSize: '18px' }}>可用插件</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
-                {filteredPlugins.map(plugin => (
-                  <div
-                    key={plugin.id}
-                    className="plugin-card"
-                    style={{
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      padding: '16px',
-                      backgroundColor: '#fff',
-                      display: 'flex',
-                      flexDirection: 'column'
-                    }}
-                  >
-                    <div style={{ textAlign: 'center', marginBottom: '12px' }}>
-                      <div style={{ fontSize: '32px', marginBottom: '8px' }}>{plugin.icon}</div>
-                      <h4 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>{plugin.name}</h4>
-                    </div>
-                    
-                    {plugin.previewImage && (
-                      <img 
-                        src={plugin.previewImage} 
-                        alt={plugin.name}
-                        style={{
-                          width: '100%',
-                          height: '100px',
-                          objectFit: 'cover',
-                          borderRadius: '4px',
-                          marginBottom: '12px'
-                        }}
-                      />
-                    )}
-                    
-                    <p style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#6b7280', flex: 1 }}>
-                      {plugin.description}
-                    </p>
-                    
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
-                      {plugin.tags.slice(0, 3).map((tag: string) => (
-                        <span
-                          key={tag}
-                          style={{
-                            padding: '2px 6px',
-                            backgroundColor: '#e5e7eb',
-                            borderRadius: '10px',
-                            fontSize: '10px'
-                          }}
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                    
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                      <button
-                        onClick={() => handleViewDetails(plugin)}
-                        style={{
-                          padding: '6px 10px',
-                          backgroundColor: '#f3f4f6',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '12px'
-                        }}
-                      >
-                        详情
-                      </button>
-                      <button
-                        onClick={() => 
-                          isPluginEnabled(plugin.id) 
-                            ? handleDisablePlugin(plugin.id) 
-                            : handleEnablePlugin(plugin.id)
-                        }
-                        style={{
-                          padding: '6px 10px',
-                          backgroundColor: isPluginEnabled(plugin.id) ? '#ef4444' : '#10b981',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '12px'
-                        }}
-                      >
-                        {isPluginEnabled(plugin.id) ? '禁用' : '启用'}
-                      </button>
-                    </div>
-                    
-                    <div style={{ 
-                      marginTop: '8px', 
-                      fontSize: '12px', 
-                      color: isPluginEnabled(plugin.id) ? '#10b981' : '#9ca3af',
-                      textAlign: 'center'
-                    }}>
-                      {isPluginEnabled(plugin.id) ? '✓ 已启用' : '○ 未启用'}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* 插件详情视图 */}
-        {showDetails && selectedPlugin && (
-          <div
-            className="plugin-details"
-            style={{
-              padding: '16px',
-              overflowY: 'auto',
-              flex: 1
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '24px' }}>{selectedPlugin.manifest.icon}</span>
-                {selectedPlugin.manifest.name}
-              </h3>
-              <button
-                onClick={handleCloseDetails}
+            {[
+              { id: 'all', name: '全部插件', icon: <Puzzle size={16} /> },
+              { id: 'trending', name: '热门插件', icon: <Star size={16} /> },
+              { id: 'installed', name: '已启用', icon: <CheckCircle size={16} /> },
+              { id: 'new', name: '最新上架', icon: <Zap size={16} /> }
+            ].map(item => (
+              <div
+                key={item.id}
                 style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '16px',
+                  padding: '10px 24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  fontSize: '14px',
+                  color: item.id === 'all' ? '#4f46e5' : '#4b5563',
+                  backgroundColor: item.id === 'all' ? '#f0f9ff' : 'transparent',
                   cursor: 'pointer',
-                  color: '#6b7280'
+                  borderRight: item.id === 'all' ? '2px solid #4f46e5' : 'none'
                 }}
               >
-                ← 返回
-              </button>
-            </div>
+                {item.icon}
+                {item.name}
+              </div>
+            ))}
+          </div>
 
-            <div style={{ display: 'flex', gap: '24px', marginBottom: '20px' }}>
-              <div style={{ flex: '1' }}>
-                {selectedPlugin.manifest.previewImage && (
-                  <img 
-                    src={selectedPlugin.manifest.previewImage} 
-                    alt={selectedPlugin.manifest.name}
+          {/* 主内容区域 */}
+          <div className="plugin-marketplace-main" style={{ flex: '1', overflowY: 'auto', padding: '24px' }}>
+            {showDetails && selectedPlugin ? (
+              <div className="plugin-details">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ 
+                      width: '48px', 
+                      height: '48px', 
+                      borderRadius: '12px', 
+                      backgroundColor: '#f3f4f6', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center'
+                    }}>
+                      {selectedPlugin.icon}
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: '#111827' }}>
+                        {selectedPlugin.name}
+                      </h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+                        <span style={{ fontSize: '13px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <User size={14} /> {selectedPlugin.author}
+                        </span>
+                        <span style={{ fontSize: '13px', color: '#6b7280' }}>v{selectedPlugin.version}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleCloseDetails}
                     style={{
+                      background: '#f3f4f6',
+                      border: 'none',
+                      color: '#4b5563',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e5e7eb'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                  >
+                    <X size={16} />
+                    返回列表
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', gap: '24px', marginBottom: '20px' }}>
+                  <div style={{ flex: '1' }}>
+                    <div style={{
                       width: '100%',
                       height: '200px',
-                      objectFit: 'cover',
-                      borderRadius: '8px',
-                      marginBottom: '12px'
-                    }}
-                  />
-                )}
-                <p style={{ margin: '0 0 12px 0' }}>{selectedPlugin.manifest.description}</p>
-                
-                <div style={{ marginBottom: '16px' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>功能特性</h4>
-                  <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                    {selectedPlugin.manifest.features?.map((feature: string, idx: number) => (
-                      <li key={idx} style={{ marginBottom: '4px' }}>{feature}</li>
-                    ))}
-                  </ul>
-                </div>
-                
-                <div style={{ marginBottom: '16px' }}>
-                  <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}><strong>作者:</strong> {selectedPlugin.manifest.author}</p>
-                  <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}><strong>版本:</strong> {selectedPlugin.manifest.version}</p>
-                  <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}><strong>ID:</strong> {selectedPlugin.manifest.id}</p>
-                  
-                  <div style={{ marginTop: '12px' }}>
-                    <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}><strong>标签:</strong></p>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {selectedPlugin.manifest.tags?.map((tag: string) => (
+                      background: '#f3f4f6',
+                      borderRadius: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: '20px',
+                      border: '1px solid #e5e7eb'
+                    }}>
+                      {selectedPlugin.icon}
+                      <span style={{ marginLeft: '10px', color: '#9ca3af' }}>插件预览图占位符</span>
+                    </div>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '16px', lineHeight: '1.6', color: '#374151' }}>
+                      {selectedPlugin.description}
+                    </p>
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '20px' }}>
+                      {selectedPlugin.tags.map((tag: string) => (
                         <span
                           key={tag}
                           style={{
-                            padding: '4px 8px',
-                            backgroundColor: '#e5e7eb',
-                            borderRadius: '12px',
-                            fontSize: '12px'
+                            padding: '4px 10px',
+                            backgroundColor: '#f3f4f6',
+                            color: '#4b5563',
+                            borderRadius: '20px',
+                            fontSize: '12px',
+                            fontWeight: 500
                           }}
                         >
-                          {tag}
+                          #{tag}
                         </span>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <button
+                        onClick={() => isPluginEnabled(selectedPlugin.id) ? handleDisablePlugin(selectedPlugin.id) : handleEnablePlugin(selectedPlugin.id)}
+                        style={{
+                          padding: '10px 20px',
+                          backgroundColor: isPluginEnabled(selectedPlugin.id) ? '#fee2e2' : '#f0f9ff',
+                          color: isPluginEnabled(selectedPlugin.id) ? '#ef4444' : '#0284c7',
+                          border: 'none',
+                          borderRadius: '8px',
+                          fontSize: '15px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        {isPluginEnabled(selectedPlugin.id) ? <StopCircle size={18} /> : <PlayCircle size={18} />}
+                        {isPluginEnabled(selectedPlugin.id) ? '禁用插件' : '启用插件'}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div style={{ flex: '1' }}>
+                    <h4 style={{ margin: '0 0 12px 0' }}>功能亮点</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {selectedPlugin.features.map((feature: string) => (
+                        <div key={feature} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #f3f4f6' }}>
+                          <CheckCircle size={16} color="#10b981" />
+                          <span style={{ fontSize: '14px', color: '#4b5563' }}>{feature}</span>
+                        </div>
                       ))}
                     </div>
                   </div>
                 </div>
-                
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <button
-                    onClick={() => 
-                      isPluginEnabled(selectedPlugin.manifest.id) 
-                        ? handleDisablePlugin(selectedPlugin.manifest.id) 
-                        : handleEnablePlugin(selectedPlugin.manifest.id)
-                    }
-                    style={{
-                      padding: '10px 16px',
-                      backgroundColor: isPluginEnabled(selectedPlugin.manifest.id) ? '#ef4444' : '#10b981',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {isPluginEnabled(selectedPlugin.manifest.id) ? '禁用插件' : '启用插件'}
-                  </button>
-                </div>
               </div>
-              
-              <div style={{ flex: '1' }}>
-                <h4 style={{ margin: '0 0 12px 0' }}>插件预览</h4>
-                <div
-                  style={{
-                    padding: '20px',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    backgroundColor: '#f9fafb',
-                    minHeight: '200px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center'
-                  }}
-                >
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '10px' }}>
-                      {selectedPlugin.manifest.icon}
-                    </div>
-                    <h3 style={{ margin: '0 0 10px 0', color: '#374151' }}>{selectedPlugin.manifest.name}</h3>
-                    <p style={{ color: '#6b7280', marginBottom: '15px' }}>
-                      {selectedPlugin.manifest.description}
-                    </p>
-                    <div style={{ 
-                      padding: '10px', 
-                      backgroundColor: '#d5f3ff', 
-                      borderRadius: '6px', 
-                      border: '1px dashed #7dd3fc',
-                      display: 'inline-block'
-                    }}>
-                      插件功能演示区域
-                    </div>
+            ) : (
+              <div className="plugin-list">
+                {loading ? (
+                  <div style={{ textAlign: 'center', padding: '40px' }}>加载中...</div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+                    {filteredPlugins.map(plugin => (
+                      <div
+                        key={plugin.id}
+                        className="plugin-card"
+                        style={{
+                          border: '1px solid #f3f4f6',
+                          borderRadius: '12px',
+                          padding: '20px',
+                          backgroundColor: '#fff',
+                          transition: 'all 0.2s',
+                          display: 'flex',
+                          flexDirection: 'column'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                          <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {plugin.icon}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>{plugin.name}</h4>
+                            <span style={{ fontSize: '12px', color: '#9ca3af' }}>by {plugin.author}</span>
+                          </div>
+                        </div>
+                        <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#6b7280', flex: 1 }}>
+                          {plugin.description}
+                        </p>
+                        <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
+                          <button
+                            onClick={() => handleViewDetails(plugin)}
+                            style={{
+                              flex: 1,
+                              padding: '8px',
+                              backgroundColor: '#f3f4f6',
+                              color: '#4b5563',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              fontWeight: 500,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px'
+                            }}
+                          >
+                            <Info size={14} />
+                            详情
+                          </button>
+                          <button
+                            onClick={() => isPluginEnabled(plugin.id) ? handleDisablePlugin(plugin.id) : handleEnablePlugin(plugin.id)}
+                            style={{
+                              flex: 1,
+                              padding: '8px',
+                              backgroundColor: isPluginEnabled(plugin.id) ? '#fee2e2' : '#f0f9ff',
+                              color: isPluginEnabled(plugin.id) ? '#ef4444' : '#0284c7',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              fontWeight: 500,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px'
+                            }}
+                          >
+                            {isPluginEnabled(plugin.id) ? <StopCircle size={14} /> : <PlayCircle size={14} />}
+                            {isPluginEnabled(plugin.id) ? '禁用' : '启用'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-                
-                <div style={{ marginTop: '20px' }}>
-                  <h4 style={{ margin: '0 0 12px 0' }}>使用说明</h4>
-                  <div style={{ 
-                    padding: '12px', 
-                    backgroundColor: '#f8fafc', 
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    lineHeight: '1.5'
-                  }}>
-                    <p style={{ margin: '0 0 10px 0' }}>
-                      <strong>启用插件：</strong>点击"启用插件"按钮激活此插件。
-                    </p>
-                    <p style={{ margin: '0 0 10px 0' }}>
-                      <strong>使用插件：</strong>插件启用后，相关功能将在编辑器中可用。
-                    </p>
-                    <p style={{ margin: '0 0 10px 0' }}>
-                      <strong>禁用插件：</strong>如需停用插件，点击"禁用插件"按钮。
-                    </p>
-                    <p style={{ margin: '0 0 0 0' }}>
-                      <strong>注意事项：</strong>某些插件可能需要刷新页面才能完全生效。
-                    </p>
-                  </div>
-                </div>
+                )}
               </div>
-            </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       <style>
@@ -596,9 +484,8 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
           }
           .plugin-card:hover {
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             transform: translateY(-2px);
-            transition: all 0.2s ease;
           }
         `}
       </style>

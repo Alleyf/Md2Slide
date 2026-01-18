@@ -1,30 +1,25 @@
+export interface PluginManifest {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  author: string;
+  tags?: string[];
+  previewImage?: string;
+  icon?: string;
+  features?: string[];
+}
+
 /**
  * 插件基类定义
  * 所有插件都应该继承此类
  */
 export abstract class BasePlugin {
   /**
-   * 插件元数据
+   * 实例的元数据，从静态 manifest 获取
    */
-  static get manifest() {
-    return {
-      id: '',
-      name: '',
-      description: '',
-      version: '1.0.0',
-      author: '',
-      tags: [] as string[],
-      previewImage: '',
-      icon: '🔌',
-      features: [] as string[]
-    };
-  }
-
-  /**
-   * 实例的元数据
-   */
-  get manifest() {
-    return (this.constructor as typeof BasePlugin).manifest;
+  get manifest(): PluginManifest {
+    return (this.constructor as any).manifest;
   }
 
   /**

@@ -1,4 +1,5 @@
 import { ThemePackage, ThemeMetadata, ThemeInstallSource, ThemeMarketplaceConfig, ThemeRepository } from '../types/themePackage';
+import { getStorageItem, setStorageItem, storageKeys } from '../utils/storage';
 
 /**
  * 主题市场服务类，负责管理和安装主题包
@@ -11,6 +12,37 @@ export class ThemeMarketplaceService {
   constructor(config: ThemeMarketplaceConfig) {
     this.config = config;
     this.initRepositories();
+    this.loadFromStorage();
+  }
+
+  /**
+   * 从本地存储加载已安装的主题
+   */
+  private loadFromStorage(): void {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const data = getStorageItem<Record<string, ThemePackage>>(storageKeys.INSTALLED_THEMES, {});
+      Object.entries(data).forEach(([id, pkg]) => {
+        this.installedThemes.set(id, pkg);
+      });
+    } catch (e) {
+      console.error('Failed to load installed themes from storage:', e);
+    }
+  }
+
+  /**
+   * 保存已安装的主题到本地存储
+   */
+  private saveToStorage(): void {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const data = Object.fromEntries(this.installedThemes);
+      setStorageItem(storageKeys.INSTALLED_THEMES, data);
+    } catch (e) {
+      console.error('Failed to save installed themes to storage:', e);
+    }
   }
 
   /**
@@ -101,6 +133,7 @@ export class ThemeMarketplaceService {
 
     // 保存到已安装主题列表
     this.installedThemes.set(themePackage.metadata.id, themePackage);
+    this.saveToStorage();
 
     return themePackage;
   }
@@ -111,6 +144,7 @@ export class ThemeMarketplaceService {
   async uninstallTheme(themeId: string): Promise<boolean> {
     if (this.installedThemes.has(themeId)) {
       this.installedThemes.delete(themeId);
+      this.saveToStorage();
       return true;
     }
     return false;
@@ -166,8 +200,9 @@ export class ThemeMarketplaceService {
    */
   private async installFromGithub(repo: string): Promise<ThemePackage> {
     // 模拟GitHub仓库安装
+    const id = repo.split('/').pop()?.replace('theme-', '') || 'github-theme';
     return this.createMockTheme(
-      repo.split('/').pop() || 'github-theme',
+      id,
       `从GitHub安装的主题: ${repo}`
     );
   }
@@ -253,12 +288,17 @@ export class ThemeMarketplaceService {
     const now = new Date().toISOString();
 
     // 根据主题ID选择不同的配色方案
-    let colors = {
+    let colors: any = {
       primary: '#007acc',
       secondary: '#6c757d',
       background: '#ffffff',
+      surface: '#f8fafc',
       text: '#333333',
-      highlight: '#ffeb3b'
+      textSecondary: '#64748b',
+      border: '#e2e8f0',
+      highlight: '#ffeb3b',
+      codeBackground: '#f1f5f9',
+      codeText: '#1e293b'
     };
 
     // 根据主题ID设置特定配色
@@ -268,8 +308,13 @@ export class ThemeMarketplaceService {
           primary: '#2563eb',
           secondary: '#64748b',
           background: '#ffffff',
+          surface: '#ffffff',
           text: '#1e293b',
-          highlight: '#fef3c7'
+          textSecondary: '#64748b',
+          border: '#e2e8f0',
+          highlight: '#fef3c7',
+          codeBackground: '#f1f5f9',
+          codeText: '#1e293b'
         };
         break;
       case 'dark':
@@ -277,8 +322,13 @@ export class ThemeMarketplaceService {
           primary: '#60a5fa',
           secondary: '#94a3b8',
           background: '#0f172a',
+          surface: '#1e293b',
           text: '#f1f5f9',
-          highlight: '#fde68a'
+          textSecondary: '#94a3b8',
+          border: '#334155',
+          highlight: '#fde68a',
+          codeBackground: '#0f172a',
+          codeText: '#60a5fa'
         };
         break;
       case 'cyberpunk':
@@ -286,8 +336,13 @@ export class ThemeMarketplaceService {
           primary: '#06b6d4',
           secondary: '#8b5cf6',
           background: '#000000',
+          surface: '#111111',
           text: '#e2e8f0',
-          highlight: '#f472b6'
+          textSecondary: '#94a3b8',
+          border: '#333333',
+          highlight: '#f472b6',
+          codeBackground: '#1a1a1a',
+          codeText: '#06b6d4'
         };
         break;
       case 'academic':
@@ -295,8 +350,13 @@ export class ThemeMarketplaceService {
           primary: '#1e40af',
           secondary: '#475569',
           background: '#f8fafc',
+          surface: '#ffffff',
           text: '#0f172a',
-          highlight: '#fde68a'
+          textSecondary: '#475569',
+          border: '#e2e8f0',
+          highlight: '#fde68a',
+          codeBackground: '#f1f5f9',
+          codeText: '#1e40af'
         };
         break;
       case 'presentation':
@@ -304,8 +364,13 @@ export class ThemeMarketplaceService {
           primary: '#3b82f6',
           secondary: '#6b7280',
           background: '#ffffff',
+          surface: '#f9fafb',
           text: '#111827',
-          highlight: '#fef3c7'
+          textSecondary: '#6b7280',
+          border: '#e5e7eb',
+          highlight: '#fef3c7',
+          codeBackground: '#f3f4f6',
+          codeText: '#3b82f6'
         };
         break;
       case 'creative':
@@ -313,8 +378,13 @@ export class ThemeMarketplaceService {
           primary: '#ec4899',
           secondary: '#8b5cf6',
           background: '#f9fafb',
+          surface: '#ffffff',
           text: '#111827',
-          highlight: '#a7f3d0'
+          textSecondary: '#6b7280',
+          border: '#f3f4f6',
+          highlight: '#a7f3d0',
+          codeBackground: '#fdf2f8',
+          codeText: '#ec4899'
         };
         break;
     }
@@ -333,6 +403,21 @@ export class ThemeMarketplaceService {
       },
       theme: {
         id,
+        theme: id === 'dark' || id === 'cyberpunk' ? 'dark' : 'light',
+        primaryColor: colors.primary,
+        secondaryColor: colors.secondary,
+        accentColor: colors.highlight,
+        fontFamily: 'Arial, sans-serif',
+        fontSize: {
+          title: 48,
+          heading: 32,
+          body: 18,
+          math: 24
+        },
+        animation: {
+          defaultDuration: 600,
+          easing: 'ease-in-out'
+        },
         colors,
         fonts: {
           heading: 'Arial, sans-serif',

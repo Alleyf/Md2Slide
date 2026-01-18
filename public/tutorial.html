@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>HTML 模式指南 - Md2Slide</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .header {
+            border-bottom: 2px solid #4f46e5;
+            padding-bottom: 1rem;
+            margin-bottom: 2rem;
+        }
+        h1 {
+            color: #111827;
+            font-size: 2.5rem;
+            margin: 0;
+        }
+        .tagline {
+            color: #6b7280;
+            font-size: 1.1rem;
+            margin-top: 0.5rem;
+        }
+        .section {
+            margin-bottom: 2.5rem;
+            background: #fff;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+        }
+        h2 {
+            color: #4f46e5;
+            border-left: 4px solid #4f46e5;
+            padding-left: 1rem;
+            margin-top: 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+        .card {
+            padding: 1rem;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 1px solid #f3f4f6;
+        }
+        .card h3 {
+            margin-top: 0;
+            font-size: 1rem;
+            color: #1f2937;
+        }
+        code {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+        ul {
+            padding-left: 1.2rem;
+        }
+        li {
+            margin-bottom: 0.5rem;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 4rem;
+            color: #9ca3af;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>HTML 实时预览模式</h1>
+        <p class="tagline">所见即所得的网页片段编辑器</p>
+    </div>
+
+    <div class="section">
+        <h2>功能特点</h2>
+        <div class="grid">
+            <div class="card">
+                <h3>🚀 实时渲染</h3>
+                <p>在左侧输入 HTML 代码，右侧立即看到渲染结果，无需保存或刷新。</p>
+            </div>
+            <div class="card">
+                <h3>🎨 内联样式</h3>
+                <p>支持使用 <code>style</code> 属性或 <code>&lt;style&gt;</code> 标签直接控制样式。</p>
+            </div>
+            <div class="card">
+                <h3>🧩 结构自由</h3>
+                <p>不同于 Markdown 的幻灯片限制，这里您可以自由定义复杂的 DOM 结构。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>快速入门</h2>
+        <p>尝试在编辑器中修改以下代码：</p>
+        <ul>
+            <li>使用 <code>&lt;div&gt;</code>, <code>&lt;section&gt;</code> 划分区域</li>
+            <li>利用 <code>Flexbox</code> 或 <code>Grid</code> 进行布局</li>
+            <li>添加 <code>&lt;img&gt;</code> 标签引入图片（支持网络地址）</li>
+        </ul>
+    </div>
+
+    <div class="section" style="background: #e0e7ff; border-color: #c7d2fe;">
+        <h2 style="color: #3730a3; border-color: #3730a3;">提示</h2>
+        <p>HTML 模式非常适合用于制作复杂的图表容器、自定义报表或是在幻灯片之外需要更精细控制的场景。</p>
+    </div>
+
+    <div class="footer">
+        © 2026 Md2Slide - 让创作更自由
+    </div>
+</body>
+</html>
