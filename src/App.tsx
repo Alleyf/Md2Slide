@@ -1,26 +1,27 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
-import { 
-  ArrowUp, 
-  PanelLeftClose, 
-  PanelLeftOpen, 
-  PanelRightClose, 
-  PanelRightOpen, 
-  Layout, 
-  HelpCircle, 
-  Menu, 
-  X, 
-  Settings, 
-  Puzzle, 
-  Sparkles, 
-  Wand2, 
-  Info, 
-  GripVertical, 
+import {
+  ArrowUp,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
+  Layout,
+  HelpCircle,
+  Menu,
+  X,
+  Settings,
+  Puzzle,
+  Sparkles,
+  Wand2,
+  Info,
+  GripVertical,
   Monitor,
   ChevronDown,
   Eye,
   FileText,
-  Layers
+  Layers,
+  Code
 } from 'lucide-react';
 import { SlideTemplate } from './components/SlideTemplate';
 import { SlideContent, SlideElement } from './types/slide';
@@ -2457,25 +2458,25 @@ export const App: React.FC = () => {
                   e.stopPropagation();
                   setShowViewMenu(!showViewMenu);
                 }}
+                title="视图选项"
                 style={{
                   background: showViewMenu ? theme.colors.border : 'transparent',
                   border: `1px solid ${theme.colors.border}`,
                   color: theme.colors.text,
                   cursor: 'pointer',
-                  padding: '6px 12px',
-                  borderRadius: '8px',
+                  padding: '4px',
+                  borderRadius: '6px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '13px',
-                  fontWeight: 600,
+                  justifyContent: 'center',
+                  width: '28px',
+                  height: '28px',
                   transition: 'all 0.2s',
                   boxShadow: showViewMenu ? 'none' : '0 1px 2px rgba(0,0,0,0.05)'
                 }}
               >
-                <Layers size={16} />
-                视图选项
-                <ChevronDown size={14} style={{ transform: showViewMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                <Layers size={14} />
+                <ChevronDown size={12} style={{ position: 'absolute', top: '50%', right: '2px', transform: `translateY(-50%) ${showViewMenu ? 'rotate(180deg)' : ''}`, transition: 'transform 0.2s' }} />
               </button>
 
               {showViewMenu && (
@@ -2483,106 +2484,114 @@ export const App: React.FC = () => {
                   position: 'absolute',
                   top: '110%',
                   right: 0,
-                  width: '200px',
+                  width: '140px',
                   background: theme.colors.surface,
                   border: `1px solid ${theme.colors.border}`,
                   borderRadius: '12px',
                   boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
-                  padding: '8px',
+                  padding: '6px',
                   zIndex: 1000,
                   animation: 'fadeIn 0.2s ease-out',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '4px'
+                  gap: '2px'
                 }}>
                   <button
                     onClick={() => setShowSidebar(!showSidebar)}
+                    title={showSidebar ? '隐藏文件目录' : '显示文件目录'}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
+                      gap: '8px',
+                      padding: '6px 8px',
+                      borderRadius: '6px',
                       border: 'none',
                       background: showSidebar ? `${theme.primaryColor}15` : 'transparent',
                       color: showSidebar ? theme.primaryColor : theme.colors.text,
                       cursor: 'pointer',
                       textAlign: 'left',
-                      fontSize: '13px',
+                      fontSize: '12px',
                       fontWeight: 500,
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      justifyContent: 'center',
+                      minWidth: '32px'
                     }}
                   >
-                    <PanelLeftClose size={16} />
-                    文件目录
-                    <div style={{ marginLeft: 'auto', width: '8px', height: '8px', borderRadius: '50%', background: showSidebar ? theme.primaryColor : 'transparent' }} />
+                    <PanelLeftClose size={14} />
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: showSidebar ? theme.primaryColor : 'transparent', flexShrink: 0 }} />
                   </button>
                   <button
                     onClick={() => setShowEditor(!showEditor)}
+                    title={showEditor ? '隐藏编辑器' : '显示编辑器'}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
+                      gap: '8px',
+                      padding: '6px 8px',
+                      borderRadius: '6px',
                       border: 'none',
                       background: showEditor ? `${theme.primaryColor}15` : 'transparent',
                       color: showEditor ? theme.primaryColor : theme.colors.text,
                       cursor: 'pointer',
                       textAlign: 'left',
-                      fontSize: '13px',
+                      fontSize: '12px',
                       fontWeight: 500,
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      justifyContent: 'center',
+                      minWidth: '32px'
                     }}
                   >
-                    <FileText size={16} />
-                    内容编辑
-                    <div style={{ marginLeft: 'auto', width: '8px', height: '8px', borderRadius: '50%', background: showEditor ? theme.primaryColor : 'transparent' }} />
+                    <FileText size={14} />
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: showEditor ? theme.primaryColor : 'transparent', flexShrink: 0 }} />
                   </button>
                   <button
                     onClick={() => setShowPreview(!showPreview)}
+                    title={showPreview ? '隐藏实时预览' : '显示实时预览'}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
+                      gap: '8px',
+                      padding: '6px 8px',
+                      borderRadius: '6px',
                       border: 'none',
                       background: showPreview ? `${theme.primaryColor}15` : 'transparent',
                       color: showPreview ? theme.primaryColor : theme.colors.text,
                       cursor: 'pointer',
                       textAlign: 'left',
-                      fontSize: '13px',
+                      fontSize: '12px',
                       fontWeight: 500,
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      justifyContent: 'center',
+                      minWidth: '32px'
                     }}
                   >
-                    <Eye size={16} />
-                    实时预览
-                    <div style={{ marginLeft: 'auto', width: '8px', height: '8px', borderRadius: '50%', background: showPreview ? theme.primaryColor : 'transparent' }} />
+                    <Eye size={14} />
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: showPreview ? theme.primaryColor : 'transparent', flexShrink: 0 }} />
                   </button>
                   <div style={{ height: '1px', background: theme.colors.border, margin: '4px 0' }} />
                   <button
                     onClick={toggleAISidebar}
+                    title={showAISidebar ? '隐藏AI助手' : '显示AI助手'}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
+                      gap: '8px',
+                      padding: '6px 8px',
+                      borderRadius: '6px',
                       border: 'none',
                       background: showAISidebar ? `${theme.primaryColor}15` : 'transparent',
                       color: showAISidebar ? theme.primaryColor : theme.colors.text,
                       cursor: 'pointer',
                       textAlign: 'left',
-                      fontSize: '13px',
+                      fontSize: '12px',
                       fontWeight: 500,
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      justifyContent: 'center',
+                      minWidth: '32px'
                     }}
                   >
-                    <Sparkles size={16} />
-                    AI 智能助手
-                    <div style={{ marginLeft: 'auto', width: '8px', height: '8px', borderRadius: '50%', background: showAISidebar ? theme.primaryColor : 'transparent' }} />
+                    <Sparkles size={14} />
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: showAISidebar ? theme.primaryColor : 'transparent', flexShrink: 0 }} />
                   </button>
                 </div>
               )}
@@ -3908,38 +3917,46 @@ export const App: React.FC = () => {
                       <GripVertical size={14} style={{ opacity: 0.5 }} />
                       {editorMode === 'markdown' ? 'Markdown 编辑器' : 'HTML 编辑器'}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: theme.colors.border, padding: '2px', borderRadius: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: theme.colors.border, padding: '2px', borderRadius: '6px' }}>
                       <button
                         onClick={() => handleModeSwitch('markdown')}
+                        title="Markdown 模式"
                         style={{
-                          padding: '4px 10px',
-                          fontSize: '10px',
+                          padding: '4px',
                           border: 'none',
                           borderRadius: '4px',
                           background: editorMode === 'markdown' ? theme.primaryColor : 'transparent',
                           color: editorMode === 'markdown' ? '#fff' : theme.colors.textSecondary,
                           cursor: 'pointer',
-                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '24px',
+                          height: '24px',
                           transition: 'all 0.2s'
                         }}
                       >
-                        MARKDOWN
+                        <FileText size={12} />
                       </button>
                       <button
                         onClick={() => handleModeSwitch('html')}
+                        title="HTML 模式"
                         style={{
-                          padding: '4px 10px',
-                          fontSize: '10px',
+                          padding: '4px',
                           border: 'none',
                           borderRadius: '4px',
                           background: editorMode === 'html' ? theme.primaryColor : 'transparent',
                           color: editorMode === 'html' ? '#fff' : theme.colors.textSecondary,
                           cursor: 'pointer',
-                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '24px',
+                          height: '24px',
                           transition: 'all 0.2s'
                         }}
                       >
-                        HTML
+                        <Code size={12} />
                       </button>
                     </div>
                     <button
