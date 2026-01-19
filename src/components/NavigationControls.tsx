@@ -196,7 +196,7 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
         disabled={currentSlideIndex === 0 && clickState === 0}
         aria-label="上一张幻灯片"
         style={{
-          padding: isMobile ? '6px' : '4px',
+          padding: '4px',
           background: 'transparent',
           border: 'none',
           color: theme.primaryColor,
@@ -205,12 +205,13 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          minWidth: isMobile ? '44px' : 'auto',
-          minHeight: isMobile ? '44px' : 'auto',
+          width: '28px',
+          height: '28px',
+          borderRadius: '4px',
         }}
         title="上一张"
       >
-        <ChevronLeft size={isMobile ? 24 : 20} strokeWidth={2.5} />
+        <ChevronLeft size={16} strokeWidth={2.5} />
       </button>
 
       <div style={{ display: 'flex', gap: isMobile ? '8px' : '8px', alignItems: 'center' }}>
@@ -218,7 +219,7 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
           onClick={onAutoPlayToggle}
           aria-label={isAutoPlaying ? "暂停自动播放" : "开始自动播放"}
           style={{
-            padding: isMobile ? '6px' : '4px',
+            padding: '4px',
             background: 'transparent',
             border: 'none',
             color: isAutoPlaying ? theme.primaryColor : theme.colors.text,
@@ -228,14 +229,15 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
             alignItems: 'center',
             justifyContent: 'center',
             transition: 'all 0.2s',
-            minWidth: isMobile ? '44px' : 'auto',
-            minHeight: isMobile ? '44px' : 'auto',
+            width: '28px',
+            height: '28px',
+            borderRadius: '4px',
           }}
           onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
           onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = isAutoPlaying ? '1' : '0.6')}
           title={isAutoPlaying ? "暂停自动播放" : "开始自动播放"}
         >
-          {isAutoPlaying ? <Pause size={16} /> : <Play size={16} />}
+          {isAutoPlaying ? <Pause size={14} /> : <Play size={14} />}
         </button>
 
         {isAutoPlaying && !isMobile && (
@@ -265,7 +267,7 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
           onClick={onReplay}
           aria-label="回到第一张幻灯片"
           style={{
-            padding: isMobile ? '6px' : '4px',
+            padding: '4px',
             background: 'transparent',
             border: 'none',
             color: theme.colors.text,
@@ -275,14 +277,15 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
             alignItems: 'center',
             justifyContent: 'center',
             transition: 'all 0.2s',
-            minWidth: isMobile ? '44px' : 'auto',
-            minHeight: isMobile ? '44px' : 'auto',
+            width: '28px',
+            height: '28px',
+            borderRadius: '4px',
           }}
           onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
           onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.6')}
           title="回到首页"
         >
-          <RotateCcw size={16} />
+          <RotateCcw size={14} />
         </button>
       </div>
 
@@ -358,7 +361,7 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
         disabled={currentSlideIndex === slidesCount - 1 && clickState === totalClicks - 1}
         aria-label="下一张幻灯片"
         style={{
-          padding: isMobile ? '6px' : '4px',
+          padding: '4px',
           background: 'transparent',
           border: 'none',
           color: theme.primaryColor,
@@ -367,12 +370,13 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          minWidth: isMobile ? '44px' : 'auto',
-          minHeight: isMobile ? '44px' : 'auto',
+          width: '28px',
+          height: '28px',
+          borderRadius: '4px',
         }}
         title="下一张"
       >
-        <ChevronRight size={isMobile ? 24 : 20} strokeWidth={2.5} />
+        <ChevronRight size={16} strokeWidth={2.5} />
       </button>
 
       {!isMobile && (
@@ -393,12 +397,15 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'all 0.2s',
+              width: '28px',
+              height: '28px',
+              borderRadius: '4px',
             }}
             onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
             onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
             title="演讲者模式"
           >
-            <Monitor size={18} />
+            <Monitor size={14} />
           </button>
 
           <button
@@ -415,12 +422,15 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'all 0.2s',
+              width: '28px',
+              height: '28px',
+              borderRadius: '4px',
             }}
             onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
             onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
             title="全屏播放"
           >
-            <Maximize size={18} />
+            <Maximize size={14} />
           </button>
         </>
       )}

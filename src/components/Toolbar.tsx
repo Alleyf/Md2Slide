@@ -30,8 +30,8 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({ icon, title, shortcut, on
         onMouseLeave={() => setShowTooltip(false)}
         aria-label={title + (shortcut ? ` (${shortcut})` : '')}
         style={{
-          width: '32px',
-          height: '32px',
+          width: '28px',
+          height: '28px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

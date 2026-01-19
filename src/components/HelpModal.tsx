@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ThemeConfig } from '../types/theme';
 import { darkTheme } from '../styles/theme';
 
 interface HelpModalProps {
   showHelp: boolean;
   setShowHelp: (show: boolean) => void;
-  helpTab: 'usage' | 'shortcuts' | 'about';
-  setHelpTab: (tab: 'usage' | 'shortcuts' | 'about') => void;
+  helpTab: 'usage' | 'shortcuts' | 'about' | 'donate';
+  setHelpTab: (tab: 'usage' | 'shortcuts' | 'about' | 'donate') => void;
   theme: ThemeConfig;
 }
 
@@ -17,10 +17,15 @@ export const HelpModal: React.FC<HelpModalProps> = ({
   setHelpTab,
   theme
 }) => {
-  if (!showHelp) return null;
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  
+  if (!showHelp && !previewImage) return null;
 
   return (
-    <div
+    <>
+      {/* Main Help Modal */}
+      {showHelp && (
+        <div
       onClick={() => setShowHelp(false)}
       style={{
         position: 'fixed',
@@ -115,7 +120,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           >
             快捷键大全
           </button>
-          <button 
+          <button
             onClick={() => setHelpTab('about')}
             style={{
               padding: '8px 4px',
@@ -130,6 +135,22 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             }}
           >
             关于作者
+          </button>
+          <button
+            onClick={() => setHelpTab('donate')}
+            style={{
+              padding: '8px 4px',
+              background: 'transparent',
+              border: 'none',
+              borderBottom: helpTab === 'donate' ? `2px solid ${theme.primaryColor}` : '2px solid transparent',
+              color: helpTab === 'donate' ? theme.primaryColor : theme.colors.textSecondary,
+              fontWeight: 600,
+              fontSize: '14px',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            ☕ 请喝咖啡
           </button>
         </div>
 
@@ -232,7 +253,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                 </div>
               </div>
             </div>
-          ) : (
+          ) : helpTab === 'about' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
                 <div style={{
@@ -325,17 +346,198 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}>
-                    <img
-                      src="/donate-qr.png"
-                      alt="打赏作者二维码"
-                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                    />
+                    <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
+                      <img
+                        src="/donate-qr.png"
+                        alt="打赏作者二维码"
+                        onClick={() => setPreviewImage('/donate-qr.png')}
+                        style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'zoom-in' }}
+                      />
+                      <div 
+                        onClick={() => setPreviewImage('/donate-qr.png')}
+                        style={{
+                          position: 'absolute',
+                          top: '4px',
+                          right: '4px',
+                          background: 'rgba(0,0,0,0.5)',
+                          color: 'white',
+                          padding: '2px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          opacity: 0.8
+                        }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+                          <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+                          <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+                          <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                   <div style={{ fontSize: '11px', color: theme.colors.textSecondary }}>感谢你的支持与鼓励</div>
                 </div>
               </div>
             </div>
-          )}
+          ) : helpTab === 'donate' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '32px', padding: '20px 0' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '24px', marginBottom: '8px' }}>☕</div>
+                <h2 style={{
+                  margin: '0 0 16px 0',
+                  fontSize: '28px',
+                  fontWeight: 800,
+                  color: theme.colors.text,
+                  background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.primaryColor}dd)`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}>
+                  请作者喝杯咖啡
+                </h2>
+                <p style={{
+                  margin: '0',
+                  fontSize: '16px',
+                  color: theme.colors.textSecondary,
+                  lineHeight: 1.6,
+                  maxWidth: '480px'
+                }}>
+                  如果 Md2Slide 让你感受到了便捷与美好，
+                  <br />
+                  如果它为你节省了宝贵的时间和精力，
+                  <br />
+                  欢迎通过扫码的方式支持作者继续完善这个项目
+                </p>
+              </div>
+
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '24px',
+                padding: '32px',
+                background: theme.theme === 'dark'
+                  ? 'linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.005))'
+                  : 'linear-gradient(135deg, rgba(0,0,0,0.01), rgba(0,0,0,0.005))',
+                borderRadius: '20px',
+                border: `1px solid ${theme.colors.border}`,
+                boxShadow: theme.theme === 'dark'
+                  ? '0 8px 32px rgba(0,0,0,0.3)'
+                  : '0 8px 32px rgba(0,0,0,0.08)'
+              }}>
+                <div style={{
+                  width: '200px',
+                  height: '200px',
+                  borderRadius: '16px',
+                  overflow: 'hidden',
+                  border: `2px solid ${theme.primaryColor}40`,
+                  background: theme.theme === 'dark' ? '#ffffff' : '#ffffff',
+                  boxShadow: `0 8px 24px ${theme.primaryColor}20`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
+                    <img
+                      src="/donate-qr.png"
+                      alt="赞赏二维码"
+                      onClick={() => setPreviewImage('/donate-qr.png')}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                        cursor: 'zoom-in'
+                      }}
+                    />
+                    <div 
+                      onClick={() => setPreviewImage('/donate-qr.png')}
+                      style={{
+                        position: 'absolute',
+                        top: '8px',
+                        right: '8px',
+                        background: 'rgba(0,0,0,0.5)',
+                        color: 'white',
+                        padding: '4px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: 0.8
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+                        <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+                        <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+                        <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'center', maxWidth: '300px' }}>
+                  <div style={{
+                    fontSize: '18px',
+                    fontWeight: 700,
+                    color: theme.colors.text,
+                    marginBottom: '12px'
+                  }}>
+                    感谢您的支持 💝
+                  </div>
+                  <div style={{
+                    fontSize: '14px',
+                    color: theme.colors.textSecondary,
+                    lineHeight: 1.6
+                  }}>
+                    每一份支持都是对开源精神的鼓励，
+                    <br />
+                    都是对创造美好工具的动力源泉。
+                    <br />
+                    <span style={{ fontStyle: 'italic', opacity: 0.8 }}>
+                      "开源不易，且行且珍惜"
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '12px 20px',
+                  background: theme.primaryColor + '08',
+                  borderRadius: '12px',
+                  border: `1px solid ${theme.primaryColor}20`
+                }}>
+                  <span style={{ fontSize: '16px' }}>💡</span>
+                  <span style={{
+                    fontSize: '13px',
+                    color: theme.colors.textSecondary,
+                    fontWeight: 500
+                  }}>
+                    支持支付宝、微信等主流支付方式
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                <p style={{
+                  margin: '0',
+                  fontSize: '14px',
+                  color: theme.colors.textSecondary,
+                  fontStyle: 'italic'
+                }}>
+                  您的每一次点击，都是对开源社区的贡献
+                  <br />
+                  让我们一起创造更好的工具，服务更多的人
+                </p>
+              </div>
+            </div>
+          ) : null}
         </div>
         
         <div style={{ 
@@ -363,5 +565,71 @@ export const HelpModal: React.FC<HelpModalProps> = ({
         </div>
       </div>
     </div>
-  );
+  )}
+  
+  {/* Image Preview Modal */}
+  {previewImage && (
+    <div
+      onClick={() => setPreviewImage(null)}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.9)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999,
+        cursor: 'zoom-out'
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'relative',
+          maxWidth: '90vw',
+          maxHeight: '90vh',
+          padding: '20px',
+          borderRadius: '12px',
+          background: 'white',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.5)'
+        }}
+      >
+        <img
+          src={previewImage || ''}
+          alt="预览图片"
+          style={{
+            maxWidth: '100%',
+            maxHeight: '80vh',
+            display: 'block',
+            borderRadius: '8px'
+          }}
+        />
+        <button
+          onClick={() => setPreviewImage(null)}
+          style={{
+            position: 'absolute',
+            top: '-40px',
+            right: '0',
+            background: 'rgba(0,0,0,0.7)',
+            color: 'white',
+            border: 'none',
+            width: '32px',
+            height: '32px',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            fontSize: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  )}
+</>)
 };

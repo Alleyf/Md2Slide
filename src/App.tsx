@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
 import {
   ArrowUp,
+  Github,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
@@ -89,7 +90,7 @@ export const App: React.FC = () => {
   
   const [showEditor, setShowEditor] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
-  const [helpTab, setHelpTab] = useState<'usage' | 'shortcuts' | 'about'>('usage');
+  const [helpTab, setHelpTab] = useState<'usage' | 'shortcuts' | 'about' | 'donate'>('usage');
   const [settingsTab, setSettingsTab] = useState<'general' | 'keyboard'>('general');
   const [showSidebar, setShowSidebar] = useState(true);
   const [showPreview, setShowPreview] = useState(true);
@@ -2609,13 +2610,15 @@ export const App: React.FC = () => {
               justifyContent: 'center',
               transition: 'all 0.2s',
               opacity: 0.7,
-              padding: isMobile ? '4px' : '0'
+              width: '28px',
+              height: '28px',
+              borderRadius: '4px'
             }}
-            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
+            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1', e.currentTarget.style.background = theme.colors.border)}
+            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7', e.currentTarget.style.background = 'transparent')}
             title="插件市场"
           >
-            <Puzzle size={isMobile ? 22 : 20} />
+            <Puzzle size={16} />
           </button>
           <button
             onClick={() => setShowThemeMarketplace(true)}
@@ -2629,13 +2632,15 @@ export const App: React.FC = () => {
               justifyContent: 'center',
               transition: 'all 0.2s',
               opacity: 0.7,
-              padding: isMobile ? '4px' : '0'
+              width: '28px',
+              height: '28px',
+              borderRadius: '4px'
             }}
-            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
+            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1', e.currentTarget.style.background = theme.colors.border)}
+            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7', e.currentTarget.style.background = 'transparent')}
             title="主题市场"
           >
-            <Layout size={isMobile ? 22 : 20} />
+            <Layout size={16} />
           </button>
           <button
             onClick={() => setShowSettings(true)}
@@ -2649,13 +2654,15 @@ export const App: React.FC = () => {
               justifyContent: 'center',
               transition: 'all 0.2s',
               opacity: 0.7,
-              padding: isMobile ? '4px' : '0'
+              width: '28px',
+              height: '28px',
+              borderRadius: '4px'
             }}
-            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
+            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1', e.currentTarget.style.background = theme.colors.border)}
+            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7', e.currentTarget.style.background = 'transparent')}
             title="设置"
           >
-            <Settings size={isMobile ? 22 : 20} />
+            <Settings size={16} />
           </button>
           <button
             onClick={() => setShowHelp(true)}
@@ -2669,13 +2676,38 @@ export const App: React.FC = () => {
               justifyContent: 'center',
               transition: 'all 0.2s',
               opacity: 0.7,
-              padding: isMobile ? '4px' : '0'
+              width: '28px',
+              height: '28px',
+              borderRadius: '4px'
             }}
-            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7')}
+            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1', e.currentTarget.style.background = theme.colors.border)}
+            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7', e.currentTarget.style.background = 'transparent')}
             title="帮助文档"
           >
-            <HelpCircle size={isMobile ? 22 : 20} />
+            <HelpCircle size={16} />
+          </button>
+          
+          <button
+            onClick={() => window.open('https://github.com/Alleyf/Md2Slide', '_blank')}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: theme.colors.textSecondary,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
+              opacity: 0.7,
+              width: '28px',
+              height: '28px',
+              borderRadius: '4px'
+            }}
+            onMouseEnter={(e) => !isMobile && (e.currentTarget.style.opacity = '1', e.currentTarget.style.background = theme.colors.border)}
+            onMouseLeave={(e) => !isMobile && (e.currentTarget.style.opacity = '0.7', e.currentTarget.style.background = 'transparent')}
+            title="GitHub 仓库"
+          >
+            <Github size={16} />
           </button>
           
           <ThemeToggle />
@@ -2901,6 +2933,22 @@ export const App: React.FC = () => {
               >
                 关于作者
               </button>
+              <button
+                onClick={() => setHelpTab('donate')}
+                style={{
+                  padding: '8px 4px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: helpTab === 'donate' ? `2px solid ${theme.primaryColor}` : '2px solid transparent',
+                  color: helpTab === 'donate' ? theme.primaryColor : theme.colors.textSecondary,
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                ☕ 请喝咖啡
+              </button>
             </div>
 
             <div
@@ -2985,6 +3033,132 @@ export const App: React.FC = () => {
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>插入视频</span> <code style={{ color: theme.primaryColor }}>Ctrl+Alt+M</code></div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>插入向量/网格</span> <code style={{ color: theme.primaryColor }}>Ctrl+Alt+V/G</code></div>
                     </div>
+                  </div>
+                </div>
+              ) : helpTab === 'donate' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '32px', padding: '20px 0' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '24px', marginBottom: '8px' }}>☕</div>
+                    <h2 style={{
+                      margin: '0 0 16px 0',
+                      fontSize: '28px',
+                      fontWeight: 800,
+                      color: theme.colors.text,
+                      background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.primaryColor}dd)`,
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text'
+                    }}>
+                      请作者喝杯咖啡
+                    </h2>
+                    <p style={{
+                      margin: '0',
+                      fontSize: '16px',
+                      color: theme.colors.textSecondary,
+                      lineHeight: 1.6,
+                      maxWidth: '480px'
+                    }}>
+                      如果 Md2Slide 让你感受到了便捷与美好，
+                      <br />
+                      如果它为你节省了宝贵的时间和精力，
+                      <br />
+                      欢迎通过扫码的方式支持作者继续完善这个项目
+                    </p>
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '24px',
+                    padding: '32px',
+                    background: theme.theme === 'dark'
+                      ? 'linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.005))'
+                      : 'linear-gradient(135deg, rgba(0,0,0,0.01), rgba(0,0,0,0.005))',
+                    borderRadius: '20px',
+                    border: `1px solid ${theme.colors.border}`,
+                    boxShadow: theme.theme === 'dark'
+                      ? '0 8px 32px rgba(0,0,0,0.3)'
+                      : '0 8px 32px rgba(0,0,0,0.08)'
+                  }}>
+                    <div style={{
+                      width: '200px',
+                      height: '200px',
+                      borderRadius: '16px',
+                      overflow: 'hidden',
+                      border: `2px solid ${theme.primaryColor}40`,
+                      background: theme.theme === 'dark' ? '#ffffff' : '#ffffff',
+                      boxShadow: `0 8px 24px ${theme.primaryColor}20`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <img
+                        src="/donate-qr.png"
+                        alt="赞赏二维码"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain'
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ textAlign: 'center', maxWidth: '300px' }}>
+                      <div style={{
+                        fontSize: '18px',
+                        fontWeight: 700,
+                        color: theme.colors.text,
+                        marginBottom: '12px'
+                      }}>
+                        感谢您的支持 💝
+                      </div>
+                      <div style={{
+                        fontSize: '14px',
+                        color: theme.colors.textSecondary,
+                        lineHeight: 1.6
+                      }}>
+                        每一份支持都是对开源精神的鼓励，
+                        <br />
+                        都是对创造美好工具的动力源泉。
+                        <br />
+                        <span style={{ fontStyle: 'italic', opacity: 0.8 }}>
+                          "开源不易，且行且珍惜"
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '12px 20px',
+                      background: theme.primaryColor + '08',
+                      borderRadius: '12px',
+                      border: `1px solid ${theme.primaryColor}20`
+                    }}>
+                      <span style={{ fontSize: '16px' }}>💡</span>
+                      <span style={{
+                        fontSize: '13px',
+                        color: theme.colors.textSecondary,
+                        fontWeight: 500
+                      }}>
+                        支持支付宝、微信等主流支付方式
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                    <p style={{
+                      margin: '0',
+                      fontSize: '14px',
+                      color: theme.colors.textSecondary,
+                      fontStyle: 'italic'
+                    }}>
+                      您的每一次点击，都是对开源社区的贡献
+                      <br />
+                      让我们一起创造更好的工具，服务更多的人
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -3901,18 +4075,26 @@ export const App: React.FC = () => {
                           border: 'none',
                           color: theme.colors.textSecondary,
                           cursor: 'pointer',
-                          padding: '2px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
+                          width: '24px',
+                          height: '24px',
                           borderRadius: '4px',
-                          transition: 'all 0.2s'
+                          transition: 'all 0.2s',
+                          opacity: 0.7
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = theme.colors.border}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.opacity = '1';
+                          e.currentTarget.style.background = theme.colors.border;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.opacity = '0.7';
+                          e.currentTarget.style.background = 'transparent';
+                        }}
                         title="收起编辑器"
                       >
-                        <PanelRightClose size={14} />
+                        <PanelRightClose size={12} />
                       </button>
                       <GripVertical size={14} style={{ opacity: 0.5 }} />
                       {editorMode === 'markdown' ? 'Markdown 编辑器' : 'HTML 编辑器'}
@@ -3963,28 +4145,32 @@ export const App: React.FC = () => {
                       onClick={() => setShowTemplateMarketplace(true)}
                       style={{
                         padding: '4px',
-                        fontSize: '10px',
                         border: `1px solid ${theme.colors.border}`,
-                        borderRadius: '6px',
-                        background: theme.colors.surface,
-                        color: theme.colors.text,
+                        borderRadius: '4px',
+                        background: 'transparent',
+                        color: theme.colors.textSecondary,
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        transition: 'all 0.2s'
+                        width: '24px',
+                        height: '24px',
+                        transition: 'all 0.2s',
+                        opacity: 0.7
                       }}
                       onMouseEnter={(e) => {
+                        e.currentTarget.style.opacity = '1';
                         e.currentTarget.style.borderColor = theme.primaryColor;
                         e.currentTarget.style.color = theme.primaryColor;
                       }}
                       onMouseLeave={(e) => {
+                        e.currentTarget.style.opacity = '0.7';
                         e.currentTarget.style.borderColor = theme.colors.border;
-                        e.currentTarget.style.color = theme.colors.text;
+                        e.currentTarget.style.color = theme.colors.textSecondary;
                       }}
                       title="模板市场"
                     >
-                      <Layout size={14} />
+                      <Layout size={12} />
                     </button>
                     {activeFile && (
                     <span style={{ fontSize: '10px', opacity: 0.6, textTransform: 'none' }}>
