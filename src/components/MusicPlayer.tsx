@@ -33,6 +33,9 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
   ]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+  
+  // 播放模式相关状态
+  const [playMode, setPlayMode] = useState<'sequential' | 'shuffle' | 'repeat-one' | 'repeat-all'>('sequential'); // sequential: 顺序播放, shuffle: 随机播放, repeat-one: 单曲循环, repeat-all: 列表循环
 
   // 音乐节奏相关的状态
   const [visualizerData, setVisualizerData] = useState<number[]>([]);
@@ -135,7 +138,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
   }, []);
   
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging) return;
+    if (!isDragging || showPlaylistModal) return; // 当播放列表模态窗打开时，不处理鼠标移动事件
     
     const newX = e.clientX - dragStartPos.current.x;
     const newY = e.clientY - dragStartPos.current.y;
@@ -145,7 +148,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
     const clampedY = Math.max(0, Math.min(window.innerHeight - 60, newY));
     
     setPosition({ x: clampedX, y: clampedY });
-  }, [isDragging]);
+  }, [isDragging, showPlaylistModal]);
   
   const handleMouseUp = useCallback(() => {
     if (!isDragging) return;
@@ -171,6 +174,13 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
     
     setPosition({ x: newX, y: newY });
   }, [position]);
+  
+  // 当模态窗状态改变时，确保拖拽状态被重置
+  useEffect(() => {
+    if (!showPlaylistModal) {
+      setIsDragging(false);
+    }
+  }, [showPlaylistModal]);
   
   // 添加全局鼠标事件监听器
   useEffect(() => {
@@ -256,7 +266,34 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
       audioRef.current.currentTime = 0;
     }
     
-    setCurrentTrackIndex((prev) => (prev + 1) % playlist.length);
+    let nextIndex = 0;
+    
+    switch (playMode) {
+      case 'sequential':
+        // 顺序播放
+        nextIndex = (currentTrackIndex + 1) % playlist.length;
+        break;
+      case 'shuffle':
+        // 随机播放，确保不是当前歌曲
+        const availableIndices = playlist.map((_, idx) => idx).filter(idx => idx !== currentTrackIndex);
+        if (availableIndices.length > 0) {
+          const randomIndex = Math.floor(Math.random() * availableIndices.length);
+          nextIndex = availableIndices[randomIndex];
+        } else {
+          nextIndex = currentTrackIndex; // 如果只有一首歌，继续播放当前歌曲
+        }
+        break;
+      case 'repeat-one':
+        // 单曲循环，继续播放当前歌曲
+        nextIndex = currentTrackIndex;
+        break;
+      case 'repeat-all':
+        // 列表循环
+        nextIndex = (currentTrackIndex + 1) % playlist.length;
+        break;
+    }
+    
+    setCurrentTrackIndex(nextIndex);
     
     // 使用setTimeout确保音频元素已更新路径后再播放
     setTimeout(() => {
@@ -274,7 +311,34 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
       audioRef.current.currentTime = 0;
     }
     
-    setCurrentTrackIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
+    let prevIndex = 0;
+    
+    switch (playMode) {
+      case 'sequential':
+        // 顺序播放
+        prevIndex = (currentTrackIndex - 1 + playlist.length) % playlist.length;
+        break;
+      case 'shuffle':
+        // 随机播放，确保不是当前歌曲
+        const availableIndices = playlist.map((_, idx) => idx).filter(idx => idx !== currentTrackIndex);
+        if (availableIndices.length > 0) {
+          const randomIndex = Math.floor(Math.random() * availableIndices.length);
+          prevIndex = availableIndices[randomIndex];
+        } else {
+          prevIndex = currentTrackIndex; // 如果只有一首歌，继续播放当前歌曲
+        }
+        break;
+      case 'repeat-one':
+        // 单曲循环，继续播放当前歌曲
+        prevIndex = currentTrackIndex;
+        break;
+      case 'repeat-all':
+        // 列表循环
+        prevIndex = (currentTrackIndex - 1 + playlist.length) % playlist.length;
+        break;
+    }
+    
+    setCurrentTrackIndex(prevIndex);
     
     // 使用setTimeout确保音频元素已更新路径后再播放
     setTimeout(() => {
@@ -289,6 +353,30 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
+  
+  // 切换播放模式
+  const togglePlayMode = () => {
+    const modes: Array<'sequential' | 'shuffle' | 'repeat-one' | 'repeat-all'> = ['sequential', 'shuffle', 'repeat-all', 'repeat-one'];
+    const currentIndex = modes.indexOf(playMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    setPlayMode(modes[nextIndex]);
+  };
+  
+  // 获取播放模式图标
+  const getPlayModeIcon = () => {
+    switch (playMode) {
+      case 'sequential':
+        return '➡️'; // 顺序播放
+      case 'shuffle':
+        return '🔀'; // 随机播放
+      case 'repeat-one':
+        return '🔂'; // 单曲循环
+      case 'repeat-all':
+        return '🔁'; // 列表循环
+      default:
+        return '➡️';
+    }
   };
   
   // 当前播放的曲目
@@ -375,7 +463,10 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
       <div 
         style={playerStyle}
         onMouseDown={(e) => handleMouseDown(e, true)} // 整个小球都可以拖动
-        onClick={() => setShowPlaylistModal(true)} // 点击打开模态窗
+        onClick={() => {
+          setIsDragging(false); // 点击时停止拖拽状态
+          setShowPlaylistModal(true); // 点击打开模态窗
+        }}
       >
         <div style={{
           width: '24px',
@@ -389,9 +480,16 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
           filter: isPlaying ? 'drop-shadow(0 0 4px rgba(255, 255, 255, 0.7))' : 'none'
         }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M11 5L11 19C11 20.3807 12.5 21 13 19.5L13 6C13 4.61929 12 4 11 5Z" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
-            <path d="M6 5L6 19C6 20.3807 7.5 21 8 19.5L8 6C8 4.61929 7 4 6 5Z" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
-            <circle cx="12" cy="12" r="10" stroke="#fff" strokeWidth="2"/>
+            {isPlaying ? (
+              // 播放状态显示暂停图标
+              <>
+                <rect x="6" y="4" width="4" height="16" rx="1" fill="#fff"/>
+                <rect x="14" y="4" width="4" height="16" rx="1" fill="#fff"/>
+              </>
+            ) : (
+              // 暂停状态显示播放图标
+              <path d="M8 5V19L19 12L8 5Z" fill="#fff"/>
+            )}
           </svg>
         </div>
       </div>
@@ -401,8 +499,17 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
         src={currentTrack.path}
         loop // 启用循环播放
         onEnded={() => {
-          // 自动播放下一首
-          playNext();
+          // 根据播放模式决定后续行为
+          if (playMode === 'repeat-one') {
+            // 单曲循环模式，重新播放当前歌曲
+            if (audioRef.current) {
+              audioRef.current.currentTime = 0;
+              audioRef.current.play().catch(e => console.error("播放失败:", e));
+            }
+          } else {
+            // 其他模式继续播放下一首
+            playNext();
+          }
         }}
         onLoadedMetadata={() => {
           // 当音频元数据加载完成时更新时长
@@ -417,7 +524,10 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
         <>
           <div 
             style={overlayStyle}
-            onClick={() => setShowPlaylistModal(false)} // 点击遮罩关闭模态窗
+            onClick={() => {
+              setIsDragging(false); // 点击遮罩时停止拖拽状态
+              setShowPlaylistModal(false); // 点击遮罩关闭模态窗
+            }}
           />
           <div style={modalStyle}>
             <div style={{
@@ -434,7 +544,10 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
                 fontSize: '1.2em'
               }}>播放列表</h2>
               <button 
-                onClick={() => setShowPlaylistModal(false)}
+                onClick={() => {
+                  setIsDragging(false); // 关闭按钮时停止拖拽状态
+                  setShowPlaylistModal(false);
+                }}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -569,6 +682,44 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
               </button>
             </div>
             
+            {/* 播放模式控制 */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '15px',
+              marginBottom: '20px'
+            }}>
+              <button
+                onClick={togglePlayMode}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: theme.colors.border,
+                  color: theme.colors.text,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '1.2em',
+                  transition: 'all 0.2s ease'
+                }}
+                title={`播放模式: ${playMode === 'sequential' ? '顺序播放' : playMode === 'shuffle' ? '随机播放' : playMode === 'repeat-one' ? '单曲循环' : '列表循环'}`}
+              >
+                {getPlayModeIcon()}
+              </button>
+              <span style={{
+                color: theme.colors.text,
+                fontSize: '0.9em'
+              }}>
+                {playMode === 'sequential' ? '顺序播放' : 
+                 playMode === 'shuffle' ? '随机播放' : 
+                 playMode === 'repeat-one' ? '单曲循环' : '列表循环'}
+              </span>
+            </div>
+            
             {/* 进度条 */}
             <div style={{
               display: 'flex',
@@ -661,6 +812,10 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
                   onClick={() => {
                     playTrack(index);
                   }}
+                  onDoubleClick={() => {
+                    // 双击直接播放当前歌曲
+                    playTrack(index);
+                  }}
                   style={{
                     padding: '10px',
                     borderRadius: '8px',
@@ -685,10 +840,10 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ defaultMusicPath = '/music/�
                     }
                   }}
                 >
-                  <span style={{ fontSize: '1.1em' }}>{currentTrackIndex === index ? '▶️' : '🎵'}</span>
+                  <span style={{ fontSize: '1.1em' }}>{currentTrackIndex === index ? (isPlaying ? '🔊' : '⏸️') : '🎵'}</span>
                   <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</span>
                   {currentTrackIndex === index && (
-                    <span style={{ fontSize: '0.8em', opacity: 0.8 }}>当前</span>
+                    <span style={{ fontSize: '0.8em', opacity: 0.8 }}>{isPlaying ? '正在播放' : '已暂停'}</span>
                   )}
                 </div>
               ))}
