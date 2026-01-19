@@ -45,6 +45,8 @@ import { htmlToMarkdown } from './utils/htmlToMarkdown';
 import { getStorageItem, setStorageItem, storageKeys } from './utils/storage';
 import { AIAssistant } from './components/AIAssistant';
 import { SelectionAIAssistant } from './components/SelectionAIAssistant';
+import { AIMenu } from './components/AIMenu';
+import { AIAssistantModal } from './components/AIAssistantModal';
 import { aiService, DEFAULT_AI_CONFIG } from './services/ai';
 import { AIServiceConfig } from './types/ai';
 import { ThemeMarketplace } from './components/ThemeMarketplace';
@@ -134,21 +136,20 @@ export const App: React.FC = () => {
   const [editorHeight, setEditorHeight] = useState(0);
   const [previewWidth, setPreviewWidth] = useState(500);
   const [previewHeight, setPreviewHeight] = useState(0); // 0 means 100%
-  const [aiWidth, setAIWidth] = useState(300);
-  const [aiHeight, setAIHeight] = useState(0);
+
   const [tocHeight, setTocHeight] = useState(300);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [isResizingEditor, setIsResizingEditor] = useState(false);
   const [isResizingEditorHeight, setIsResizingEditorHeight] = useState(false);
   const [isResizingPreview, setIsResizingPreview] = useState(false);
   const [isResizingPreviewHeight, setIsResizingPreviewHeight] = useState(false);
-  const [isResizingAI, setIsResizingAI] = useState(false);
-  const [isResizingAIHeight, setIsResizingAIHeight] = useState(false);
+
   const [isResizingTOC, setIsResizingTOC] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showSaveNotification, setShowSaveNotification] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [showAIAssistantModal, setShowAIAssistantModal] = useState(false);
   const [selectionInfo, setSelectionInfo] = useState<{
     text: string;
     position: { x: number; y: number };
@@ -156,7 +157,6 @@ export const App: React.FC = () => {
   const [showThemeMarketplace, setShowThemeMarketplace] = useState(false);
   const [showTemplateMarketplace, setShowTemplateMarketplace] = useState(false);
   const [showPluginMarketplace, setShowPluginMarketplace] = useState(false);
-  const [showAISidebar, setShowAISidebar] = useState(false);
   const [showViewMenu, setShowViewMenu] = useState(false);
   
   // 撤销/重做辅助函数
@@ -219,10 +219,8 @@ export const App: React.FC = () => {
     if (showEditor) return 'editor';
     // 然后是侧边栏
     if (showSidebar) return 'sidebar';
-    // 最后是 AI
-    if (showAISidebar) return 'ai';
     return null;
-  }, [showPreview, showEditor, showSidebar, showAISidebar]);
+  }, [showPreview, showEditor, showSidebar]);
 
   const [inputModal, setInputModal] = useState<{
     show: boolean;
@@ -482,7 +480,7 @@ export const App: React.FC = () => {
       }
     });
   };
-  type LayoutSection = 'sidebar' | 'editor' | 'preview' | 'ai';
+  type LayoutSection = 'sidebar' | 'editor' | 'preview';
   const [layoutOrder, setLayoutOrder] = useState<LayoutSection[]>(['sidebar', 'editor', 'preview']);
   const [draggingSection, setDraggingSection] = useState<LayoutSection | null>(null);
   const slideContainerRef = useRef<HTMLDivElement | null>(null);
@@ -544,18 +542,7 @@ export const App: React.FC = () => {
           const newHeight = e.clientY - rect.top;
           setPreviewHeight(Math.max(200, Math.min(window.innerHeight - 100, newHeight)));
         }
-      } else if (isResizingAI) {
-        const rect = document.getElementById('ai-container')?.getBoundingClientRect();
-        if (rect) {
-          setAIWidth(Math.max(250, Math.min(600, window.innerWidth - e.clientX)));
-        }
-      } else if (isResizingAIHeight) {
-        const container = document.getElementById('ai-container');
-        if (container) {
-          const rect = container.getBoundingClientRect();
-          const newHeight = e.clientY - rect.top;
-          setAIHeight(Math.max(200, Math.min(window.innerHeight - 100, newHeight)));
-        }
+
       } else if (isResizingTOC) {
         const sidebarElement = document.getElementById('sidebar-container');
         if (sidebarElement) {
@@ -572,17 +559,16 @@ export const App: React.FC = () => {
       setIsResizingEditorHeight(false);
       setIsResizingPreview(false);
       setIsResizingPreviewHeight(false);
-      setIsResizingAI(false);
-      setIsResizingAIHeight(false);
+
       setIsResizingTOC(false);
       document.body.style.cursor = 'default';
       document.body.style.userSelect = 'auto';
     };
 
-    if (isResizingSidebar || isResizingEditor || isResizingEditorHeight || isResizingPreview || isResizingPreviewHeight || isResizingAI || isResizingAIHeight || isResizingTOC) {
+    if (isResizingSidebar || isResizingEditor || isResizingEditorHeight || isResizingPreview || isResizingPreviewHeight || isResizingTOC) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = isResizingTOC || isResizingPreviewHeight || isResizingEditorHeight || isResizingAIHeight ? 'row-resize' : 'col-resize';
+      document.body.style.cursor = isResizingTOC || isResizingPreviewHeight || isResizingEditorHeight ? 'row-resize' : 'col-resize';
       document.body.style.userSelect = 'none';
     }
 
@@ -590,7 +576,7 @@ export const App: React.FC = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizingSidebar, isResizingEditor, isResizingEditorHeight, isResizingPreview, isResizingPreviewHeight, isResizingAI, isResizingAIHeight, isResizingTOC, sidebarWidth, editorWidth, showSidebar, showEditor, isMobile]);
+  }, [isResizingSidebar, isResizingEditor, isResizingEditorHeight, isResizingPreview, isResizingPreviewHeight, isResizingTOC, sidebarWidth, editorWidth, showSidebar, showEditor, isMobile]);
 
   const handleLogoClick = () => {
     const newClicks = logoClicks + 1;
@@ -721,16 +707,7 @@ export const App: React.FC = () => {
     setEditorMode(mode);
   };
 
-  const toggleAISidebar = () => {
-    const isVisible = layoutOrder.includes('ai');
-    if (isVisible) {
-      setLayoutOrder(prev => prev.filter(s => s !== 'ai'));
-      setShowAISidebar(false);
-    } else {
-      setLayoutOrder(prev => [...prev, 'ai']);
-      setShowAISidebar(true);
-    }
-  };
+  // Removed AI sidebar toggle functionality
 
   const moveFile = (sourcePath: string, targetPath: string) => {
     if (sourcePath === targetPath) return;
@@ -2290,7 +2267,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div style={{ 
+    <div className="app-container" style={{ 
       background: theme.colors.background, 
       height: '100vh', 
       width: '100vw',
@@ -2569,31 +2546,7 @@ export const App: React.FC = () => {
                     <Eye size={14} />
                     <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: showPreview ? theme.primaryColor : 'transparent', flexShrink: 0 }} />
                   </button>
-                  <div style={{ height: '1px', background: theme.colors.border, margin: '4px 0' }} />
-                  <button
-                    onClick={toggleAISidebar}
-                    title={showAISidebar ? '隐藏AI助手' : '显示AI助手'}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '6px 8px',
-                      borderRadius: '6px',
-                      border: 'none',
-                      background: showAISidebar ? `${theme.primaryColor}15` : 'transparent',
-                      color: showAISidebar ? theme.primaryColor : theme.colors.text,
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      transition: 'all 0.2s',
-                      justifyContent: 'center',
-                      minWidth: '32px'
-                    }}
-                  >
-                    <Sparkles size={14} />
-                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: showAISidebar ? theme.primaryColor : 'transparent', flexShrink: 0 }} />
-                  </button>
+
                 </div>
               )}
             </div>
@@ -2709,6 +2662,8 @@ export const App: React.FC = () => {
           >
             <Github size={16} />
           </button>
+          
+          <AIMenu onOpenAIAssistant={() => setShowAIAssistantModal(true)} />
           
           <ThemeToggle />
         </div>
@@ -4572,9 +4527,6 @@ export const App: React.FC = () => {
                         // 如果预览不是自适应板块，则调整预览宽度
                         if (flexibleSection !== 'preview') {
                           setIsResizingPreview(true);
-                        } else if (layoutOrder[index + 1] === 'ai') {
-                          // 如果预览是自适应的，且下一个是 AI，则调整 AI 宽度
-                          setIsResizingAI(true);
                         }
                       }}
                       style={{
@@ -4585,11 +4537,11 @@ export const App: React.FC = () => {
                         right: '-2px',
                         top: 0,
                         zIndex: 20,
-                        background: isResizingPreview || isResizingAI ? theme.primaryColor : 'transparent',
+                        background: isResizingPreview ? theme.primaryColor : 'transparent',
                         transition: 'background 0.2s'
                       }}
                       onMouseEnter={(e) => e.currentTarget.style.background = theme.primaryColor}
-                      onMouseLeave={(e) => !isResizingPreview && !isResizingAI && (e.currentTarget.style.background = 'transparent')}
+                      onMouseLeave={(e) => !isResizingPreview && (e.currentTarget.style.background = 'transparent')}
                     />
                   )}
                 </div>
@@ -4597,135 +4549,7 @@ export const App: React.FC = () => {
             );
           }
 
-          if (section === 'ai') {
-            if (isMobile) return null;
-            if (!showAISidebar) {
-              return (
-                <div 
-                  key="ai-collapsed"
-                  onClick={() => setShowAISidebar(true)}
-                  style={{
-                    width: '30px',
-                    height: '100%',
-                    background: theme.colors.surface,
-                    borderLeft: `1px solid ${theme.colors.border}`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    paddingTop: '15px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    zIndex: 10
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = theme.colors.border}
-                  onMouseLeave={(e) => e.currentTarget.style.background = theme.colors.surface}
-                  title="展开 AI 助手"
-                >
-                  <PanelLeftOpen size={16} color={theme.colors.textSecondary} />
-                  <div style={{ 
-                    writingMode: 'vertical-rl', 
-                    marginTop: '20px', 
-                    fontSize: '11px', 
-                    color: theme.colors.textSecondary,
-                    letterSpacing: '2px',
-                    opacity: 0.6
-                  }}>
-                    AI 助手
-                  </div>
-                </div>
-              );
-            }
-            return (
-              <div
-                key="ai"
-                id="ai-container"
-                onDragOver={(e) => handleDragOver(e, 'ai')}
-                style={{
-                  width: `${aiWidth}px`,
-                  minWidth: '250px',
-                  height: aiHeight > 0 ? `${aiHeight}px` : '100%',
-                  borderLeft: `1px solid ${theme.colors.border}`,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  background: theme.colors.surface,
-                  position: 'relative',
-                  opacity: draggingSection === 'ai' ? 0.5 : 1,
-                  flex: aiHeight > 0 ? 'none' : (flexibleSection === 'ai' ? 1 : 'none')
-                }}
-              >
-                <div
-                  draggable
-                  onDragStart={() => handleDragStart('ai')}
-                  onDragEnd={() => setDraggingSection(null)}
-                  style={{
-                    padding: '10px 20px',
-                    fontSize: '11px',
-                    color: theme.colors.textSecondary,
-                    borderBottom: `1px solid ${theme.colors.border}`,
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    cursor: 'grab'
-                  }}
-                >
-                  <button
-                    onClick={() => setShowAISidebar(false)}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: theme.colors.textSecondary,
-                      cursor: 'pointer',
-                      padding: '2px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: '4px',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = theme.colors.border}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    title="收起 AI 助手"
-                  >
-                    <PanelRightClose size={14} />
-                  </button>
-                  <GripVertical size={14} style={{ opacity: 0.5 }} />
-                  AI 助手
-                </div>
-                <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <AIAssistant
-                    isSidebar={true}
-                    editorContent={content}
-                    onContentUpdate={(newContent) => setContent(newContent)}
-                  />
-                </div>
 
-                {/* Vertical Resize Handle for AI (Bottom) */}
-                {!isMobile && (
-                  <div
-                    onMouseDown={() => setIsResizingAIHeight(true)}
-                    onDoubleClick={() => setAIHeight(0)}
-                    style={{
-                      height: '6px',
-                      width: '100%',
-                      cursor: 'row-resize',
-                      position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      zIndex: 30,
-                      background: isResizingAIHeight ? theme.primaryColor : 'transparent',
-                      transition: 'background 0.2s'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = theme.primaryColor}
-                    onMouseLeave={(e) => !isResizingAIHeight && (e.currentTarget.style.background = 'transparent')}
-                    title="双击恢复默认高度"
-                  />
-                )}
-              </div>
-            );
-          }
           return null;
         })}
       </main>
@@ -4792,6 +4616,17 @@ export const App: React.FC = () => {
       )}
 
       {renderInputModal()}
+      
+      {/* AI Assistant Modal */}
+      <AIAssistantModal
+        isOpen={showAIAssistantModal}
+        onClose={() => setShowAIAssistantModal(false)}
+        editorContent={content}
+        onContentUpdate={(newContent) => {
+          setContent(newContent);
+          setShowAIAssistantModal(false);
+        }}
+      />
       
       {/* Music Player */}
       <MusicPlayer />
