@@ -1,4 +1,5 @@
 import { marked } from 'marked';
+import { marked } from 'marked';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 import DOMPurify from 'dompurify';
