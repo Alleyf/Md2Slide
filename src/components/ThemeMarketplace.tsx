@@ -125,6 +125,13 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
   const [aiPrompt, setAiPrompt] = useState('');
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'trending' | 'installed' | 'favorites'>('all');
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleAIGenerateTheme = async () => {
     if (!aiPrompt.trim()) return;
@@ -544,18 +551,31 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
           </button>
         </div>
 
-        <div style={{ display: 'flex', flex: '1', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flex: '1', overflow: 'hidden', flexDirection: isMobile ? 'column' : 'row' }}>
           {/* 侧边栏 */}
           <div
             className="theme-marketplace-sidebar"
             style={{
-              width: '200px',
-              borderRight: `1px solid ${theme.colors.border}`,
-              padding: '20px 0',
-              backgroundColor: theme.colors.background
+              width: isMobile ? '100%' : '200px',
+              borderRight: isMobile ? 'none' : `1px solid ${theme.colors.border}`,
+              borderBottom: isMobile ? `1px solid ${theme.colors.border}` : 'none',
+              padding: isMobile ? '10px' : '20px 0',
+              backgroundColor: theme.colors.background,
+              display: isMobile ? 'flex' : 'block',
+              overflowX: isMobile ? 'auto' : 'visible',
+              whiteSpace: isMobile ? 'nowrap' : 'normal',
+              flexShrink: 0
             }}
           >
-            <div style={{ padding: '0 24px 12px', fontSize: '12px', fontWeight: 700, color: theme.colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <div style={{ 
+              padding: isMobile ? '0 12px' : '0 24px 12px', 
+              fontSize: '12px', 
+              fontWeight: 700, 
+              color: theme.colors.textSecondary, 
+              textTransform: 'uppercase', 
+              letterSpacing: '0.05em',
+              display: isMobile ? 'none' : 'block'
+            }}>
               分类浏览
             </div>
             {[
@@ -568,7 +588,7 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
                 key={item.id}
                 onClick={() => setSelectedCategory(item.id as any)}
                 style={{
-                  padding: '10px 24px',
+                  padding: isMobile ? '8px 16px' : '10px 24px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '10px',
@@ -576,7 +596,11 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
                   color: item.id === selectedCategory ? theme.primaryColor : theme.colors.text,
                   backgroundColor: item.id === selectedCategory ? `${theme.primaryColor}10` : 'transparent',
                   cursor: 'pointer',
-                  borderRight: item.id === selectedCategory ? `2px solid ${theme.primaryColor}` : 'none'
+                  borderRight: !isMobile && item.id === selectedCategory ? `2px solid ${theme.primaryColor}` : 'none',
+                  borderBottom: isMobile && item.id === selectedCategory ? `2px solid ${theme.primaryColor}` : 'none',
+                  borderRadius: isMobile ? '20px' : '0',
+                  marginRight: isMobile ? '8px' : '0',
+                  whiteSpace: 'nowrap'
                 }}
               >
                 {item.icon}
@@ -586,7 +610,7 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
           </div>
 
           {/* 主内容区域 */}
-          <div style={{ flex: '1', overflowY: 'auto', padding: '24px' }}>
+          <div style={{ flex: '1', overflowY: 'auto', padding: isMobile ? '16px' : '24px' }}>
             <section>
               <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', color: theme.colors.text }}>
                 {searchQuery ? `搜索结果: "${searchQuery}"` : 
@@ -597,7 +621,7 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
               {loading && themes.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px', color: theme.colors.text }}>加载中...</div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(auto-fill, minmax(150px, 1fr))' : 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
                   {(selectedCategory === 'installed' ? installedThemes : themes).map(t => (
                     <div
                       key={t.id}
@@ -703,11 +727,12 @@ export const ThemeMarketplace: React.FC<ThemeMarketplaceProps> = ({ isOpen, onCl
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              width: '90%',
+              width: isMobile ? '100%' : '90%',
               maxWidth: '700px',
-              maxHeight: '85vh',
+              height: isMobile ? '100%' : 'auto',
+              maxHeight: isMobile ? '100%' : '85vh',
               backgroundColor: theme.colors.surface,
-              borderRadius: '16px',
+              borderRadius: isMobile ? '0' : '16px',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
               zIndex: 3003,
               display: 'flex',

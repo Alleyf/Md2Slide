@@ -2366,37 +2366,27 @@ export const App: React.FC = () => {
 
   const handleCopy = async (type: 'markdown' | 'html' | 'wechat') => {
     try {
-      let textToCopy = '';
-      let htmlToCopy = '';
-
       if (type === 'markdown') {
         // 复制 Markdown 源码
-        if (editorMode === 'markdown') {
-          textToCopy = content;
-        } else {
-          textToCopy = htmlToMarkdown(content);
-        }
-        await navigator.clipboard.writeText(textToCopy);
-      } else {
-        // 获取 HTML 内容
-        if (editorMode === 'markdown') {
-          htmlToCopy = await markdownToHtml(content);
-        } else {
-          htmlToCopy = content;
-        }
-
-        if (type === 'wechat') {
-          // 公众号格式：添加内联样式容器
-          htmlToCopy = `
+        const text = editorMode === 'markdown' ? content : htmlToMarkdown(content);
+        await navigator.clipboard.writeText(text);
+        setNotification({ message: 'Markdown 已复制', type: 'success' });
+      } else if (type === 'html') {
+        // 复制 HTML 源码
+        const html = editorMode === 'markdown' ? await markdownToHtml(content) : content;
+        await navigator.clipboard.writeText(html);
+        setNotification({ message: 'HTML 代码已复制', type: 'success' });
+      } else if (type === 'wechat') {
+        // 复制公众号格式 (富文本)
+        const rawHtml = editorMode === 'markdown' ? await markdownToHtml(content) : content;
+        const styledHtml = `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; font-size: 16px; color: #333;">
-              ${htmlToCopy}
+              ${rawHtml}
             </div>
           `;
-        }
-
-        // 复制 HTML 到剪贴板
-        const blobHtml = new Blob([htmlToCopy], { type: 'text/html' });
-        const plainText = editorMode === 'markdown' ? content : htmlToMarkdown(htmlToCopy);
+        const blobHtml = new Blob([styledHtml], { type: 'text/html' });
+        // Fallback text
+        const plainText = editorMode === 'markdown' ? content : htmlToMarkdown(rawHtml);
         const blobText = new Blob([plainText], { type: 'text/plain' });
         
         const data = [new ClipboardItem({
@@ -2404,14 +2394,19 @@ export const App: React.FC = () => {
             ['text/plain']: blobText,
         })];
         await navigator.clipboard.write(data);
+        setNotification({ message: '已复制公众号格式', type: 'success' });
       }
 
       setCopySuccess(type);
-      setTimeout(() => setCopySuccess(null), 2000);
+      setTimeout(() => {
+        setCopySuccess(null);
+        setNotification(null);
+      }, 2000);
       setShowCopyMenu(false);
     } catch (err) {
       console.error('Copy failed:', err);
-      // alert('复制失败，请重试');
+      setNotification({ message: '复制失败，请重试', type: 'error' });
+      setTimeout(() => setNotification(null), 3000);
     }
   };
 
@@ -2467,6 +2462,30 @@ export const App: React.FC = () => {
         }}>
           <span>✓</span>
           <span>文件已保存</span>
+        </div>
+      )}
+
+      {/* 通用提示 */}
+      {notification && (
+        <div style={{
+          position: 'fixed',
+          top: '80px',
+          right: '20px',
+          background: notification.type === 'error' ? 'rgba(239, 68, 68, 0.95)' : (theme.theme === 'dark' ? 'rgba(34, 197, 94, 0.9)' : 'rgba(34, 197, 94, 0.95)'),
+          color: '#fff',
+          padding: '12px 20px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          zIndex: 1000,
+          fontSize: '14px',
+          fontWeight: 500,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          animation: 'slideIn 0.3s ease-out'
+        }}>
+          <span>{notification.type === 'success' ? '✓' : '✕'}</span>
+          <span>{notification.message}</span>
         </div>
       )}
 

@@ -21,6 +21,13 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
   const [generatingCoverId, setGeneratingCoverId] = useState<string | null>(null);
   const [, setRefreshCount] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'trending' | 'installed' | 'new'>('all');
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleGenerateCover = async (plugin: any) => {
     setGeneratingCoverId(plugin.id);
@@ -243,11 +250,12 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          width: '90%',
+          width: isMobile ? '100%' : '90%',
           maxWidth: '1000px',
-          maxHeight: '85vh',
+          height: isMobile ? '100%' : 'auto',
+          maxHeight: isMobile ? '100%' : '85vh',
           backgroundColor: theme.colors.surface,
-          borderRadius: '16px',
+          borderRadius: isMobile ? '0' : '16px',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
           zIndex: 3001,
           display: 'flex',
@@ -580,7 +588,7 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
                     <p>已启用的插件功能暂未实现，请稍后再试</p>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(auto-fill, minmax(280px, 1fr))' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                     {filteredPlugins.map(plugin => (
                       <div
                         key={plugin.id}
@@ -588,7 +596,7 @@ export const PluginMarketplace: React.FC<PluginMarketplaceProps> = ({ isOpen, on
                         style={{
                           border: `1px solid ${theme.colors.border}`,
                           borderRadius: '12px',
-                          padding: '20px',
+                          padding: isMobile ? '16px' : '20px',
                           backgroundColor: theme.colors.surface,
                           transition: 'all 0.2s',
                           display: 'flex',

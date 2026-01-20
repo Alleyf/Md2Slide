@@ -188,6 +188,12 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
   const [, setRefreshCount] = useState(0);
 
   useEffect(() => {
+    if (isFullscreen) {
+      setShowNavControls(true);
+    }
+  }, [isFullscreen]);
+
+  useEffect(() => {
     // 订阅插件状态变化
     const unsubscribe = pluginManager.subscribe(() => {
       setRefreshCount(prev => prev + 1);
