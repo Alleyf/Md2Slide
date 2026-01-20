@@ -4143,7 +4143,7 @@ export const App: React.FC = () => {
                         <PanelRightClose size={12} />
                       </button>
                       <GripVertical size={14} style={{ opacity: 0.5 }} />
-                      {editorMode === 'markdown' ? 'Markdown 编辑器' : 'HTML 编辑器'}
+                      {editorMode === 'markdown' ? 'MD 编辑器' : 'HTML 编辑器'}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: theme.colors.border, padding: '2px', borderRadius: '6px' }}>
                       <button
@@ -4251,7 +4251,7 @@ export const App: React.FC = () => {
                     </button>
                     {activeFile && (
                     <span style={{ fontSize: '10px', opacity: 0.6, textTransform: 'none' }}>
-                      正在编辑: {activeFile}
+                      {activeFile}
                     </span>
                   )}
                 </div>
