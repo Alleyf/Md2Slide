@@ -45,6 +45,7 @@ import { parseMarkdownToSlides, parseTableOfContents, TOCItem } from './parser';
 import { PresenterView } from './components/PresenterView';
 import { formatInlineMarkdown } from './parser/markdownHelpers';
 import { markdownToHtml, htmlToMarkdown } from './utils/converter';
+import { markdownToWeChatHtml } from './utils/wechatConverter';
 import { getStorageItem, setStorageItem, storageKeys } from './utils/storage';
 import { AIAssistant } from './components/AIAssistant';
 import { SelectionAIAssistant } from './components/SelectionAIAssistant';
@@ -2378,15 +2379,12 @@ export const App: React.FC = () => {
         setNotification({ message: 'HTML 代码已复制', type: 'success' });
       } else if (type === 'wechat') {
         // 复制公众号格式 (富文本)
-        const rawHtml = editorMode === 'markdown' ? await markdownToHtml(content) : content;
-        const styledHtml = `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; font-size: 16px; color: #333;">
-              ${rawHtml}
-            </div>
-          `;
+        const mdContent = editorMode === 'markdown' ? content : htmlToMarkdown(content);
+        const styledHtml = await markdownToWeChatHtml(mdContent);
+        
         const blobHtml = new Blob([styledHtml], { type: 'text/html' });
         // Fallback text
-        const plainText = editorMode === 'markdown' ? content : htmlToMarkdown(rawHtml);
+        const plainText = mdContent;
         const blobText = new Blob([plainText], { type: 'text/plain' });
         
         const data = [new ClipboardItem({

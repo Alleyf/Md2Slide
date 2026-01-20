@@ -44,6 +44,15 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({
   onContentUpdate 
 }) => {
   const { themeConfig: theme } = useTheme();
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [activeTab, setActiveTab] = useState<'chat' | 'improve' | 'outline' | 'translate' | 'suggest' | 'settings'>('chat');
   const [inputText, setInputText] = useState(editorContent);
   const [targetLanguage, setTargetLanguage] = useState<'zh' | 'en'>('zh');
@@ -417,7 +426,8 @@ ${prompt}
         {/* Tab Navigation */}
         <div style={{ 
           padding: '0 16px',
-          margin: '12px 0'
+          margin: '12px 0',
+          overflowX: isMobile ? 'auto' : 'visible'
         }}>
           <div style={{ 
             display: 'flex', 
@@ -425,7 +435,8 @@ ${prompt}
             background: theme.theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
             padding: '4px',
             borderRadius: '14px',
-            width: 'fit-content'
+            width: isMobile ? 'max-content' : 'fit-content',
+            minWidth: isMobile ? '100%' : 'auto'
           }}>
             {renderTabButton('chat', <MessageSquareText />, '对话')}
             {renderTabButton('improve', <Wand2 />, '润色')}

@@ -1509,7 +1509,7 @@ export const SlideTemplate: React.FC<SlideTemplateProps> = ({
       {slides.filter(Boolean).map((slide, index) => renderSlide(slide, index))}
 
       {/* 导航控制 */}
-      {!exportMode && (
+      {!exportMode && !isFullscreen && (
         <NavigationControls
           currentSlideIndex={currentSlideIndex}
           clickState={clickState}
