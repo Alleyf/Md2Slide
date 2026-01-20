@@ -23,7 +23,9 @@ import {
   FileText,
   Layers,
   Code,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Copy,
+  Check
 } from 'lucide-react';
 import { SlideTemplate } from './components/SlideTemplate';
 import { SlideContent, SlideElement } from './types/slide';
@@ -158,6 +160,9 @@ export const App: React.FC = () => {
   const [showThemeMarketplace, setShowThemeMarketplace] = useState(false);
   const [showTemplateMarketplace, setShowTemplateMarketplace] = useState(false);
   const [showPluginMarketplace, setShowPluginMarketplace] = useState(false);
+  const [showCopyMenu, setShowCopyMenu] = useState(false);
+  const [copySuccess, setCopySuccess] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [showViewMenu, setShowViewMenu] = useState(false);
   
   // 撤销/重做辅助函数
@@ -2054,8 +2059,15 @@ export const App: React.FC = () => {
 
     // 处理 Enter 键的格式延续功能（如果没有在 switch 中处理）
     if (e.key === 'Enter' && !isCtrl && !isShift && !isAlt && matchedActionRaw !== 'formatContinuation') {
-      e.preventDefault();
-      handleFormatContinuation();
+      // 检查当前行是否有需要延续的格式
+      const textarea = editorRef.current;
+      if (textarea) {
+        const formatInfo = getCurrentLineFormat(textarea.selectionStart);
+        if (formatInfo.format) {
+          e.preventDefault();
+          handleFormatContinuation();
+        }
+      }
     }
   };
 
@@ -2352,9 +2364,55 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(content);
-    alert(`${editorMode === 'markdown' ? 'Markdown' : 'HTML'} 已复制到剪贴板`);
+  const handleCopy = async (type: 'markdown' | 'html' | 'wechat') => {
+    try {
+      let textToCopy = '';
+      let htmlToCopy = '';
+
+      if (type === 'markdown') {
+        // 复制 Markdown 源码
+        if (editorMode === 'markdown') {
+          textToCopy = content;
+        } else {
+          textToCopy = htmlToMarkdown(content);
+        }
+        await navigator.clipboard.writeText(textToCopy);
+      } else {
+        // 获取 HTML 内容
+        if (editorMode === 'markdown') {
+          htmlToCopy = await markdownToHtml(content);
+        } else {
+          htmlToCopy = content;
+        }
+
+        if (type === 'wechat') {
+          // 公众号格式：添加内联样式容器
+          htmlToCopy = `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; font-size: 16px; color: #333;">
+              ${htmlToCopy}
+            </div>
+          `;
+        }
+
+        // 复制 HTML 到剪贴板
+        const blobHtml = new Blob([htmlToCopy], { type: 'text/html' });
+        const plainText = editorMode === 'markdown' ? content : htmlToMarkdown(htmlToCopy);
+        const blobText = new Blob([plainText], { type: 'text/plain' });
+        
+        const data = [new ClipboardItem({
+            ['text/html']: blobHtml,
+            ['text/plain']: blobText,
+        })];
+        await navigator.clipboard.write(data);
+      }
+
+      setCopySuccess(type);
+      setTimeout(() => setCopySuccess(null), 2000);
+      setShowCopyMenu(false);
+    } catch (err) {
+      console.error('Copy failed:', err);
+      // alert('复制失败，请重试');
+    }
   };
 
   return (
@@ -4540,6 +4598,84 @@ export const App: React.FC = () => {
                         </button>
                         <GripVertical size={14} style={{ opacity: 0.5 }} />
                         {editorMode === 'markdown' ? '幻灯片预览' : 'HTML 实时预览'}
+                      </div>
+                      
+                      <div style={{ position: 'relative' }}>
+                        <button
+                          onClick={() => setShowCopyMenu(!showCopyMenu)}
+                          style={{
+                            background: 'transparent',
+                            border: `1px solid ${theme.colors.border}`,
+                            color: theme.colors.textSecondary,
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = theme.primaryColor;
+                            e.currentTarget.style.color = theme.primaryColor;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = theme.colors.border;
+                            e.currentTarget.style.color = theme.colors.textSecondary;
+                          }}
+                          title="复制内容"
+                        >
+                          {copySuccess ? <Check size={14} /> : <Copy size={14} />}
+                          <span>复制</span>
+                          <ChevronDown size={12} />
+                        </button>
+
+                        {showCopyMenu && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '100%',
+                            right: 0,
+                            marginTop: '4px',
+                            background: theme.colors.surface,
+                            border: `1px solid ${theme.colors.border}`,
+                            borderRadius: '6px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            zIndex: 100,
+                            minWidth: '160px',
+                            padding: '4px 0',
+                            overflow: 'hidden'
+                          }}>
+                            {[
+                              { id: 'wechat', label: '复制为公众号格式', icon: <Sparkles size={14} /> },
+                              { id: 'html', label: '复制 HTML 代码', icon: <Code size={14} /> },
+                              { id: 'markdown', label: '复制 Markdown', icon: <FileText size={14} /> },
+                            ].map((item) => (
+                              <button
+                                key={item.id}
+                                onClick={() => handleCopy(item.id as any)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  width: '100%',
+                                  padding: '8px 12px',
+                                  border: 'none',
+                                  background: 'transparent',
+                                  color: theme.colors.text,
+                                  cursor: 'pointer',
+                                  fontSize: '13px',
+                                  textAlign: 'left'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = theme.colors.border}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                              >
+                                {item.icon}
+                                {item.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
