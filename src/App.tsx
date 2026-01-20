@@ -863,35 +863,72 @@ export const App: React.FC = () => {
   };
 
   const handleExportPDF = (item: FileItem) => {
-    // 如果是当前正在编辑的文件，直接用当前的 markdown
-    if (activeFile === item.name) {
+    const itemPath = item.path || item.name;
+    // 如果是当前正在编辑的文件，直接用当前的 slides
+    if (activeFile === itemPath) {
       downloadPDF(slides);
     } else {
-      // 否则需要加载并解析文件内容后再导出
+      // 否则加载文件后等待 slides 更新再导出
       loadFile(item).then(() => {
-        // 由于 setMarkdown 是异步的，这里可能需要一点延迟或更复杂的逻辑
-        // 但简单起见，提示用户先打开文件再导出
-        alert('请先打开该文件再进行导出');
+        // 使用 useEffect 确保 slides 已经更新后再导出
+        // 由于 slides 是由 content 通过 parseMarkdownToSlides 转换而来，
+        // 我们需要等待 content 被解析为 slides 的过程完成
+        // 由于没有直接的回调，我们使用一个合理的延迟
+        // 并确保在解析完成后导出
+        const checkSlides = () => {
+          // 检查 slides 是否已经从 content 解析出来
+          if (slides.length > 0) {
+            downloadPDF(slides);
+          } else {
+            // 如果还没有解析完成，等待 50ms 后再检查
+            setTimeout(checkSlides, 50);
+          }
+        };
+        checkSlides();
       });
     }
   };
 
   const handleExportPPTX = (item: FileItem) => {
-    if (activeFile === item.name) {
+    const itemPath = item.path || item.name;
+    if (activeFile === itemPath) {
       downloadPPTX(slides, theme);
     } else {
+      // 否则加载文件后等待 slides 更新再导出
       loadFile(item).then(() => {
-        alert('请先打开该文件再进行导出');
+        // 使用相同的逻辑确保 slides 已经更新后再导出
+        const checkSlides = () => {
+          // 检查 slides 是否已经从 content 解析出来
+          if (slides.length > 0) {
+            downloadPPTX(slides, theme);
+          } else {
+            // 如果还没有解析完成，等待 50ms 后再检查
+            setTimeout(checkSlides, 50);
+          }
+        };
+        checkSlides();
       });
     }
   };
 
   const handleExportWord = (item: FileItem) => {
-    if (activeFile === item.name) {
+    const itemPath = item.path || item.name;
+    if (activeFile === itemPath) {
       downloadWord(slides);
     } else {
+      // 否则加载文件后等待 slides 更新再导出
       loadFile(item).then(() => {
-        alert('请先打开该文件再进行导出');
+        // 使用相同的逻辑确保 slides 已经更新后再导出
+        const checkSlides = () => {
+          // 检查 slides 是否已经从 content 解析出来
+          if (slides.length > 0) {
+            downloadWord(slides);
+          } else {
+            // 如果还没有解析完成，等待 50ms 后再检查
+            setTimeout(checkSlides, 50);
+          }
+        };
+        checkSlides();
       });
     }
   };

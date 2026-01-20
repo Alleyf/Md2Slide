@@ -175,14 +175,20 @@ export const exportToWord = async (slides: SlideContent[]): Promise<Blob> => {
 };
 
 export const downloadWord = async (slides: SlideContent[]) => {
-  const blob = await exportToWord(slides);
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = 'document.docx';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  try {
+    const blob = await exportToWord(slides);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'document.docx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Word 下载失败:', error);
+    alert('导出 Word 失败，请重试');
+    throw error;
+  }
 };
 

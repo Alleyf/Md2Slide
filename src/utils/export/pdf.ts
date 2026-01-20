@@ -6,7 +6,7 @@ import { SlideContent } from '../../components/SlideTemplate';
  * @returns Promise<Blob> - PDF 文件 Blob
  */
 export const exportToPDF = async (
-  _slides: SlideContent[]
+  slides: SlideContent[]
 ): Promise<Blob> => {
   // @ts-ignore - html2pdf.js types not perfect
   const html2pdfModule = await import('html2pdf.js');
@@ -20,7 +20,9 @@ export const exportToPDF = async (
 
   // 临时显示容器以便捕获
   const originalVisibility = container.style.visibility;
+  const originalZIndex = container.style.zIndex;
   container.style.visibility = 'visible';
+  container.style.zIndex = '2000';
 
   try {
     // 给一点时间让图片和 Katex 渲染完成
@@ -57,6 +59,7 @@ export const exportToPDF = async (
   } finally {
     // 恢复容器状态
     container.style.visibility = originalVisibility;
+    container.style.zIndex = originalZIndex;
   }
 };
 
