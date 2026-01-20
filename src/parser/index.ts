@@ -501,10 +501,25 @@ export const parseAutoAnimateMetadata = (line: string): AutoAnimateMetadata | nu
  * 解析目录
  */
 export const parseTableOfContents = (md: string): TOCItem[] => {
-  const lines = md.split('\n');
+  // Normalize line endings to ensure consistent behavior
+  const normalizedMd = md.replace(/\r\n/g, '\n');
+  const lines = normalizedMd.split('\n');
   const toc: TOCItem[] = [];
+  let inCodeFence = false;
 
   lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    
+    // Toggle code fence state
+    if (trimmed.startsWith('```')) {
+      inCodeFence = !inCodeFence;
+      return;
+    }
+
+    if (inCodeFence) {
+      return;
+    }
+
     const match = line.match(/^([^#]*?)(#{1,6})\s+(.+)$/);
     if (match) {
       const prefix = match[1] || '';
