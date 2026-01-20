@@ -22,7 +22,8 @@ import {
   Eye,
   FileText,
   Layers,
-  Code
+  Code,
+  ArrowLeftRight
 } from 'lucide-react';
 import { SlideTemplate } from './components/SlideTemplate';
 import { SlideContent, SlideElement } from './types/slide';
@@ -41,7 +42,7 @@ import { downloadWord } from './utils/export/word';
 import { parseMarkdownToSlides, parseTableOfContents, TOCItem } from './parser';
 import { PresenterView } from './components/PresenterView';
 import { formatInlineMarkdown } from './parser/markdownHelpers';
-import { htmlToMarkdown } from './utils/htmlToMarkdown';
+import { markdownToHtml, htmlToMarkdown } from './utils/converter';
 import { getStorageItem, setStorageItem, storageKeys } from './utils/storage';
 import { AIAssistant } from './components/AIAssistant';
 import { SelectionAIAssistant } from './components/SelectionAIAssistant';
@@ -727,6 +728,37 @@ export const App: React.FC = () => {
     }
     
     setEditorMode(mode);
+  };
+
+  const handleContentConvert = async () => {
+    // 记录历史用于撤销
+    pushToHistory('');
+    
+    if (editorMode === 'markdown') {
+      // Markdown -> HTML
+      if (window.confirm('是否将当前 Markdown 内容转换为 HTML？这将会修改编辑器中的内容。')) {
+        try {
+          const html = await markdownToHtml(content);
+          setContent(html);
+          setEditorMode('html');
+        } catch (e) {
+          console.error('Conversion failed', e);
+          alert('转换失败，请检查控制台日志');
+        }
+      }
+    } else {
+      // HTML -> Markdown
+      if (window.confirm('是否将当前 HTML 内容转换为 Markdown？这将会修改编辑器中的内容。')) {
+        try {
+          const md = htmlToMarkdown(content);
+          setContent(md);
+          setEditorMode('markdown');
+        } catch (e) {
+          console.error('Conversion failed', e);
+          alert('转换失败，请检查控制台日志');
+        }
+      }
+    }
   };
 
   // Removed AI sidebar toggle functionality
@@ -4155,6 +4187,37 @@ export const App: React.FC = () => {
                         <Code size={12} />
                       </button>
                     </div>
+                    <button
+                      onClick={handleContentConvert}
+                      style={{
+                        padding: '4px',
+                        border: `1px solid ${theme.colors.border}`,
+                        borderRadius: '4px',
+                        background: 'transparent',
+                        color: theme.colors.textSecondary,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '24px',
+                        height: '24px',
+                        transition: 'all 0.2s',
+                        opacity: 0.7
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.opacity = '1';
+                        e.currentTarget.style.borderColor = theme.primaryColor;
+                        e.currentTarget.style.color = theme.primaryColor;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.opacity = '0.7';
+                        e.currentTarget.style.borderColor = theme.colors.border;
+                        e.currentTarget.style.color = theme.colors.textSecondary;
+                      }}
+                      title={editorMode === 'markdown' ? "转换为 HTML" : "转换为 Markdown"}
+                    >
+                      <ArrowLeftRight size={12} />
+                    </button>
                     <button
                       onClick={() => setShowTemplateMarketplace(true)}
                       style={{
