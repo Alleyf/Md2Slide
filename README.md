@@ -6,16 +6,13 @@
 ![Vite](https://img.shields.io/badge/Vite-7.3.1-646CFF)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-
-
 # Md2Slide
 
-<img src="public/logo.jpg" width="30%" height="30%" alt="coverage">
+<img src="public/logo.jpg" width="30%" height="30%" alt="Logo">
 
 <p align="center">
-  <img src="docs/demo.gif" width="600" alt="功能演示"/>
+  <img src="docs/demo.gif" width="600" alt="功能演示">
 </p>
-
 
 ### 🎨 3Blue1Brown 风格幻灯片生成器
 
@@ -28,12 +25,12 @@
 
 [在线演示](https://md2-slide.vercel.app/) • [快速开始](#-快速开始) • [使用指南](#-使用指南) • [部署指南](#-部署指南)
 
-![Alt](https://repobeats.axiom.co/api/embed/9ceba9cb70a482471450ba7d435104b8582d4d2a.svg "Repobeats analytics image")
+![Repobeats Analytics](https://repobeats.axiom.co/api/embed/9ceba9cb70a482471450ba7d435104b8582d4d2a.svg)
 
 </div>
 
-
 ---
+
 ## ✨ 特性概览
 
 | 特性 | 描述 | 状态 |
@@ -103,6 +100,7 @@ $$\theta = \theta - \alpha \cdot \nabla J(\theta)$$
 ## 📸 预览截图
 
 ### 深色主题
+
 ![深色主题](https://img.shields.io/badge/主题-深色模式-1a1a2e)
 
 ```
@@ -122,6 +120,7 @@ $$\theta = \theta - \alpha \cdot \nabla J(\theta)$$
 ```
 
 ### 浅色主题
+
 ![浅色主题](https://img.shields.io/badge/主题-浅色模式-f8f9fa)
 
 ```
@@ -322,15 +321,13 @@ def gradient_descent(X, y, theta, alpha, iterations):
 
 通过插件系统扩展功能，如代码执行、图表生成等：
 
-```markdown
+```js 
 # 可执行代码块示例
-
-```js {run}
 console.log('Hello, World!');
 ```
 
 点击"Run"按钮执行代码并查看结果.
-```
+
 
 #### 7. AI 助手
 
@@ -456,11 +453,9 @@ graph LR
 
 ## 🚀 部署指南
 
-
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FAlleyf%2FMd2Slide&project-name=Md2Slide&repository-name=Md2Slide)
 &nbsp;&nbsp;
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/Alleyf/Md2Slide)
-
 
 ### 一键部署到 Vercel
 
@@ -694,14 +689,13 @@ VITE_AI_BASE_URL=https://api.openai.com/v1
 docker run -d -p 8080:80 --env-file ./.env --name md2slide-container md2slide
 ```
 
-> **重要注意事项：** 由于这是前端应用，环境变量只在构建时生效，而不是在运行时。这意味着：
+> **重要注意事项**：由于这是前端应用，环境变量只在构建时生效，而不是在运行时。这意味着：
 >
 > 1. **构建时注入**：环境变量在 `npm run build` 时被注入到JavaScript文件中
 > 2. **运行时固定**：一旦构建完成，环境变量就成为静态值，无法在容器运行时更改
 > 3. **重新构建**：如果需要更改环境变量，必须重新构建镜像
 > 4. **安全性**：敏感信息（如API密钥）会暴露在构建产物中，不适合公开部署
 > 5. **替代方案**：对于需要运行时更改的配置，考虑使用API接口或配置文件
-```
 
 #### 4. Docker Compose 部署 (推荐)
 
@@ -752,7 +746,7 @@ docker-compose ps
 docker-compose logs -f
 ```
 
-> **注意：** Docker Compose 会自动从 `.env` 文件加载环境变量，无需手动指定 `--env-file` 参数。
+> **注意**：Docker Compose 会自动从 `.env` 文件加载环境变量，无需手动指定 `--env-file` 参数。
 
 #### 5. 镜像优化说明
 
@@ -953,7 +947,6 @@ chore: 构建/工具链更新
 
 本项目采用 [MIT License](LICENSE) 开源协议。
 
-
 ---
 
 ## 🙏 致谢
@@ -985,13 +978,6 @@ chore: 构建/工具链更新
 - [x] 自动动画 (Auto-Animation)
 - [x] 插件系统
 
-### v1.2.0 (规划中)
-
-- [ ] 多语言支持
-- [ ] 协作编辑
-- [ ] 云端存储
-- [ ] 移动端适配
-
 ### v1.2.0 (已发布)
 
 - [x] AI 辅助生成
@@ -999,8 +985,11 @@ chore: 构建/工具链更新
 - [ ] 动画效果库
 - [ ] API 开放
 
+
+
 ### v2.0.0 (愿景)
 
+- [ ] 多语言支持
 - [ ] 协作编辑
 - [ ] 云端存储
 - [ ] 高级动画效果
@@ -1014,14 +1003,10 @@ chore: 构建/工具链更新
 
 ### ☕ 为爱发电
 
-<div align="center">
 
 **如果你觉得这个项目有用，可以请开发者喝杯咖啡 ☕**
 
- <img src="public/donate-qr.png" alt="赞赏码" width="200"/> 
-
-
-</div>
+<img src="public/donate-qr.png" alt="赞赏码" width="200">
 
 
 ## Star History
