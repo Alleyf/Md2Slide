@@ -175,28 +175,50 @@ export const App: React.FC = () => {
   
   const performUndo = () => {
     if (undoStack.current.length > 0) {
+      const textarea = editorRef.current;
+      const currentCursorPosition = textarea ? textarea.selectionStart : 0;
+      
       // 保存当前状态到重做栈
       redoStack.current.push(content);
       // 从撤销栈中恢复上一个状态
       const previousContent = undoStack.current.pop()!;
       isUndoRedoOperation.current = true;
       setContent(previousContent);
+      
+      // 恢复光标位置（尽量接近原来的位置）
       setTimeout(() => {
         isUndoRedoOperation.current = false;
+        if (textarea) {
+          textarea.focus();
+          // 确保光标位置不超过新内容长度
+          const newCursorPosition = Math.min(currentCursorPosition, previousContent.length);
+          textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+        }
       }, 0);
     }
   };
   
   const performRedo = () => {
     if (redoStack.current.length > 0) {
+      const textarea = editorRef.current;
+      const currentCursorPosition = textarea ? textarea.selectionStart : 0;
+      
       // 保存当前状态到撤销栈
       undoStack.current.push(content);
       // 从重做栈中恢复下一个状态
       const nextContent = redoStack.current.pop()!;
       isUndoRedoOperation.current = true;
       setContent(nextContent);
+      
+      // 恢复光标位置（尽量接近原来的位置）
       setTimeout(() => {
         isUndoRedoOperation.current = false;
+        if (textarea) {
+          textarea.focus();
+          // 确保光标位置不超过新内容长度
+          const newCursorPosition = Math.min(currentCursorPosition, nextContent.length);
+          textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+        }
       }, 0);
     }
   };
