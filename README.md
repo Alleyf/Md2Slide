@@ -1,17 +1,20 @@
 <div align="center">
 
+# Md2Slide
+
+<img src="public/logo.jpg" width="30%" height="30%" alt="Logo">
+
+
 ![md2slide](https://img.shields.io/badge/md2slide-v1.0.0-blue)
 ![React](https://img.shields.io/badge/React-18.2.0-61DAFB)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0.0-3178C6)
 ![Vite](https://img.shields.io/badge/Vite-7.3.1-646CFF)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-# Md2Slide
-
-<img src="public/logo.jpg" width="30%" height="30%" alt="Logo">
+## 功能演示
 
 <p align="center">
-  <img src="docs/demo.gif" width="600" alt="功能演示">
+    <img src="public/demo.gif" width="600" alt="功能演示">
 </p>
 
 ### 🎨 3Blue1Brown 风格幻灯片生成器
